@@ -1,0 +1,14 @@
+{
+  "title": "POS App",
+  "pages": [
+    "index",
+    "getting-started",
+    "billing",
+    "customers",
+    "products",
+    "reports",
+    "kiosk",
+    "printing",
+    "dashboard"
+  ]
+}

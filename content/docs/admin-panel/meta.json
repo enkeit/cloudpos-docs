@@ -1,0 +1,13 @@
+{
+  "title": "Admin Panel",
+  "pages": [
+    "index",
+    "getting-started",
+    "products",
+    "users-roles",
+    "customers",
+    "purchases",
+    "settings",
+    "reports"
+  ]
+}
