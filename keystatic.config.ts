@@ -13,11 +13,11 @@ export default config({
       label: "POS App Docs",
       slugField: "title",
       path: "content/docs/pos-app/*",
-      format: { contentField: "content" },
+      format: { contentField: "content", data: "yaml" },
       schema: {
         title: fields.text({ label: "Title" }),
         description: fields.text({ label: "Description", multiline: true }),
-        content: fields.markdoc({
+        content: fields.mdx({
           label: "Content",
           options: {
             image: {
@@ -32,11 +32,11 @@ export default config({
       label: "Admin Panel Docs",
       slugField: "title",
       path: "content/docs/admin-panel/*",
-      format: { contentField: "content" },
+      format: { contentField: "content", data: "yaml" },
       schema: {
         title: fields.text({ label: "Title" }),
         description: fields.text({ label: "Description", multiline: true }),
-        content: fields.markdoc({
+        content: fields.mdx({
           label: "Content",
           options: {
             image: {
