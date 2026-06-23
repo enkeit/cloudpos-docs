@@ -15,7 +15,7 @@ export default config({
       path: "content/docs/pos-app/*",
       format: { contentField: "content" },
       schema: {
-        title: fields.slug({ name: { label: "Title" } }),
+        title: fields.text({ label: "Title" }),
         description: fields.text({ label: "Description", multiline: true }),
         content: fields.markdoc({
           label: "Content",
@@ -34,7 +34,7 @@ export default config({
       path: "content/docs/admin-panel/*",
       format: { contentField: "content" },
       schema: {
-        title: fields.slug({ name: { label: "Title" } }),
+        title: fields.text({ label: "Title" }),
         description: fields.text({ label: "Description", multiline: true }),
         content: fields.markdoc({
           label: "Content",
