@@ -4,8 +4,8 @@ export default config({
   storage: {
     kind: "github",
     repo: {
-      owner: "YOUR_GITHUB_ORG",
-      name: "YOUR_REPO_NAME",
+      owner: "enkeit",
+      name: "cloudpos-docs",
     },
   },
   collections: {
