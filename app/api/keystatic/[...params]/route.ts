@@ -7,15 +7,15 @@ async function getHandler() {
 }
 
 export async function GET(request: Request) {
+  const url = new URL(request.url);
+  console.log("Keystatic GET:", url.pathname);
+  console.log("Cookies in request:", request.headers.get("cookie") ?? "NONE");
+
   try {
     const handler = await getHandler();
     const response = await handler.GET(request);
-    if (request.url.includes("oauth/callback")) {
-      console.log("OAuth callback status:", response.status);
-      console.log("OAuth callback headers:", JSON.stringify(Object.fromEntries(response.headers)));
-      const body = await response.clone().text();
-      console.log("OAuth callback body:", body);
-    }
+    console.log("Response status:", response.status);
+    console.log("Set-Cookie:", response.headers.get("set-cookie") ?? "NONE");
     return response;
   } catch (e) {
     console.error("Keystatic GET error:", e);
