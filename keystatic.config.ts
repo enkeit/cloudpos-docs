@@ -13,7 +13,7 @@ export default config({
       label: "POS App Docs",
       slugField: "title",
       path: "content/docs/pos-app/*",
-      format: { contentField: "content", data: "yaml" },
+      format: { contentField: "content" },
       schema: {
         title: fields.text({ label: "Title" }),
         description: fields.text({ label: "Description", multiline: true }),
@@ -32,7 +32,7 @@ export default config({
       label: "Admin Panel Docs",
       slugField: "title",
       path: "content/docs/admin-panel/*",
-      format: { contentField: "content", data: "yaml" },
+      format: { contentField: "content" },
       schema: {
         title: fields.text({ label: "Title" }),
         description: fields.text({ label: "Description", multiline: true }),
