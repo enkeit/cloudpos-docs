@@ -1,0 +1,244 @@
+---
+title: Data & APIs
+description: Backend ERP API contract, apiFetch, ISR cache tags, internal route handlers, contexts, and data-layer hooks.
+---
+
+# Data & APIs
+
+CloudPos Ecom fetches all storefront data from a tenant-owned ERP backend over a versioned REST API. Server components call the backend directly (ISR-cached); browser-side mutations route through a locked-down Next.js API proxy that manages auth cookies. This page covers the full data layer: the fetch primitive, endpoint catalog, settings resolution, internal route handlers, React contexts, and client hooks.
+
+## apiFetch
+
+`src/lib/api.js` exports `apiFetch(route, options)` as the single entry point for every server-side ERP call.
+
+### Target Resolution
+
+`apiFetch` resolves the base URL and tenant key from either the `options.tenant` argument (multi-tenant server components pass the resolved tenant object) or the build-time environment variables:
+
+```
+NEXT_PUBLIC_API_BASE_URL   → base origin, e.g. https://erp.cloudposai.in
+NEXT_PUBLIC_X_TENANT       → fallback X-Tenant header value
+```
+
+The actual fetch target is always `${apiBaseUrl}/api/v1${route}`.
+
+### Request Headers
+
+Every `apiFetch` call sets:
+
+| Header | Value | Notes |
+|--------|-------|-------|
+| `Accept` | `application/json` | Always |
+| `X-Tenant` | tenant key from config | Identifies the merchant on the ERP |
+| `Accept-Language` | locale code | Present when `options.locale` is set; `?locale=` param is disabled (see below) |
+
+The `?locale=` query parameter is intentionally omitted: the current backend 500s on unknown query params. Locale is signaled via `Accept-Language` only. Without the query param, `en` and `ar` share the same Next Data-Cache key per URL — acceptable because the backend does not localize list content at this time.
+
+### Timeout
+
+Default timeout is `10 000 ms`, configurable via `API_TIMEOUT_MS` environment variable. Uses `AbortSignal.timeout()` when available, falling back to `AbortController`.
+
+### ISR Cache Tags
+
+Every server fetch is tagged for targeted on-demand revalidation:
+
+```js
+export function tenantTags(tenant, category) {
+  const id = tenant?.id;
+  const tags = [`tenant:${id}`];
+  if (category) tags.push(`tenant:${id}:${category}`);
+  return tags;
+}
+```
+
+When a `locale` is also provided, `apiFetch` appends `tenant:<id>:<locale>` so individual locale caches can be purged independently. The three valid category values are:
+
+| Category | Data covered |
+|----------|-------------|
+| `settings` | website-settings, general, company-props (branding, feature toggles) |
+| `products` | product lists, detail, featured, offers, recent, best-selling |
+| `content` | banners, categories, FAQs, testimonials, services, SEO content, stores |
+
+In development, `apiFetch` always uses `cache: "no-store"` so changes are reflected immediately.
+
+## Endpoint Catalog
+
+All functions below are exported from `src/lib/api.js`. Each wraps `apiFetch` with pre-set `revalidate` windows and category tags.
+
+| Function | ERP route | Revalidate | Category |
+|----------|-----------|-----------|---------|
+| `fetchWebsiteSettings` | `GET /website-settings` | 3600 s | settings |
+| `fetchGeneralSettings` | `GET /general` | 3600 s | settings |
+| `fetchCompanyProps` | `GET /company/prop-names` | 3600 s | settings |
+| `fetchBannerImages` | `GET /get-banner-images` | 3600 s | content |
+| `fetchCategories` | `GET /category/list-category?per_page=1000` | 3600 s | content |
+| `fetchCategoriesWithParent` | `GET /category/list-category-tree` | 3600 s | content |
+| `fetchFeaturedCategories` | `GET /category/featured-categories` | 3600 s | content |
+| `fetchSeoContent(pageUrl)` | `GET /seo-contents?page_url=…` | 3600 s | content |
+| `fetchFAQs` | `GET /faqs` | 3600 s | content |
+| `fetchTestimonials` | `GET /testimonials` | 3600 s | content |
+| `fetchServices` | `GET /get-services` | 3600 s | content |
+| `fetchStores` | `GET /stores/get-stores` | 86400 s | content |
+| `fetchProducts(limit?, revalidate?)` | `GET /product/list-products?page=N` | 300 s | products |
+| `fetchProductPage({ search, categoryId, page, sortBy, priceRange })` | `GET /product/list-products?…` | 300 s | products |
+| `fetchProductBySlug(slug)` | `GET /product/product/<slug>` | 300 s | products |
+| `fetchFeaturedProducts` | `GET /product/featured-products` | 300 s | products |
+| `fetchOfferProducts` | `GET /product/offer-products` | 300 s | products |
+| `fetchRecentProducts(limit?)` | alias of `fetchProducts` | 1800 s | products |
+| `fetchBestSellingProducts(limit?)` | `GET /product/list-products?sort_by=best_selling` | 1800 s | products |
+| `fetchProductReviews(productId)` | `GET /product/list-reviews?product_id=…` | no-store | — |
+| `fetchLocaleDictionary(locale)` | `GET /get-locale?locale=…` | 3600 s | content |
+| `submitEnquiry(data)` | `POST /enquiries` | — (mutation) | — |
+
+`fetchProducts` fetches pages in parallel batches of 5 (configurable via `PRODUCTS_FETCH_CONCURRENCY`) and stops when a page returns fewer than 20 items (the `PRODUCTS_PAGE_SIZE`). When a `limit` is given, only the exact number of pages needed is fetched.
+
+`fetchCategories` and `fetchCategoriesWithParent` normalize missing `slug` fields by deriving a slug from the category name so every category node is linkable.
+
+## Settings Resolution
+
+`src/lib/settings.js` exports `resolveStoreSettings(settingsRes, propsRes)`, which merges the two settings endpoints (`/website-settings` and `/company/prop-names`) into one normalized object. `company-props` wins on code collisions.
+
+```js
+const settings = resolveStoreSettings(websiteSettingsRes, companyPropsRes);
+```
+
+The returned object shape:
+
+```js
+{
+  currencyCode,           // "INR" | "AED" | … (CURRENCY code)
+  showAddToCart,          // SHOW_ADD_TO_CART_BUTTON flag
+  showProductPrice,       // SHOW_PRODUCT_PRICE flag
+  showPricePublic,        // SHOW_PRICE_PUBLIC flag (B2B gating)
+  showShareButton,
+  showNewBadge,
+  showStockInfo,
+  sections: {
+    banners, topCategories, featured, bestSelling, bestOffers, recent, contact
+  },
+  layout: { topBar, menu, bottomMenu, accountIcons },
+  auth: { emailLogin, phoneLogin, phoneOrEmailLogin, b2b, forcePasswordChange },
+  checkout: { whatsapp, askDeliveryDate, loginRequired, otpEnabled, optionalLogin, autoAccount },
+}
+```
+
+Boolean flags use a tri-state logic: absent code → `fallback` (caller-specified, fail-open by default for display toggles, fail-closed for opt-in features). Routes call `resolveStoreSettings` once per render and pass the result as props so no page re-implements toggle parsing. See [Settings Reference](/docs/ecom/user-guide/settings-reference) for the full code catalog.
+
+`src/lib/formatters.js` exports `formatCompanyProps(propsRes, settingsRes)` for the branding/contact data subset (company name, phone, email, logo URL, social links, delivery thresholds, etc.).
+
+## Internal Route Handlers
+
+These Next.js API routes live under `src/app/api/` and run in the Cloudflare Worker alongside the page renderer.
+
+### `POST /api/proxy` and `GET /api/proxy`
+
+`src/app/api/proxy/route.js` is the authenticated backend proxy for all browser-side mutations. It enforces an explicit allowlist:
+
+- **Public endpoints** (no cookie required): login, signup, B2B signup, password reset, enquiries, master-data-values.
+- **Temp-token endpoints**: `verify-otp`, `forgot-password-change` — use the `tempToken` field from the request body as a `Bearer` token.
+- **Session endpoints**: cart, orders, profile, addresses, coupons, payment — require a valid `auth_token` cookie.
+- **Address endpoints** matching `/customer/(update|delete)-address/<id>`: allowed for `POST` and `DELETE` with an active session.
+
+On login and OTP-verify responses, the proxy strips the raw `token` / `access_token` from the JSON before returning it to the browser and sets three `httpOnly` cookies instead: `auth_token`, `customer_id`, `auth_user`. Tokens never appear in client-side JavaScript.
+
+Rate limiting (20 req/min per IP, per-isolate best-effort) is applied to authentication endpoints via `src/lib/rateLimit.js`.
+
+The proxy resolves the tenant target from the `x-tenant-id` header (set by middleware) or falls back to the request `Host`.
+
+### `GET /api/session`, `POST /api/session`, `DELETE /api/session`
+
+`src/app/api/session/route.js` manages the auth cookie snapshot:
+
+- `GET` — returns `{ authenticated, user }` from the `auth_token` / `auth_user` cookies. Used by `AuthContext` for the fast initial paint.
+- `POST` — sets the three auth cookies from a `{ token, customer_id, phone }` payload. Called when a temp-token flow (OTP, password change) needs to upgrade to a full session.
+- `DELETE` — clears all auth cookies. Called on logout.
+
+Cookies are `httpOnly`, `secure` in production, `sameSite: "lax"`, 7-day `maxAge`.
+
+### `GET /api/revalidate` (see also [Revalidation](/docs/ecom/developer/revalidation))
+
+`POST /api/revalidate` is the ERP-triggered ISR purge endpoint. See the Revalidation page for details.
+
+### `GET /api/review`, `POST /api/review`
+
+`src/app/api/review/route.js` proxies review reads (unauthenticated) and review submissions (requires `auth_token` cookie). The POST passes `FormData` directly to the ERP so image uploads work without re-encoding. No `Content-Type` header is set on the outgoing request — the browser-set `multipart/form-data` boundary is preserved.
+
+### `GET /api/invoice/[orderId]`
+
+`src/app/api/invoice/[orderId]/route.js` streams invoice PDFs from `<apiBaseUrl>/download-invoice/<orderId>` to the browser as an `attachment`. Requires `auth_token` cookie. The `orderId` param is validated to be numeric before hitting the ERP.
+
+### `POST /api/log`
+
+`src/app/api/log/route.js` is a client-side error reporting endpoint that forwards structured error payloads to Cloudflare Workers Observability (console logging).
+
+## Auth Context and Data Flow
+
+`src/context/AuthContext.jsx` (`"use client"`) implements a stale-while-revalidate auth pattern:
+
+1. On mount, `GET /api/session` returns the cookie snapshot immediately — fast first paint.
+2. In the background, `GET /api/proxy?endpoint=/customer/profile` revalidates the snapshot against the live ERP. A `401` from the ERP clears the zombie session.
+
+The context exposes `{ user, loading, isLoggedIn, isVerified, login, logout, refresh }`. `isVerified` reflects `profile_verified` from the customer profile — used by B2B tenants to gate price visibility for approved accounts vs. merely logged-in accounts.
+
+## Cart Context and Data Flow
+
+`src/context/CartContext.jsx` (`"use client"`) manages a dual-mode cart:
+
+- **Guest** — items stored in `localStorage` under the key `luzine_cart`, operated locally.
+- **Authenticated** — mutations go through `/api/proxy` to the ERP endpoints (`/cart/add-to-cart`, `/cart/remove-from-cart`, `/cart/list-cart-items`); state is refreshed from the server after each mutation.
+
+On login, the guest cart items are sent in the request body (`cart: buildCartPayload(cartItems)`) so the ERP merges them server-side. After auth, `CartContext` hydrates from the server cart. On logout, the displayed cart is cleared to prevent guest sessions from seeing the previous user's cart.
+
+Cart items for authenticated users use a `lineKey` of `${id}::${variantId}` so different variants are distinct lines. Stock limits are enforced client-side for guest carts.
+
+`src/lib/cart.js` exports the mapping helpers: `buildCartPayload`, `normalizeServerCart`, `mapServerCartItem`, and the server-cart mutation functions (`addServerCartItem`, `updateServerCartQty`, `removeServerCartItem`, `clearServerCart`).
+
+## Client Hooks
+
+### `usePriceVisibility`
+
+`src/hooks/usePriceVisibility.js` centralizes the `SHOW_PRODUCT_PRICE` + `SHOW_PRICE_PUBLIC` gate:
+
+```js
+const { priceVisible, addToCartVisible } = usePriceVisibility({
+  showProductPrice,   // from resolveStoreSettings
+  showPricePublic,    // from resolveStoreSettings
+  showAddToCart,      // from resolveStoreSettings
+});
+```
+
+Price is visible when `showProductPrice && (showPricePublic || isVerified)`. Add-to-cart visibility follows price visibility. For B2B tenants (`SHOW_PRICE_PUBLIC = false`), only accounts with `profile_verified = true` see prices.
+
+### `useProductVariants`
+
+`src/hooks/useProductVariants.js` handles variant selection on the product detail page. It operates on the `product` object produced by `formatProductDetail` from `src/lib/formatters.js`, which exposes a normalized `product.variants` array.
+
+Key return values:
+
+| Field | Description |
+|-------|-------------|
+| `variantAttributes` | Deduplicated attribute/option matrix (e.g. `[{ name: "Color", options: ["Red","Blue"] }]`) |
+| `selectedAttributes` | Current UI selection state |
+| `setSelectedAttribute(name, value)` | Updates selection; clears conflicting attributes |
+| `selectedVariant` | The variant matching all selected attributes, or `null` |
+| `selectedPrice` / `selectedComparePrice` | Formatted price strings; variant overrides base product |
+| `effectiveStock` / `isOutOfStock` | Variant quantity overrides base stock |
+| `displayImages` | Variant images when available, else product images |
+| `resolveVariantForCart()` | Returns `{ variant, error }` for add-to-cart validation |
+| `isAttributeOptionAvailable(name, value)` | Whether an option is valid given current selection |
+
+## Data Formatters
+
+`src/lib/formatters.js` normalizes raw ERP responses into the shape components render:
+
+| Function | Input | Output |
+|----------|-------|--------|
+| `formatProduct(item, currency, categoryMap, stockEnabled)` | Raw product list item | Card-ready object with `id`, `slug`, `price`, `originalPrice`, `image`, `badge`, `isOutOfStock` |
+| `formatProductDetail(item, currency, stockEnabled)` | Raw product detail response | PDP-ready object including `variants[]`, `properties[]`, `images[]` |
+| `formatBanner(res)` | Raw banner API response | `{ images: [{ image, url, title, description, tag, buttonLabel }] }` — handles both old and new ERP response shapes |
+| `formatSeo(res, fallback, apiBaseUrl)` | Raw SEO API response | `{ title, description, keywords, ogImage }` with storage URL resolution |
+| `formatCompanyProps(propsRes, settingsRes)` | Both settings responses | Branding/contact object (`companyName`, `logo`, `phone`, `email`, social links, etc.) |
+| `formatService(item, index)` | Raw service item | `{ id, title, text, icon }` |
+| `formatEnquiry(form)` | Raw form state | Normalized payload for `submitEnquiry` |
+
+Image paths from the ERP storage are resolved as `${apiBaseUrl}/storage/<path>` by `toStorageUrl` inside `formatters.js`.

@@ -1,0 +1,128 @@
+---
+title: Browsing Products
+description: How shoppers discover and explore products — home page sections, the products listing, search, filtering, sorting, product detail pages, and variants.
+---
+
+# Browsing Products
+
+Shoppers have three main paths to find products: the **home page** (curated sections), the **products listing page** at `/products` (full catalog with search, filters, and sort), and direct links from banners or category tiles.
+
+## Home page sections
+
+The home page is made up of up to seven independently toggleable sections. Each section renders only when its toggle is on **and** the backend has content for it. Sections with no data are silently skipped even when enabled.
+
+| Section | What it shows |
+|---|---|
+| Banners ("Featured Promotions") | A grid of clickable promotional banner images you upload in the backend |
+| Top Categories | A horizontally scrollable row of product category tiles |
+| Featured Products | A curated product grid for items you flag as featured |
+| Best Selling Products | Products ranked by sales volume |
+| Best Offers | Products that have an active offer/discount price |
+| Recent Products | The most recently added products |
+| Contact Section | Your store's address, phone, and email |
+
+## Products listing page (`/products`)
+
+### Category tabs
+
+A horizontally scrollable tab bar lists all active categories. Selecting a tab filters the product grid to that category. An **All** tab always appears first and shows the full catalog.
+
+### Search
+
+The search bar (accessible from the navigation) filters products by name. When a search is active, a "Results for …" label appears above the grid along with a **Clear** link to reset it.
+
+### Sorting
+
+Use the **Sort by** dropdown above the grid to change the result order:
+
+| Option | Behaviour |
+|---|---|
+| Relevance | Default; backend-determined order |
+| Newest First | Most recently added products first |
+| Price: Low to High | Cheapest products first |
+| Price: High to Low | Most expensive products first |
+
+### Price range filter
+
+Enter a minimum and/or maximum value and press **Apply** to narrow results by price. A **Clear Filters** button appears while a price filter is active.
+
+### Pagination
+
+Previous / Next page buttons appear once results span more than one page. The current page number is highlighted between the two buttons.
+
+## Product cards
+
+Each card in the grid shows the product image, category label, and product name. When permitted by your settings, the price and an **Add** button with a `−` / `+` quantity stepper also appear.
+
+Additional overlays and badges:
+
+| Element | When it appears |
+|---|---|
+| "NEW" badge (top-left of image) | Product is flagged as new in the backend AND `PRODUCT_CARD_NEW_BADGE` is on |
+| "IN STOCK" badge (top-right of image) | Stock tracking is enabled, the product has stock, AND `PRODUCT_CARD_STOCK_INFO` is on |
+| "OUT OF STOCK" overlay (covers the image) | Stock tracking enabled, available stock is 0, AND `PRODUCT_CARD_STOCK_INFO` is on |
+| Share button (bottom-right of image) | `SHOW_SHARE_BUTTON` is on; uses the device's native share sheet, or copies the product URL to the clipboard as a fallback |
+
+Out-of-stock products remain clickable so shoppers can read the description or submit an enquiry.
+
+## Product detail page (`/products/<slug>`)
+
+### Image gallery
+
+The main image supports **hover-zoom** on desktop (cursor/pointer devices only — touch is unaffected). If the product has multiple images, a **thumbnail strip** appears below the main image; clicking a thumbnail switches the view. When a variant is selected, the gallery updates to that variant's images if they exist.
+
+### Variants
+
+When a product has variants (for example size or colour), a set of selector buttons appears for each attribute. Options that are unavailable given the current selection are dimmed and non-interactive. Selecting a variant immediately updates the displayed price, compare-at price, and image gallery.
+
+### Price and compare-at price
+
+When price is visible, both the current selling price and the struck-through original price (MRP) are shown side by side if an offer price is set in the backend.
+
+### Action buttons
+
+| Button | When it appears | What it does |
+|---|---|---|
+| Add to Cart | Price is visible AND `SHOW_ADD_TO_CART_BUTTON` is on | Adds the chosen quantity (and selected variant) to the cart; shows a confirmation toast |
+| Enquire | Always visible | Links to the enquiry form at `/enquiry` |
+| Wishlist (heart icon) | Always visible | Saves or removes the product from the wishlist; a filled heart means the item is already saved |
+| Share | `SHOW_SHARE_BUTTON` is on | Native share sheet or clipboard copy of the product URL |
+
+When `SHOW_ADD_TO_CART_BUTTON` is off or prices are hidden, only **Enquire** and **Wishlist** are shown. This is the standard B2B / enquiry-only configuration.
+
+If a product has variants and the shopper presses Add to Cart without selecting all required attributes, an inline validation message prompts them to complete the selection before proceeding.
+
+### Product tabs
+
+Below the main info panel, additional tabs may display an extended description, technical properties/specifications, and customer reviews, depending on what the backend provides for that product.
+
+## Price-visibility rule
+
+Price (and the Add to Cart button) follow a two-part check on every page:
+
+1. `SHOW_PRODUCT_PRICE` must be **on** — this is the master price switch.
+2. Either `SHOW_PRICE_PUBLIC` is **on** (anyone, including guests, can see prices), **or** the current visitor is a **verified/approved account** (profile verified in the backend).
+
+For wholesale or B2B stores, `SHOW_PRICE_PUBLIC` is typically turned **off**. Guests and non-approved accounts see only Enquire and Wishlist. Approved account holders see prices and can add to cart normally.
+
+Full rule at [Website Settings Reference](/docs/ecom/user-guide/settings-reference).
+
+## Settings that control this
+
+| Friendly name | Code | Effect when turned off |
+|---|---|---|
+| Show Product Price | `SHOW_PRODUCT_PRICE` | All prices hidden — cards, detail pages, cart, and wishlist |
+| Show Price to Public | `SHOW_PRICE_PUBLIC` | Only verified/approved accounts see prices |
+| Show Add to Cart Button | `SHOW_ADD_TO_CART_BUTTON` | Cart hidden; Enquire-only flow for all shoppers |
+| Show Share Button | `SHOW_SHARE_BUTTON` | Share buttons removed from product cards and the detail page |
+| "New" Badge on Cards | `PRODUCT_CARD_NEW_BADGE` | "NEW" label not shown on any product card |
+| Stock Info on Cards | `PRODUCT_CARD_STOCK_INFO` | Stock badges and out-of-stock overlays are hidden |
+| Banners Section | `BANNERS_SECTION` | Hero/banner grid hidden on the home page |
+| Top Categories Section | `TOP_CATEGORIES_SECTION` | Category tile row hidden on the home page |
+| Featured Products Section | `FEATURED_PRODUCTS_SECTION` | Featured product grid hidden on the home page |
+| Best Selling Products Section | `BEST_SELLING_PRODUCTS_SECTION` | Best-sellers section hidden on the home page |
+| Best Offers Section | `BEST_OFFERS_SECTION` | Offers/discount section hidden on the home page |
+| Recent Products Section | `RECENT_PRODUCTS_SECTION` | Recent arrivals section hidden on the home page |
+| Contact Section | `SHOW_CONTACT_SECTION` | Contact info block hidden on the home page |
+
+Full details and defaults: [Website Settings Reference](/docs/ecom/user-guide/settings-reference).

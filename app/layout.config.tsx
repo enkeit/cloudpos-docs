@@ -13,5 +13,9 @@ export const baseOptions: BaseLayoutProps = {
       text: "Admin Panel",
       url: "/docs/admin-panel",
     },
+    {
+      text: "CloudPos Ecom",
+      url: "/docs/ecom/user-guide",
+    },
   ],
 };

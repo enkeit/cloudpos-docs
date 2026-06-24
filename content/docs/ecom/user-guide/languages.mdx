@@ -1,0 +1,71 @@
+---
+title: Languages
+description: How the storefront supports multiple languages, locale-prefixed URLs, and right-to-left (RTL) layout.
+---
+
+# Languages
+
+CloudPos Ecom supports multiple languages per store. Shoppers switch languages using the language switcher in the navbar. The storefront automatically adapts its layout direction for right-to-left (RTL) languages such as Arabic.
+
+## Supported languages
+
+The platform currently ships two languages:
+
+| Code | Language | Direction |
+|---|---|---|
+| `en` | English | Left-to-right (LTR) |
+| `ar` | Arabic — العربية | Right-to-left (RTL) |
+
+Adding a new language requires adding a locale entry to `src/i18n/config.js` and a corresponding dictionary file under `src/i18n/dictionaries/`. Contact your implementation team to add a new locale.
+
+## URL structure
+
+Each store has a **default locale** that is prefixless in the URL — it does not appear as a path segment. Additional locales are prefixed with their language code:
+
+| Language | Example URL |
+|---|---|
+| English (default) | `https://yourstore.com/products` |
+| Arabic (additional) | `https://yourstore.com/ar/products` |
+
+Shoppers browsing in the default language see clean, short URLs. Switching to a non-default language adds the locale code as the first URL segment; switching back removes it. All page URLs remain in sync — switching language on a product page stays on that product page, just in the new language.
+
+## Language switcher
+
+The navbar includes a language switcher that lists the locales enabled for the store. Tapping a language:
+
+1. Rewrites the current page URL to add or remove the locale prefix.
+2. Navigates to that URL, reloading the page in the selected language.
+3. Static UI text — buttons, labels, navigation links, error messages — switches immediately from the built-in translation dictionary for that language.
+4. Dynamic content — product names, category names, product descriptions — is translated by the backend and served in the selected language automatically.
+
+## Right-to-left (RTL) layout
+
+When a shopper selects Arabic, the entire page layout direction flips to `rtl`. This affects:
+
+- Text alignment (right-aligned by default)
+- Flex and grid flow directions (items flow from right to left)
+- Navigation and icon placement
+
+The direction is set at the HTML root element, so all standard UI elements adapt automatically with no per-component changes required.
+
+## Which languages does my store show?
+
+The languages a store offers are determined by the tenant's `i18n` configuration — specifically the `locales` list and `defaultLocale`:
+
+```js
+// Example from src/config/tenants.js
+i18n: {
+  defaultLocale: "en",   // this locale is prefixless in the URL
+  locales: ["en", "ar"], // all locales the store supports
+}
+```
+
+A tenant with no `i18n` block defaults to English only (single-language store). The locale codes in the `locales` list must exist in the global catalogue at `src/i18n/config.js`.
+
+## Settings that control this
+
+Language support is a **tenant-level configuration**, not a website-settings toggle in the CloudPos admin. There is no admin switch to add or remove languages — the locale list is part of the tenant's deployment configuration. Changes to the languages a store offers require a code change and redeployment.
+
+> Because language configuration is set at deployment time rather than at runtime, it is not listed in the Settings Reference alongside the website-settings toggles. Contact your implementation team to enable a new language for your store.
+
+For all runtime website settings, see [Settings Reference](/docs/ecom/user-guide/settings-reference).

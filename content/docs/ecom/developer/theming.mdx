@@ -1,0 +1,375 @@
+---
+title: Theming
+description: How CSS variable tokens and component template packs combine to give each tenant its own look and feel.
+---
+
+# Theming
+
+Theming has **two independent layers** that compose on top of each other:
+
+1. **CSS variable tokens** — colors, spacing, font. Config-only; no code deploy. Covers ~80% of use cases.
+2. **Template packs** — actual component code that changes the structure/markup of the UI (different Navbar, Footer, product layout, etc.). Code that ships in the Worker bundle; keep to a small finite set (~6–12).
+
+> If you only need to change colours or fonts for a tenant, use layer 1 (`theme.tokens` / `theme.fontKey`). Only author a new pack when the *structure* of a component must differ across tenants.
+
+---
+
+## Layer 1 — CSS Variable Tokens
+
+### How tokens are applied
+
+`src/lib/theme.js` `buildTenantCss(tenant)` generates an inline CSS string from the tenant config and injects it in `<head>` as `<style id="tenant-theme">` in `src/app/[tenant]/[locale]/layout.js`:
+
+```js
+const tenantCss = buildTenantCss(tenant);
+// → injected as:  <style id="tenant-theme">{tenantCss}</style>
+```
+
+The generated CSS looks like:
+
+```css
+/* if font has a src woff2 */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --font-sans: Poppins, system-ui, sans-serif;
+  --primary: #cc434e;
+  --primary-light: #d9636d;
+  --navbar-height: 160px;
+  /* … any key from tenant.theme.tokens … */
+}
+```
+
+Only CSS variable names matching `--[\w-]+` are accepted (defensive filter in `cssSafe()`).
+
+### Token keys
+
+Set any valid CSS custom property in `theme.tokens` in `src/config/tenants.js`. Common tokens used across packs:
+
+| Token | Purpose |
+|---|---|
+| `--primary` | Brand primary colour (buttons, links, accents) |
+| `--primary-light` | Lighter primary tint |
+| `--primary-muted` | Darker primary shade |
+| `--primary-soft` | Low-opacity primary fill (e.g. tag backgrounds) |
+| `--primary-border` | Primary-tinted border colour |
+| `--primary-glow` | Box-shadow primary tint |
+| `--surface-hover` | Hover background on neutral surfaces |
+| `--surface-dark` | Dark surface (footer, dark sections) |
+| `--border-strong` | Darker border for emphasis |
+| `--navbar-height` | Used as `padding-top` by the main content area |
+| `--accent` | Secondary accent colour (harvest pack) |
+| `--surface` | Page background (harvest pack) |
+| `--border-soft` | Soft separator colour (harvest pack) |
+| `--ink` | Main text colour (harvest pack) |
+
+Tailwind classes like `bg-primary`, `text-primary`, `border-primary-soft`, etc. map to these variables, so pack components automatically reflect each tenant's palette.
+
+### Font system
+
+`src/lib/theme.js` defines a curated `FONTS` registry. Add a font once; any tenant can reference it by key:
+
+```js
+// src/lib/theme.js
+export const FONTS = {
+  poppins: { stack: "Poppins, system-ui, sans-serif" },
+  inter:   { stack: "Inter, system-ui, sans-serif",
+             src: "/fonts/inter-variable.woff2", weight: "100 900" },
+  playfair:{ stack: "'Playfair Display', Georgia, serif",
+             src: "/fonts/playfair-variable.woff2", weight: "400 900" },
+};
+```
+
+- `stack` — the CSS `font-family` value injected into `--font-sans`.
+- `src` (optional) — path to a self-hosted `.woff2` in `/public/fonts/`; if present, an `@font-face` block is emitted and a `<link rel="preload">` is injected (`fontPreload(tenant)` in the layout).
+- Fonts without a `src` (like `poppins`) are assumed to be loaded globally or via the system stack — no `@font-face` is emitted.
+
+`next/font` is intentionally **not** used here: it is build-time static and cannot scale to per-tenant font selection.
+
+---
+
+## Layer 2 — Template Packs
+
+### Pack model
+
+A **template pack** is a directory under `src/themes/<packId>/` with an `index.js` that exports a plain object mapping slot names to React components:
+
+```js
+// src/themes/aurora/index.js
+export default {
+  id: "aurora",
+  Navbar,
+  Footer,
+  HomeHero,
+  ProductInfo,
+  // … other overridden slots …
+};
+```
+
+Packs export **only the slots they override**. Everything else falls back to `base`.
+
+### Pack registry
+
+`src/themes/registry.js` maps each pack id to a dynamic import:
+
+```js
+export const registry = {
+  base:      () => import("./base"),
+  aurora:    () => import("./aurora"),
+  nova:      () => import("./nova"),
+  toys:      () => import("./toys"),
+  silk:      () => import("./silk"),
+  ornaments: () => import("./ornaments"),
+  harvest:   () => import("./harvest"),
+};
+
+export const FALLBACK_PACK_ID = "base";
+```
+
+The lazy `() => import(...)` form produces separate browser chunks — only the active tenant's pack code is sent to the client. On the server side (Cloudflare Worker), all packs live in the single Worker bundle, so keep the total count small.
+
+### Pack resolution
+
+`src/themes/getThemePack.js` `getThemePack(packId)` (React `cache()`-wrapped):
+
+1. Always loads `base`.
+2. If `packId` is different from `"base"`, loads the specified pack.
+3. Returns `{ ...base, ...pack }` — the pack's exports override matching base slots; missing slots fall back to base.
+
+```js
+// src/themes/getThemePack.js
+export const getThemePack = cache(async (packId) => {
+  const base = await load(FALLBACK_PACK_ID);
+  if (!packId || packId === FALLBACK_PACK_ID) return base;
+  const pack = await load(packId);
+  return { ...base, ...pack };
+});
+```
+
+### Available packs
+
+| Pack id | Description | Example tenant |
+|---|---|---|
+| `base` | Legacy 3-tier header, coloured footer, banner grid, best-sellers filter | `luzine`, `legacy` |
+| `aurora` | Wholesale-inspired; full slot override set | `tabir`, `aurora` |
+| `nova` | Contemporary layout | `microland`, `funzcart` |
+| `harvest` | Agricultural/nature store aesthetic | `saflowersqa`, `harvest` |
+| `toys` | Playful gift/toy store layout | `giftat` |
+| `silk` | Refined minimal layout | — |
+| `ornaments` | Decorative/gift store layout | — |
+
+---
+
+## ThemeSlot Component
+
+`src/components/theme/ThemeSlot.jsx` is an **async server component** that resolves the merged pack and renders a named slot:
+
+```jsx
+// src/components/theme/ThemeSlot.jsx
+export default async function ThemeSlot({ name, packId, ...props }) {
+  const pack = await getThemePack(packId);
+  const Comp = pack?.[name];
+  if (!Comp) return null;
+  return <Comp {...props} />;
+}
+```
+
+Usage in a page:
+
+```jsx
+import ThemeSlot from "@/components/theme/ThemeSlot";
+
+// Inside a server component that has `tenant`:
+<ThemeSlot name="ProductInfo" packId={tenant.theme.packId} product={product} showAddToCart={showAddToCart} />
+```
+
+Alternatively, resolve the pack once and render multiple slots directly:
+
+```jsx
+import { getThemePack } from "@/themes/getThemePack";
+
+const T = await getThemePack(tenant.theme.packId);
+return (
+  <>
+    <T.ProductInfo product={product} />
+    <T.ProductTabs product={product} />
+  </>
+);
+```
+
+---
+
+## Slot Registry (base pack)
+
+The following slots are defined in `src/themes/base/index.js`. Every other pack must provide all of them (either with an override component or by re-exporting the same base component) so that `npm run check:theme-slots` passes.
+
+| Slot name | Default component | Typical props |
+|---|---|---|
+| `Navbar` | `src/components/layout/Navbar.jsx` | `categories`, `categoryTree`, `companyProps`, `layout`, `logo`, `locales`, `showProductPrice`, `showPricePublic`, `showAddToCart` |
+| `Footer` | `src/components/layout/Footer.jsx` | `contact`, `policies`, `layout`, `logo`, `locale`, `dict`, `stores` |
+| `HomeHero` | `BannersSection` | `banner`, `banners`, `locale` |
+| `AboutSection` | pack-specific | `about`, `locale` |
+| `CategoriesRow` | `CategoriesRow` | `categories`, `locale` |
+| `FeaturedCategories` | pack-specific | `title`, `categories`, `locale` |
+| `FeaturedProducts` | `FeaturedProducts` | `title`, `viewAllHref`, `products`, `locale`, `showAddToCart`, `showProductPrice`, `showPricePublic`, `showNewBadge`, `showStockInfo` |
+| `BestSellers` | `BestSellers` | same as `FeaturedProducts` + `categories` |
+| `Testimonials` | pack-specific | `title`, `testimonials`, `locale` |
+| `Services` | pack-specific | `title`, `services`, `locale` |
+| `PartnerWithUsBanner` | `PartnerWithUsBanner` | `b2b`, `locale` |
+| `Breadcrumb` | `Breadcrumb` | `items: { label, href? }[]` |
+| `ProductListing` | `CategoryProductsPage` | `products`, `categories`, `activeCategory`, `page`, `hasNextPage`, `query`, card flags |
+| `ProductInfo` | `ProductInfo` | `product`, `showAddToCart`, `showProductPrice` |
+| `ProductTabs` | `ProductTabs` | `product` |
+| `ProductReviews` | `ProductReviews` | `productId` |
+| `RelatedProductsSection` | `RelatedProductsSection` | `related`, card flags |
+| `ProductNotFoundPage` | pack-specific | — |
+| `CartPage` | `CartList` | — |
+| `WishlistPage` | `WishlistList` | — |
+| `CheckoutPage` | `CheckoutClient` | `whatsappNumber`, `addresses`, `isGuest`, `showTax`, `showCoupon`, `showPayment`, `termsText`, `deliveryCharge`, `taxRate`, `companyProps` |
+| `LoginPage` | `LoginForm` | — |
+| `SignupPage` | `SignupForm` | — |
+| `B2BSignupPage` | `B2BSignupForm` | — |
+| `ForgotPasswordPage` | `ForgotPasswordForm` | — |
+| `SetPasswordPage` | `SetPasswordForm` | — |
+| `VerifyOtpPage` | `OtpForm` | — |
+| `ProfilePage` | `ProfileView` | `profile`, `addresses`, `customerId` |
+| `OrdersPage` | `OrderList` | `orders` |
+| `OrderDetailPage` | `OrderDetail` | `order` |
+| `TrackOrderPage` | `TrackOrder` | — |
+| `AboutPage` / `TermsPage` / `PrivacyPage` / `RefundPage` / `RefundPointPage` | `ContentPage` | `title`, `body`, `backHref?` |
+| `FAQPage` | pack-specific | `faqs`, `faqSchema`, `tenantName` |
+| `EnquiryPage` | pack-specific | — |
+| `PartnerWithUsPage` | pack-specific | — |
+
+**Prop contracts must be identical across all packs.** Pages pass the same props regardless of which pack is active; packs may ignore props they don't use, but must not require additional ones.
+
+---
+
+## Theme Slot Validator
+
+`scripts/check-theme-slots.mjs` (`npm run check:theme-slots`) enforces two rules:
+
+1. **No direct component imports in tenant routes.** Files under `src/app/[tenant]/` must not import from `@/components/` directly (except an allowed set: `ThemeSlot`, `JsonLd`, `OrderRedirect`, `ForcePasswordGuard`, `WhatsAppButton`). All themeable UI must go through a slot.
+2. **All base slots must exist in every pack.** The `aurora` pack (used as the reference for full coverage) must export every slot defined in `base/index.js`.
+
+Run it after modifying tenant route files, slot names, or adding a new pack:
+
+```bash
+npm run check:theme-slots
+```
+
+The script exits non-zero and lists violations if any check fails.
+
+---
+
+## Creating a New Template Pack
+
+Follow these steps only if CSS tokens are not enough and you need structurally different components.
+
+### Step 1: Create the pack directory and components
+
+```
+src/themes/<packId>/
+  index.js
+  components/
+    Footer.jsx     ← example override
+    Navbar.jsx
+    …
+```
+
+Every component that overrides a slot **must accept the same props** as the base version of that slot (see the slot table above).
+
+```jsx
+// src/themes/neon/components/Footer.jsx
+export default function NeonFooter({ contact = {}, policies = {} }) {
+  return (
+    <footer className="bg-surface-dark text-ink-on-dark py-10 text-center">
+      <p>{contact.companyName}</p>
+    </footer>
+  );
+}
+```
+
+### Step 2: Create the pack index
+
+Export only the slots you override. Slots not listed here fall back to `base` at runtime.
+
+```js
+// src/themes/neon/index.js
+import Footer from "./components/Footer";
+
+export default {
+  id: "neon",
+  Footer,
+};
+```
+
+### Step 3: Register the pack
+
+Add a lazy import to `src/themes/registry.js`:
+
+```js
+export const registry = {
+  // … existing packs …
+  neon: () => import("./neon"),
+};
+```
+
+### Step 4: Assign the pack to a tenant
+
+In `src/config/tenants.js`:
+
+```js
+acme: {
+  // …
+  theme: { packId: "neon", fontKey: "poppins", tokens: { "--primary": "#22d3ee" } },
+},
+```
+
+### Step 5: Push config and redeploy
+
+```bash
+node scripts/push-tenants.mjs --tenant acme
+npm run deploy
+```
+
+KV config changes are live immediately; pack code changes require a redeploy because they ship in the Worker bundle.
+
+### Step 6: Validate
+
+```bash
+npm run check:theme-slots
+```
+
+Then test locally: `http://acme.localhost:3000` (if `acme.localhost` is in the tenant's `domains` list).
+
+### Step 7: Styling inside a pack
+
+- Prefer semantic Tailwind tokens (`bg-surface`, `text-primary`, `border-border-soft`, etc.) that map to the `--*` CSS variables. This way the same pack adapts automatically to any tenant's `theme.tokens` overrides.
+- Avoid hardcoded hex values in pack components.
+- For pack-specific CSS variables, add them to the tenant's `theme.tokens` or scope with `[data-theme="<packId>"]` (the layout sets `data-theme={packId}` on the wrapper div).
+
+---
+
+## How Tenant Layout Applies Theming
+
+`src/app/[tenant]/[locale]/layout.js` does all of this in a single server render:
+
+```js
+const tenantCss  = buildTenantCss(tenant);   // CSS vars + optional @font-face
+const preloadFont = fontPreload(tenant);       // woff2 path or null
+const pack        = await getThemePack(tenant.theme?.packId);
+const Navbar      = pack.Navbar;
+const Footer      = pack.Footer;
+```
+
+The `data-theme` attribute on the root wrapper div equals the pack id, enabling pack-specific CSS selectors:
+
+```html
+<div data-theme="aurora" data-tenant="tabir" data-locale="en" class="site-wrapper …">
+```

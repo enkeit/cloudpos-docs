@@ -1,0 +1,182 @@
+---
+title: Revalidation
+description: ISR cache strategy, tag-based on-demand purge via /api/revalidate, and the PowerShell revalidation script.
+---
+
+# Revalidation
+
+CloudPos Ecom uses Next.js Incremental Static Regeneration (ISR) backed by Cloudflare R2 and a regional Cache API layer. Cached pages update either when their time-window expires or when an explicit purge call arrives at `POST /api/revalidate`. The ERP backend should call this endpoint automatically after any data change; the PowerShell script (`scripts/revalidate.ps1`) is the manual fallback.
+
+## What Gets Cached
+
+### ISR Revalidation Windows
+
+Every `apiFetch` call in `src/lib/api.js` sets `next.revalidate` on the underlying `fetch`. The window is category-dependent:
+
+| Data category | Default window | Endpoints |
+|--------------|---------------|-----------|
+| `settings` | 3600 s (1 h) | website-settings, general, company-props |
+| `content` | 3600 s (1 h) | banners, categories, category tree, featured categories, FAQs, testimonials, services, SEO, stores |
+| `products` | 300 s (5 min) | product lists, product detail, featured, offers |
+| `products` (slow-moving) | 1800 s (30 min) | recent products, best-selling products |
+| `stores` | 86400 s (24 h) | store/branch list |
+
+In development (`NODE_ENV !== "production"`), all fetches use `cache: "no-store"` — revalidation windows are production-only.
+
+### Cache Key Scoping
+
+Middleware rewrites every page request to `/<tenantId>/<locale>/<path>` before it reaches the Next.js router, so the ISR incremental cache key is automatically tenant- and locale-scoped. Two tenants sharing the same slug never collide.
+
+### Tag Taxonomy
+
+Every cached fetch is tagged so targeted purges are possible without listing individual URLs:
+
+| Tag | Scope | Purge effect |
+|-----|-------|-------------|
+| `tenant:<id>` | All data for one tenant | Full tenant refresh |
+| `tenant:<id>:settings` | Settings/branding fetches | Branding, feature toggles, company props |
+| `tenant:<id>:products` | Product fetches | Listings, detail pages, featured, offers, best-selling |
+| `tenant:<id>:content` | Content fetches | Banners, categories, FAQs, SEO, etc. |
+| `tenant:<id>:<locale>` | Locale-specific fetches | Per-language purge (added when `locale` option is passed to `apiFetch`) |
+
+## The Revalidate Endpoint
+
+`src/app/api/revalidate/route.js` exposes:
+
+```
+POST /api/revalidate
+Content-Type: application/json
+```
+
+### Authentication
+
+The `secret` field in the request body must exactly match the `REVALIDATE_SECRET` environment variable set on the Worker (`wrangler secret put REVALIDATE_SECRET`). A mismatch returns HTTP 401.
+
+### Request Body
+
+```json
+{
+  "secret": "<REVALIDATE_SECRET>",
+  "tenant": "giftat",
+  "category": "products"
+}
+```
+
+| Field | Required | Effect |
+|-------|----------|--------|
+| `secret` | yes | Authorization check |
+| `tenant` | no | Tenant ID to purge. Inferred from request `Host` if omitted |
+| `path` | no | Purge one internal path: `revalidatePath("/<tenant><path>")` |
+| `category` | no | Purge a category tag: `revalidateTag("tenant:<id>:<category>")`. Must be `settings`, `products`, or `content` |
+| `tags` | no | Array of raw tag strings to purge individually |
+
+**Combination rules:** `path`, `category`, and `tags` are independent and can be combined in a single call. When none of the three are present, the entire tenant tag (`tenant:<id>`) is purged — equivalent to a full-tenant refresh.
+
+### Response
+
+```json
+{ "ok": true, "tenant": "giftat", "revalidated": { "paths": [], "tags": ["tenant:giftat:products"] } }
+```
+
+On failure:
+
+```json
+{ "ok": false, "message": "Unauthorized" }   // 401
+{ "ok": false, "message": "Unknown tenant" } // 400
+{ "ok": false, "message": "Invalid category. Use one of: settings, products, content" } // 400
+```
+
+### How Tags Power the Purge
+
+`revalidateTag()` in Next.js marks the tag as stale. On the next request, the Cloudflare OpenNext incremental cache checks the sharded Durable Object tag cache (`NEXT_TAG_CACHE_DO_SHARDED`) and, finding the tag stale, regenerates the page in the background via the DO queue (`NEXT_CACHE_DO_QUEUE`). Without these two Durable Object bindings wired in `wrangler.jsonc` and `open-next.config.ts`, `revalidateTag` is a silent no-op.
+
+## When to Call, and Which Category
+
+| Change in ERP | Category to purge |
+|--------------|------------------|
+| Product added, edited, or deleted | `products` |
+| Price or stock updated | `products` |
+| Branding change (logo, colors) | `settings` |
+| Feature toggle changed | `settings` |
+| Banner, page, or CMS content changed | `content` |
+| Category tree changed | `content` |
+| Single page needs refreshing | use `path` |
+| Large or unclear change | omit all → full tenant |
+
+## The `REVALIDATE_SECRET` Environment Variable
+
+Set it once on the Worker and never hardcode it:
+
+```powershell
+wrangler secret put REVALIDATE_SECRET
+```
+
+The ERP stores the same value and sends it on every `POST /api/revalidate` call. There is one shared secret across all tenants — the `tenant` field (or the request Host) determines which tenant is purged; the secret only proves the caller is authorized. If the secret is lost, set a new one with `wrangler secret put` and update the ERP config to match.
+
+## Manual Purge: `scripts/revalidate.ps1`
+
+For one-off purges, testing, and recovery, use the PowerShell script from the project root:
+
+```powershell
+# Full purge — all 10 tenants
+./scripts/revalidate.ps1
+
+# One tenant, full purge
+./scripts/revalidate.ps1 -Tenant giftat
+
+# Products only, all tenants (e.g. after a bulk price import)
+./scripts/revalidate.ps1 -Category products
+
+# Settings only, one tenant
+./scripts/revalidate.ps1 -Tenant giftat -Category settings
+
+# Override origin and pass secret inline
+./scripts/revalidate.ps1 -Secret <value> -Origin https://giftat.in
+```
+
+Set the secret as an environment variable to keep it out of shell history:
+
+```powershell
+$env:REVALIDATE_SECRET = "<REVALIDATE_SECRET>"
+```
+
+Script parameters:
+
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| `-Tenant` | all 10 tenants | A single tenant ID |
+| `-Category` | (whole-tenant purge) | `settings`, `products`, or `content` |
+| `-Origin` | `https://luzinebakes.in` | Any reachable live origin — the Data Cache is deployment-wide, not per-host |
+| `-Secret` | `$env:REVALIDATE_SECRET` | Override with inline value |
+
+The script exits with a non-zero code if any call fails, making it suitable for CI/CD pipelines.
+
+If PowerShell blocks execution:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ./scripts/revalidate.ps1
+```
+
+## Cache Architecture on Cloudflare
+
+```
+Browser request
+  → Cloudflare Cache API (regional, "long-lived" hot copy)
+      → R2 bucket (cloudposcom-opennext-cache, durable ISR store)
+          → Next.js server handler (regenerates on cache miss)
+              → ERP origin API
+```
+
+`open-next.config.ts` configures:
+
+- **R2 incremental cache** — `r2IncrementalCache` from `@opennextjs/cloudflare`. The R2 bucket (`NEXT_INC_CACHE_R2_BUCKET` binding) is the durable ISR store; pages survive across Worker isolate restarts.
+- **Regional Cache API wrapper** — `withRegionalCache(..., { mode: "long-lived", shouldLazilyUpdateOnCacheHit: true })`. Keeps a hot copy in the Cloudflare colo's Cache API. Most hits never touch R2. On a hit, the regional copy is refreshed lazily in the background so it stays warm.
+- **DO queue** — `doQueue` de-duplicates background ISR revalidations across isolates. Without it, multiple isolates receiving requests for a stale page would all trigger simultaneous origin fetches (stampede).
+- **Sharded DO tag cache** — `doShardedTagCache` backs `revalidateTag()` / `revalidatePath()`. Without this binding, those calls are silent no-ops.
+- **Cache interception** — `enableCacheInterception: true`. Serves cached pages directly from the incremental cache, bypassing the full Next.js server handler for a significant latency reduction on cache hits.
+
+The R2 bucket must be created before first deploy:
+
+```bash
+npx wrangler r2 bucket create cloudposcom-opennext-cache
+```

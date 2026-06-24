@@ -1,0 +1,13 @@
+{
+  "title": "User Guide",
+  "root": true,
+  "pages": [
+    "index",
+    "browsing-products",
+    "cart-and-wishlist",
+    "checkout",
+    "account-profile",
+    "languages",
+    "settings-reference"
+  ]
+}

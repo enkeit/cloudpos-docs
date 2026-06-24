@@ -1,0 +1,84 @@
+---
+title: Developer Overview
+description: Orientation for developers working on the CloudPos Ecom storefront codebase.
+---
+
+# Developer Overview
+
+CloudPos Ecom is a **multi-tenant, multi-theme e-commerce storefront** built on **Next.js 15 App Router** with **React 19**, deployed to **Cloudflare Workers** via the [OpenNext](https://opennext.js.org/cloudflare) adapter. One Worker binary serves an arbitrary number of tenants (stores), each on its own domain, with per-tenant data, branding, and UI.
+
+These docs are internal. They cover how the storefront is built, not how end-users shop on it.
+
+---
+
+## Stack at a Glance
+
+| Concern | Choice |
+|---|---|
+| Framework | Next.js 15 App Router, React 19 |
+| Styling | Tailwind CSS v4 |
+| Deployment | Cloudflare Workers via `@opennextjs/cloudflare` |
+| Multi-tenancy | Edge middleware + KV + `[tenant]/[locale]` route params |
+| Theming | CSS variable tokens + component slot packs (`src/themes/`) |
+| i18n | Per-tenant locale routing + server-loaded dictionaries |
+| Data | ERP REST API, per-request, ISR-cached with tenant-scoped tags |
+| Config runtime | Cloudflare KV (`TENANTS`, `HOST_MAP` bindings) |
+
+---
+
+## Source Layout
+
+```
+src/
+  app/
+    [tenant]/[locale]/      # all storefront routes (layout, page, products, cart, …)
+    api/                    # route handlers (proxy, revalidate, session, …)
+    layout.js               # root HTML shell (no tenant logic here)
+    robots.js / sitemap.js  # per-tenant SEO files
+  components/               # UI grouped by surface
+    layout/                 # Navbar, Footer (base pack; overridden per theme)
+    home-page/              # BannersSection, CategoriesRow, FeaturedProducts, …
+    category/               # CategoryProductsPage (product listing)
+    single-product-page/    # ProductInfo, ProductTabs, ProductReviews, …
+    cart-page/ wishlist/ checkout/ auth/ profile/
+    common/ ui/ seo/ theme/ # shared utilities
+  themes/                   # template packs
+    base/ aurora/ harvest/ nova/ silk/ toys/ ornaments/
+    registry.js             # packId → dynamic import
+    getThemePack.js         # merge base + active pack
+  context/                  # client-side state (Auth, Cart, Wishlist)
+  hooks/                    # data-fetching hooks
+  lib/                      # server helpers (api, tenant, theme, settings, …)
+  config/
+    tenants.js              # tenant seed + HOST_MAP (dev / KV fallback)
+  i18n/                     # locale config, getDictionary, I18nProvider
+scripts/
+  push-tenants.mjs          # sync seed → Cloudflare KV
+  check-theme-slots.mjs     # theme slot coverage validator
+```
+
+---
+
+## Key Design Principles
+
+**Tenant as config, not code.** A tenant is a row in Cloudflare KV (`TENANTS` namespace). It costs no Worker bundle space. Template packs (code) are kept to a finite set (~6–12); tenants differ mainly through config tokens, font keys, and feature flags.
+
+**ISR-safe route params.** The edge middleware rewrites `Host[/locale]/path` → `/<tenantId>/<locale>/path`. Both `tenant` and `locale` arrive as Next.js route params — not headers — in `[tenant]/[locale]/layout.js` and every page under it. This makes the incremental cache key naturally tenant + locale scoped, without reading `headers()` in server components (which would opt pages out of ISR).
+
+**Override-with-fallback theming.** Every page renders UI via `<ThemeSlot name="..." packId={...} />` or by directly pulling a slot from `getThemePack()`. The active pack is spread over `base`, so only the slots a pack explicitly overrides are replaced; everything else falls through to `base`.
+
+**KV-driven, zero-redeploy tenant onboarding.** Host → tenantId resolution and the full `TenantConfig` both read from KV at the edge (with a 60 s in-isolate memory cache). Adding a new host to KV takes effect without redeploying the Worker.
+
+---
+
+## Developer Docs
+
+| Topic | Page |
+|---|---|
+| Request flow, rendering, routing, security | [Architecture](/docs/ecom/developer/architecture) |
+| Tenant config model, host resolution, onboarding | [Multi-Tenancy](/docs/ecom/developer/multi-tenant) |
+| Token system, template packs, slots | [Theming](/docs/ecom/developer/theming) |
+| Locale routing, RTL, dictionaries | [Internationalization](/docs/ecom/developer/i18n) |
+| `src/lib/api.js`, fetch helpers, ISR tags | [Data & APIs](/docs/ecom/developer/data-and-apis) |
+| On-demand revalidation webhook | [Revalidation](/docs/ecom/developer/revalidation) |
+| Build, preview, deploy to Cloudflare | [Deployment](/docs/ecom/developer/deployment) |

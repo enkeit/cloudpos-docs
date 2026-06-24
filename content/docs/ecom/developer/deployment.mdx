@@ -1,0 +1,205 @@
+---
+title: Deployment
+description: OpenNext build pipeline, Cloudflare Worker bindings, environment variables, and domain onboarding.
+---
+
+# Deployment
+
+CloudPos Ecom is deployed as a Cloudflare Worker using [OpenNext](https://opennext.js.org/cloudflare). The build pipeline runs `next build` then `opennextjs-cloudflare build`, producing a `cloudposcom-web` Worker that handles SSR, ISR, and static assets. All configuration lives in `wrangler.jsonc` and `open-next.config.ts`.
+
+## Prerequisites
+
+- Node.js 20+, `wrangler` CLI (devDependency), Cloudflare account with Workers & Pages access.
+- R2 bucket created once before first deploy (see [ISR Cache](#isr-cache-r2-bucket)).
+- `REVALIDATE_SECRET` Worker secret set via `wrangler secret put`.
+
+## NPM Scripts
+
+| Script | Command | Use |
+|--------|---------|-----|
+| `npm run dev` | `next dev` | Local development — plain Next.js, no Cloudflare emulation |
+| `npm run build` | `next build` | Standalone Next.js build (CI check; not deployed directly) |
+| `npm run preview` | `opennextjs-cloudflare build && opennextjs-cloudflare preview` | Full OpenNext build + local Miniflare preview with all bindings |
+| `npm run deploy` | `opennextjs-cloudflare build && opennextjs-cloudflare deploy` | Build and push to Cloudflare Workers (production) |
+| `npm run upload` | `opennextjs-cloudflare build && opennextjs-cloudflare upload` | Build and upload without activating (staged deploy) |
+| `npm run cf-typegen` | `wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts` | Regenerate TypeScript types for KV, R2, and Durable Object bindings |
+| `npm run check:theme-slots` | `node scripts/check-theme-slots.mjs` | Verify every ThemeSlot in the active pack exports the required shape |
+
+`npm run dev` runs against `next dev` without Cloudflare Workers emulation — KV lookups and Durable Objects are unavailable, so the tenant seed (`src/config/tenants.js`) is used instead of KV. Use `npm run preview` to test the full Cloudflare runtime locally.
+
+## Build Pipeline
+
+```
+npm run deploy
+  └─ opennextjs-cloudflare build
+       ├─ next build          (standard Next.js build)
+       └─ OpenNext adapter    (wraps output for CF Workers)
+            → .open-next/worker.js      (Worker entry point)
+            → .open-next/assets/        (static assets → Workers Assets binding)
+  └─ opennextjs-cloudflare deploy
+       └─ wrangler deploy     (reads wrangler.jsonc)
+```
+
+`wrangler.jsonc` sets `"main": ".open-next/worker.js"` and `"assets": { "directory": ".open-next/assets" }`. Static assets are served directly from the Workers Assets binding (`ASSETS`) without hitting the Worker.
+
+## `wrangler.jsonc` Overview
+
+`wrangler.jsonc` is at the project root. Key settings:
+
+```jsonc
+{
+  "name": "cloudposcom-web",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true
+}
+```
+
+`nodejs_compat` enables Node.js built-ins in the Worker runtime. `global_fetch_strictly_public` prevents the Worker from fetching private Cloudflare IPs. `workers_dev: true` keeps the `*.workers.dev` URL active alongside custom domains for default-tenant smoke tests.
+
+## `open-next.config.ts` Overview
+
+```ts
+export default defineCloudflareConfig({
+  incrementalCache: withRegionalCache(r2IncrementalCache, {
+    mode: "long-lived",
+    shouldLazilyUpdateOnCacheHit: true,
+  }),
+  queue: doQueue,
+  tagCache: doShardedTagCache,
+  enableCacheInterception: true,
+});
+```
+
+- `r2IncrementalCache` — stores ISR/SSG output in R2 so it persists across Worker isolate restarts.
+- `withRegionalCache` — wraps R2 with a hot Cloudflare Cache API copy per colo. Hits are served from the regional cache; the copy is refreshed lazily on hit.
+- `doQueue` — Durable Object queue that de-duplicates background ISR revalidation work.
+- `doShardedTagCache` — Durable Object that backs `revalidateTag()` / `revalidatePath()`. Without it, those calls are silent no-ops.
+- `enableCacheInterception: true` — serves cached pages directly from the incremental cache, bypassing the full Next.js server handler on cache hits.
+
+## Bindings
+
+### KV Namespaces
+
+| Binding | KV Namespace ID | Purpose |
+|---------|----------------|---------|
+| `TENANTS` | `60f5fde53dc0479989a398cd64755361` | `tenant:<id>` → full tenant JSON config |
+| `HOST_MAP` | `5f260262edaf4d6fafc12a0a566095a7` | `<domain>` → tenant ID |
+
+Middleware caches KV lookups in-isolate for 60 seconds to avoid per-request KV round-trips. The seed file (`src/config/tenants.js`) is the local/fallback source when KV is unavailable.
+
+To push tenant config to KV:
+
+```bash
+# Push one tenant
+node scripts/push-tenants.mjs --tenant mynewstore
+
+# Push all tenants (from the seed file)
+node scripts/push-tenants.mjs
+
+# Dry run
+node scripts/push-tenants.mjs --tenant mynewstore --dry-run
+```
+
+### R2 Bucket — ISR Cache
+
+| Binding | Bucket name |
+|---------|------------|
+| `NEXT_INC_CACHE_R2_BUCKET` | `cloudposcom-opennext-cache` |
+
+Create the bucket once before deploying:
+
+```bash
+npx wrangler r2 bucket create cloudposcom-opennext-cache
+```
+
+### Workers Assets
+
+| Binding | Source directory |
+|---------|----------------|
+| `ASSETS` | `.open-next/assets` |
+
+Served directly by Cloudflare's edge — static files never hit the Worker.
+
+### Durable Objects
+
+| Binding | Class | Migration tag | Purpose |
+|---------|-------|--------------|---------|
+| `NEXT_CACHE_DO_QUEUE` | `DOQueueHandler` | `v1` | De-duplicates ISR background revalidations |
+| `NEXT_TAG_CACHE_DO_SHARDED` | `DOShardedTagCache` | `v2` | Backs `revalidateTag()` / `revalidatePath()` |
+
+Migration tags are applied sequentially. `v1` is already in production; `v2` was added for the sharded tag cache class. Never remove earlier migration entries.
+
+### Images
+
+```jsonc
+"images": { "binding": "IMAGES" }
+```
+
+The `IMAGES` binding wires up Cloudflare's native image transformation for `next/image`. Currently, `next.config.mjs` sets `images: { unoptimized: true }` as a temporary workaround for a transformation failure in the Worker. Remove `unoptimized` once Cloudflare Image Transformations are enabled on each tenant zone and the account has the Images entitlement.
+
+### Workers Service Binding (self-reference)
+
+```jsonc
+"services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "cloudposcom-web" }]
+```
+
+Required by OpenNext's cache interception path — the Worker calls itself via the service binding to serve cached responses.
+
+## Environment Variables
+
+Set in `wrangler.jsonc` under `vars` (plain, visible in dashboard):
+
+| Variable | Example value | Purpose |
+|----------|--------------|---------|
+| `NEXT_PUBLIC_API_BASE_URL` | `https://erp.cloudposai.in` | Default ERP origin (fallback for single-tenant / build-time fetches) |
+| `NEXT_PUBLIC_X_TENANT` | `NKIN_LUZINE_BAKES_…` | Default `X-Tenant` header value |
+| `NEXT_PUBLIC_BASE_URL` | `https://luzinebakes.in` | Canonical site URL for the default tenant |
+
+Set secrets via `wrangler secret put` (never in `wrangler.jsonc`):
+
+| Secret | Purpose |
+|--------|---------|
+| `REVALIDATE_SECRET` | Authenticates `POST /api/revalidate` calls from the ERP |
+
+## Security Headers
+
+`next.config.mjs` sets static, tenant-independent headers on all routes:
+
+| Header | Value |
+|--------|-------|
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+
+The `Content-Security-Policy` is **not** set in `next.config.mjs`. It is built per-request in `src/middleware.js` from the resolved tenant's `apiBaseUrl` (pulled from KV), so onboarding a new client domain in KV needs no redeploy.
+
+## cf-typegen
+
+After changing KV namespaces, R2 buckets, Durable Objects, or other bindings in `wrangler.jsonc`, regenerate the TypeScript interface:
+
+```bash
+npm run cf-typegen
+# → writes cloudflare-env.d.ts
+```
+
+`cloudflare-env.d.ts` exposes the `CloudflareEnv` interface to TypeScript so middleware and route handlers get typed access to `env.HOST_MAP`, `env.TENANTS`, `env.NEXT_INC_CACHE_R2_BUCKET`, etc.
+
+## Adding a New Domain
+
+1. **Add tenant to seed** — add an entry in `src/config/tenants.js` with `id`, `domains`, `apiBaseUrl`, `tenantKey`, `siteUrl`, `theme`, and optionally `i18n`.
+2. **Push to KV** — `node scripts/push-tenants.mjs --tenant <id>`. This writes `tenant:<id>` to the `TENANTS` namespace and each domain to `HOST_MAP`. No redeploy is needed — middleware picks up KV changes within 60 seconds.
+3. **Add the domain to the Worker** — Cloudflare Dashboard → Workers & Pages → `cloudposcom-web` → Domains → Add Domain. Cloudflare auto-creates the CNAME in the zone (must be proxied).
+4. **Verify** — visit the domain; DNS propagation on Cloudflare is typically under 1 minute.
+
+Unknown hosts (not in KV or seed) are 307-redirected to `https://cloudposai.com`.
+
+## Preview vs. Deploy
+
+| Command | Effect |
+|---------|--------|
+| `npm run preview` | Builds and starts a local Miniflare instance. All bindings (KV, R2, DO) use local emulation. Use for end-to-end testing before pushing. |
+| `npm run deploy` | Builds and deploys to the live `cloudposcom-web` Worker. Activates immediately. |
+| `npm run upload` | Builds and uploads the Worker script without activating it. Useful for staged rollouts or inspecting the bundle before going live. |

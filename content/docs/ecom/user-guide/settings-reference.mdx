@@ -1,0 +1,157 @@
+---
+title: Website Settings Reference
+description: Complete reference for every website setting and company property that controls the CloudPos Ecom storefront, including codes, defaults, and descriptions.
+---
+
+# Website Settings Reference
+
+This page is the authoritative reference for every setting that controls the CloudPos Ecom storefront. All settings are configured in your **CloudPos admin backend** — no code changes are required.
+
+## How settings work
+
+Settings are read from **two backend sources**:
+
+| Source | Description |
+|---|---|
+| `website-settings` | General store-level toggles and values |
+| `company-props` | Company/branding properties and checkout feature toggles |
+
+When the same code is present in both sources, the **`company-props` value wins**. This means a value set under company-props always overrides the same code in website-settings.
+
+**Default behaviour:** Most display toggles default to **ON** — the feature is visible and the storefront shows it. Checkout opt-in features default to **OFF** and must be explicitly enabled in the admin backend.
+
+---
+
+## Currency
+
+| Setting | Code | What it controls | Default |
+|---|---|---|---|
+| Store Currency | `CURRENCY` | The currency code used for all price formatting across the storefront. Supported codes and their symbols: `INR` → ₹, `QAR` → QR, `SAR` → SR, `USD` → $, `AED` → AED. Any unrecognised code falls back to the code itself as the symbol. | `INR` |
+
+---
+
+## Product & Pricing
+
+| Setting | Code | What it controls | Default |
+|---|---|---|---|
+| Show Product Price | `SHOW_PRODUCT_PRICE` | Master switch for price display. When off, all prices are hidden everywhere — product cards, detail pages, the cart, and the wishlist. | ON |
+| Show Price to Public | `SHOW_PRICE_PUBLIC` | Whether logged-out visitors (guests) can see prices. When off, only verified/approved account holders see prices and the Add to Cart button. | ON |
+| Show Add to Cart Button | `SHOW_ADD_TO_CART_BUTTON` | Whether the Add to Cart button appears. When off, or when prices are hidden, shoppers see the Enquire / Wishlist-only flow. | ON |
+| Show Share Button | `SHOW_SHARE_BUTTON` | The share button on product cards and the product detail page. Uses the device's native share sheet or falls back to copying the product URL to the clipboard. | ON |
+| "New" Badge on Cards | `PRODUCT_CARD_NEW_BADGE` | The "NEW" pill shown in the top-left corner of product cards for items flagged as new in the backend. | ON |
+| Stock Info on Cards | `PRODUCT_CARD_STOCK_INFO` | The "IN STOCK" / "OUT OF STOCK" badges and overlays on product cards and the detail page. | ON |
+
+### Price-visibility rule
+
+Price is visible when **both** of the following conditions are met:
+
+1. `SHOW_PRODUCT_PRICE` is **on**.
+2. Either `SHOW_PRICE_PUBLIC` is **on** (anyone including guests sees prices), **or** the current visitor is a **verified/approved account** (profile verified in the backend).
+
+The Add to Cart button follows this rule: it is shown only when the price is visible **and** `SHOW_ADD_TO_CART_BUTTON` is on.
+
+**Typical B2B / wholesale setup:** Turn `SHOW_PRICE_PUBLIC` **off**. Guests and non-approved accounts see only Enquire and Wishlist buttons. Approved account holders see prices and can add items to the cart normally.
+
+---
+
+## Home Page Sections
+
+Each section is independently toggleable. A section is hidden when its toggle is off, even if the backend has content for it.
+
+| Setting | Code | What it controls | Default |
+|---|---|---|---|
+| Banners Section | `BANNERS_SECTION` | The "Featured Promotions" banner grid at the top of the home page | ON |
+| Top Categories Section | `TOP_CATEGORIES_SECTION` | Horizontally scrollable row of category tiles | ON |
+| Featured Products Section | `FEATURED_PRODUCTS_SECTION` | Grid of products flagged as featured in the backend | ON |
+| Best Selling Products Section | `BEST_SELLING_PRODUCTS_SECTION` | Grid of top-selling products | ON |
+| Best Offers Section | `BEST_OFFERS_SECTION` | Grid of products with an active offer/discount price | ON |
+| Recent Products Section | `RECENT_PRODUCTS_SECTION` | Grid of the most recently added products | ON |
+| Contact Section | `SHOW_CONTACT_SECTION` | Contact info block (address, phone, email) at the bottom of the home page | ON |
+
+---
+
+## Layout Chrome
+
+These toggles control the navigation elements that appear on every page of the storefront.
+
+| Setting | Code | What it controls | Default |
+|---|---|---|---|
+| Top Bar | `TOP_BAR` | The announcement or info bar displayed above the primary navigation | ON |
+| Menu | `MENU` | The primary navigation menu | ON |
+| Bottom Menu | `BOTTOM_MENU` | The fixed navigation bar at the bottom of the screen on mobile | ON |
+| Account Icons | `SHOW_ACCOUNT_ICONS` | The cart, wishlist, and account icons in the navigation bar | ON |
+
+---
+
+## Auth Behaviour
+
+| Setting | Code | What it controls | Default |
+|---|---|---|---|
+| Email Login | `EMAIL_LOGIN` | Allow shoppers to sign in with an email address and password | ON |
+| Phone Number Login | `PHONE_NUMBER_LOGIN` | Allow shoppers to sign in with a phone number | ON |
+| Phone or Email Login | `PHONE_NUMBER_OR_EMAIL_LOGIN` | Combined login field that accepts either phone or email | ON |
+| B2B Mode | `B2B` | Enables the B2B registration flow at `/b2b/signup`, which collects business details | OFF |
+| Force Password Change on Auth | `FORCE_PASSWORD_CHANGE_ON_AUTH` | Requires newly authenticated users to set a new password before they can continue | OFF |
+
+---
+
+## Checkout Toggles
+
+All checkout features are **opt-in** and default to OFF. Enable only the features your store workflow requires.
+
+| Setting | Code | What it controls | Default |
+|---|---|---|---|
+| WhatsApp Checkout | `ENABLE_WHATSAPP_CHECKOUT` | Adds an "Order via WhatsApp" path at checkout | OFF |
+| Ask Delivery Date | `ASK_DELIVERY_DATE` | Shows a delivery date picker in the checkout form | OFF |
+| Checkout Login Required | `CHECKOUT_LOGIN_REQUIRED` | Prevents guests from completing checkout — a login is required | OFF |
+| Checkout OTP Enabled | `CHECKOUT_OTP_ENABLED` | Sends a one-time password (OTP) to verify the shopper's phone number at checkout | OFF |
+| Checkout Optional Login | `CHECKOUT_OPTIONAL_LOGIN` | Shows a login prompt at checkout but allows the shopper to skip it and continue as a guest | OFF |
+| Checkout Auto Account | `CHECKOUT_AUTO_ACCOUNT` | Automatically creates a store account for guest shoppers when they complete an order | OFF |
+
+---
+
+## Company / Branding Values
+
+These values come from the `company-props` backend endpoint and control the store's identity, contact details, and branding. They are displayed in the navigation, footer, checkout, and contact section of the home page.
+
+Where a dedicated "customer care" code is provided, the storefront prefers it and falls back to the plain company code if the dedicated one is absent.
+
+| Property | Code | What it controls |
+|---|---|---|
+| Company Name | `COMPANY_NAME` | Display name of the store, used in page titles and at checkout |
+| Logo | `COMPANY_LOGO` | Store logo image; path is resolved against the backend storage URL |
+| Favicon | `COMPANY_FAVICON` | Browser tab icon; path resolved against the backend storage URL |
+| Address | `COMPANY_ADDRESS` | Physical address shown in the contact section and footer |
+| Customer Care Phone | `COMPANY_CUSTOMER_CARE_PHONE` | Preferred contact phone number; falls back to `COMPANY_PHONE` |
+| Company Phone | `COMPANY_PHONE` | Fallback phone number (can be set in website-settings) |
+| Customer Care Email | `COMPANY_CUSTOMER_CARE_EMAIL` | Preferred contact email address; falls back to `COMPANY_EMAIL` |
+| Company Email | `COMPANY_EMAIL` | Fallback email address (can be set in website-settings) |
+| Customer Care WhatsApp | `COMPANY_CUSTOMER_CARE_WHATSAPP` | WhatsApp number shown as a floating button; only displayed when the prop's **status toggle** is on |
+| Working Hours | `WORKING_TIME` | Business hours text shown in the contact section; only displayed when the prop's **status toggle** is on |
+| Company Description | `DESCRIPTION` | Short company blurb shown in the about or footer area; only displayed when the prop's **status toggle** is on |
+| Default State | `DEFAULT_COMPANY_STATE` | Pre-selects the state field in address forms at checkout |
+| Default District | `DEFAULT_COMPANY_DISTRICT` | Pre-selects the district field in address forms at checkout |
+| Default Pincode | `DEFAULT_COMPANY_PINCODE` | Pre-selects the pincode field in address forms at checkout |
+| Facebook URL | `FACEBOOK_URL` | Facebook page link in social icons (website-settings) |
+| Twitter URL | `TWITTER_URL` | Twitter/X profile link in social icons (website-settings) |
+| Instagram URL | `INSTAGRAM_URL` | Instagram profile link in social icons (website-settings) |
+| YouTube URL | `YOUTUBE_URL` | YouTube channel link in social icons (website-settings) |
+
+> Several company-props entries are gated on a **status toggle** within the same record, not just the presence of a value. If a prop has a value but its status is off, the storefront treats it as unset and hides the element.
+
+### Checkout company-props toggles
+
+The following company-props codes act as feature toggles that affect the checkout experience. Each requires both a value **and** its status set to on.
+
+| Property | Code | What it controls |
+|---|---|---|
+| Show Tax | `SHOW_TAX_POS` | Whether tax lines are displayed at checkout |
+| Discount & Coupon | `DISCOUNT_AND_COUPON` | Whether the discount/coupon entry field appears at checkout |
+| Payment Method | `DEFAULT_PAYMENT_METHOD` | Whether the payment method selector is shown at checkout |
+| Terms & Conditions | `TERMS_AND_CONDITIONS` | The terms text displayed (and required to accept) at checkout; shown only when status is on |
+| Free Delivery Minimum | `FREE_DELIVERY_MINIMUM_AMOUNT` | Minimum order value (numeric) for free delivery; used in shipping charge calculation |
+| Tax Rate | `TAX_RATE` | Default tax rate (numeric) applied to orders |
+
+---
+
+> **Tip:** If a setting change does not appear immediately on the storefront, try a hard refresh (Ctrl+Shift+R on Windows / Cmd+Shift+R on Mac). Some pages are cached for performance. Contact your developer if the change has not appeared after a few minutes.

@@ -1,0 +1,14 @@
+{
+  "title": "Developer Docs",
+  "root": true,
+  "pages": [
+    "index",
+    "architecture",
+    "multi-tenant",
+    "theming",
+    "i18n",
+    "data-and-apis",
+    "revalidation",
+    "deployment"
+  ]
+}

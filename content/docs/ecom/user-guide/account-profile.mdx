@@ -1,0 +1,75 @@
+---
+title: Account & Profile
+description: How shoppers sign up, sign in, manage their profile and addresses, and view order history.
+---
+
+# Account & Profile
+
+Shoppers can create and manage an account to track orders, save delivery addresses, and get a faster checkout experience. The sign-in methods available, and whether a wholesale (B2B) signup path is offered, are controlled by settings in the CloudPos admin.
+
+## Signing in
+
+The sign-in page is at `/login`. The login form adapts to whichever methods are enabled for your store:
+
+| Setting code | Default | What it enables |
+|---|---|---|
+| EMAIL_LOGIN | ON | Sign in with an email address and password |
+| PHONE_NUMBER_LOGIN | ON | Sign in with a phone number using a one-time OTP code |
+| PHONE_NUMBER_OR_EMAIL_LOGIN | ON | Sign in with either phone or email (combined input field) |
+
+When none of these are explicitly configured, the store defaults to displaying all available methods. You can turn individual modes off in the CloudPos admin to simplify the sign-in form for your shoppers.
+
+After a successful sign-in, shoppers are returned to whichever page they came from (the `redirect` query parameter is preserved, e.g. `/login?redirect=/checkout`).
+
+## Creating an account
+
+New shoppers can register at `/signup`. The registration form collects the fields required by the active login mode.
+
+Shoppers who complete a guest phone-OTP checkout (see [Checkout](/docs/ecom/user-guide/checkout)) automatically get an account created from their phone number — they do not need to visit `/signup` separately. If **CHECKOUT_AUTO_ACCOUNT** is enabled, they are invited to set a password after their order is placed so they can sign back in without a new OTP.
+
+## Forgotten password
+
+The forgot-password flow starts at `/forgot-password`. The shopper enters their registered phone number or email address, receives an OTP which they verify at `/verify-otp`, and then sets a new password at `/set-password`.
+
+## Force password change
+
+When **FORCE_PASSWORD_CHANGE_ON_AUTH** is ON, shoppers who have not yet set a password — for example, those whose account was created by a phone OTP checkout — are redirected to `/set-password` the next time they sign in. This ensures every account eventually has a durable password for secure re-login.
+
+## B2B / Wholesale accounts
+
+When the **B2B** setting is ON, the storefront exposes a dedicated wholesale signup page at `/b2b/signup`. Business buyers can register and request access. A new B2B account must be **approved** by the store owner in the CloudPos admin before the customer can see product prices or place orders.
+
+Approval status is tracked on the customer profile as `profile_verified`. When **B2B** is ON and **Show Price Public** is OFF, only signed-in customers whose accounts have been approved will see product prices.
+
+> When **B2B** is OFF, the `/b2b/signup` route returns a 404 error. It is safe to leave B2B disabled for retail (B2C) stores.
+
+## Profile page
+
+Signed-in customers can view and edit their profile at `/profile`. This page is protected — a visitor who is not signed in is automatically redirected to `/login?redirect=/profile`.
+
+The profile page shows:
+
+- Personal information (name, phone number, email) as stored in the backend
+- Saved delivery addresses — shoppers can add new addresses or remove existing ones
+
+## Order history
+
+The order history page is at `/profile/orders`. Each entry links to a full order detail page at `/profile/orders/[order-number]`, where the shopper can see items, totals, payment method, and delivery status.
+
+Both pages are protected — a visitor who is not signed in is redirected to the login page automatically.
+
+## Signing out
+
+Tapping "Sign Out" clears the session and returns the shopper to the homepage. The cart in local storage is preserved, so items added while browsing are not lost.
+
+## Settings that control this
+
+These settings are configured in the CloudPos admin backend. See [Settings Reference](/docs/ecom/user-guide/settings-reference) for the full list.
+
+| Setting code | Default | What it controls |
+|---|---|---|
+| EMAIL_LOGIN | ON | Allow shoppers to sign in with an email address and password |
+| PHONE_NUMBER_LOGIN | ON | Allow shoppers to sign in with a phone number (OTP) |
+| PHONE_NUMBER_OR_EMAIL_LOGIN | ON | Allow shoppers to sign in with either phone or email |
+| B2B | OFF | Enable the wholesale signup page at /b2b/signup; only merchant-approved accounts can see prices when Show Price Public is OFF |
+| FORCE_PASSWORD_CHANGE_ON_AUTH | OFF | Require OTP-only accounts to set a password the next time they sign in |

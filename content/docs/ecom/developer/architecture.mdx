@@ -1,0 +1,143 @@
+---
+title: Architecture
+description: Request lifecycle, rendering model, routing, component organisation, and security for CloudPos Ecom.
+---
+
+# Architecture
+
+---
+
+## Request Lifecycle
+
+```
+Browser / CDN
+    │
+    ▼
+src/middleware.js            (Cloudflare edge, runs before every request)
+    │  1. Read Host header
+    │  2. Resolve host → tenantId  (KV HOST_MAP → seed fallback)
+    │  3. Resolve tenantId → TenantConfig (KV TENANTS → seed fallback)
+    │  4. Parse locale prefix off public path
+    │  5. Rewrite  /path  →  /<tenantId>/<locale>/path
+    │  6. Set headers: x-tenant-id, x-locale
+    │  7. Set per-tenant Content-Security-Policy
+    ▼
+Next.js App Router
+    │
+    ├─ src/app/[tenant]/[locale]/layout.js   (tenant + locale resolved from params)
+    │      Parallel-fetches: categories, categoryTree, stores, companyProps,
+    │      websiteSettings, i18n dictionary
+    │      Injects: inline tenant CSS (<style id="tenant-theme">), font preload,
+    │               JSON-LD, Navbar (from theme pack), Footer (from theme pack)
+    │
+    └─ src/app/[tenant]/[locale]/page.js  (and sub-routes)
+           Parallel-fetches all home-page data (banners, products, …)
+           Renders via <ThemeSlot name="…" packId={tenant.theme.packId} … />
+```
+
+Unknown hosts (not in KV or seed) receive a `307` redirect to `https://cloudposai.com`.
+
+Paths exempt from the tenant rewrite: `/api/*`, `/sitemap.xml`, `/robots.txt`, `/manifest.webmanifest`. These receive the `x-tenant-id` header but resolve the tenant themselves (see `src/lib/tenant.js`).
+
+---
+
+## Rendering Model
+
+The app uses **Next.js 15 App Router server components by default**, deployed as a single Cloudflare Worker via `@opennextjs/cloudflare` (see `package.json` scripts: `preview` and `deploy`).
+
+**ISR (Incremental Static Regeneration)** is the production caching strategy. Each route exports a `revalidate` constant (e.g. `export const revalidate = 1800` on the home page). The incremental cache key is automatically scoped to the `[tenant]/[locale]` route params set by middleware, so tenant A never receives tenant B's cached HTML.
+
+**On-demand revalidation** via `src/app/api/revalidate/route.js` allows the ERP backend to purge cached pages by tenant-scoped tags (e.g. `tenant:luzine:products`). See [Revalidation](/docs/ecom/developer/revalidation).
+
+**`generateStaticParams`** in `src/app/[tenant]/[locale]/layout.js` pre-builds the known (seed) tenant × locale combinations at deploy time. Unknown combinations are rendered on-demand and cached on first request (`dynamicParams` defaults to `true`).
+
+---
+
+## Routing
+
+All storefront pages live under `src/app/[tenant]/[locale]/`:
+
+| Route segment | File | Notes |
+|---|---|---|
+| `/` (home) | `page.js` | Fetches all home-page data in parallel |
+| `/products/[slug]` | `products/[slug]/page.js` | Product detail; ISR per slug |
+| `/category/[slug]` | `category/[slug]/page.js` | Category listing; ISR per slug |
+| `/cart` | `cart/page.js` | Client-rendered (auth state) |
+| `/checkout` | `checkout/page.js` | Client-rendered |
+| `/wishlist` | `wishlist/page.js` | Client-rendered |
+| `/auth/*` | `auth/*/page.js` | Login, signup, OTP, forgot/set password |
+| `/profile/*` | `profile/*/page.js` | Orders, order detail, track, profile |
+| `/faq`, `/enquiry`, `/about`, `/terms`, `/privacy`, `/refund` | static-ish pages | ISR; content from ERP settings |
+
+The public URL a user sees never contains `[tenant]` or `[locale]` — the middleware rewrite is transparent.
+
+---
+
+## Component Organisation
+
+`src/components/` is grouped by surface. Components here are **shared defaults** used by the `base` theme pack; individual packs may replace them with their own implementations via the slot registry.
+
+| Directory | Contents |
+|---|---|
+| `layout/` | `Navbar.jsx`, `Footer.jsx` — base pack chrome |
+| `home-page/` | `BannersSection`, `CategoriesRow`, `FeaturedProducts`, `BestSellers`, `PartnerWithUsBanner` |
+| `category/` | `CategoryProductsPage` — product listing with filter/pagination |
+| `single-product-page/` | `ProductInfo`, `ProductTabs`, `ProductReviews`, `RelatedProductsSection` |
+| `cart-page/` | `CartList` |
+| `checkout/` | `CheckoutClient` |
+| `wishlist/` | `WishlistList` |
+| `auth/` | `LoginForm`, `SignupForm`, `B2BSignupForm`, `ForgotPasswordForm`, `SetPasswordForm`, `OtpForm` |
+| `profile/` | `ProfileView`, `OrderList`, `OrderDetail`, `TrackOrder` |
+| `common/` | `WhatsAppButton`, `OrderRedirect`, `LocaleLink`, `LanguageSwitcher`, `Price` |
+| `ui/` | `Breadcrumb`, `SearchableSelect` |
+| `seo/` | `JsonLd` — structured data injection |
+| `theme/` | `ThemeSlot` — async server component that resolves a slot from the active pack |
+
+---
+
+## Client State
+
+Three React contexts live in `src/context/` and are mounted client-side only:
+
+- **`AuthContext`** (`AuthContext.jsx`) — session hydration from `/api/session`, live-validation against `/api/proxy?endpoint=/customer/profile`, logout, user state.
+- **`CartContext`** (`CartContext.jsx`) — guest cart in `localStorage` (`luzine_cart`), merged to server cart on login; syncs item quantities against stock limits.
+- **`WishlistContext`** (`WishlistContext.jsx`) — wishlist state; localStorage for guests, server-synced for logged-in users.
+
+All three are wired in `src/app/[tenant]/[locale]/layout.js` via the `I18nProvider` wrapper (which also provides the locale dictionary).
+
+---
+
+## Data Layer
+
+All backend access goes through `src/lib/api.js`. Each `fetch*` helper:
+
+1. Accepts an optional `tenant` object (`{ apiBaseUrl, tenantKey }`) from `getTenant()`.
+2. Sets the `X-Tenant` request header and targets `tenant.apiBaseUrl/api/v1`.
+3. Passes `next: { revalidate, tags }` to Next.js so responses land in the ISR data cache under tenant-scoped tags (e.g. `tenant:luzine`, `tenant:luzine:products`).
+
+In development (`NODE_ENV !== "production"`), all fetches use `cache: "no-store"` to bypass the data cache entirely.
+
+`src/lib/settings.js` — `resolveStoreSettings(settingsRes, propsRes)` merges two ERP endpoints (website-settings + company-props) into a single stable shape used by every route to resolve feature toggles (`showAddToCart`, `showProductPrice`, `showPricePublic`, `b2b`, checkout flags, etc.).
+
+---
+
+## Security
+
+**Content-Security-Policy** is assembled per-request in `src/middleware.js` by `buildContentSecurityPolicy()` from `src/lib/csp.js`. The `connect-src` directive includes the resolved tenant's `apiBaseUrl` host, so onboarding a new API origin in KV takes effect without a redeploy.
+
+**Static security headers** (`Referrer-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Permissions-Policy`, `Strict-Transport-Security`) are set in `next.config.mjs` and apply to all routes tenant-independently.
+
+**Images** — `next.config.mjs` sets `images.remotePatterns: [{ protocol: "https", hostname: "**" }]` so any tenant's API image host is allowed without config changes. (`unoptimized: true` is currently set pending Cloudflare Image Transformations enablement.)
+
+---
+
+## Build & Deploy
+
+```bash
+npm run build          # next build (standard Next.js build)
+npm run preview        # opennextjs-cloudflare build + local Miniflare preview
+npm run deploy         # opennextjs-cloudflare build + wrangler deploy
+npm run check:theme-slots   # run the theme slot coverage validator
+```
+
+See [Deployment](/docs/ecom/developer/deployment) for the full deploy flow.

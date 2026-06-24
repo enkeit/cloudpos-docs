@@ -1,0 +1,179 @@
+---
+title: Internationalization
+description: Locale routing, per-tenant locales, dictionaries, client/server translation API, RTL, and internal link helpers.
+---
+
+# Internationalization
+
+CloudPos Ecom's i18n layer operates at three levels: **edge routing** (middleware peels and rewrites locale prefixes), **static UI strings** (in-repo JSON dictionaries code-split per locale), and **runtime formatting** (locale-aware numbers, currencies, dates). The base theme pack (`packId: "base"`) is fully localized. Other packs (aurora, nova, harvest, toys) have the infrastructure wired but dictionary coverage is incomplete.
+
+## Locale Catalog
+
+`src/i18n/config.js` is the single registry of every locale the codebase can render:
+
+```js
+export const LOCALES = {
+  en: { label: "English",  englishLabel: "English", dir: "ltr", intlLocale: "en-IN" },
+  ar: { label: "العربية",  englishLabel: "Arabic",  dir: "rtl", intlLocale: "ar-AE" },
+};
+export const DEFAULT_LOCALE = "en";
+```
+
+`intlLocale` is the BCP 47 tag passed to `Intl.NumberFormat` and `Intl.DateTimeFormat`. `dir` drives RTL switching. Helper exports:
+
+| Export | Description |
+|--------|-------------|
+| `isSupportedLocale(code)` | Guard used by middleware and `getDictionary` |
+| `isRtl(locale)` / `dirOf(locale)` | RTL check / `"ltr"` or `"rtl"` string |
+| `localeMeta(locale)` | Full metadata object, falls back to `DEFAULT_LOCALE` |
+| `intlLocale(locale)` | BCP 47 tag shorthand |
+
+Adding a new locale requires an entry in `LOCALES` **and** a dictionary file at `src/i18n/dictionaries/<code>.json`. Per-tenant enablement is controlled separately in `src/config/tenants.js`.
+
+## Route Structure
+
+The default locale is **prefixless**; all other locales carry a URL prefix:
+
+```
+luzinebakes.in/products          → en (default, no prefix)
+luzinebakes.in/ar/products       → ar
+```
+
+Middleware (`src/middleware.js`) resolves the tenant from the `Host` header, then calls `parseLocale(pathname, i18n)` to peel the leading segment:
+
+```js
+function parseLocale(pathname, i18n) {
+  const first = segments[1] || "";
+  if (first && first !== i18n.defaultLocale && i18n.locales.includes(first)) {
+    return { locale: first, rest: "/" + segments.slice(2).join("/") };
+  }
+  return { locale: i18n.defaultLocale, rest: pathname };
+}
+```
+
+The public URL is unchanged; the request is internally rewritten to `/<tenantId>/<locale>/<rest>`, which becomes the App Router segment `[tenant]` and the locale route param. The locale is also forwarded as the `x-locale` request header.
+
+`/api/*`, `/sitemap.xml`, `/robots.txt`, and `/manifest.webmanifest` are excluded from the rewrite — they only receive the `x-tenant-id` header and resolve tenant by host.
+
+## Per-Tenant Locale Configuration
+
+Each tenant in `src/config/tenants.js` declares which locales it serves:
+
+```js
+i18n: { defaultLocale: "en", locales: ["en", "ar"] }
+```
+
+`normalizeTenantI18n(tenant)` (exported from `src/config/tenants.js`) guarantees the `defaultLocale` is always in `locales` and applies the fallback `DEFAULT_TENANT_I18N = { defaultLocale: "en", locales: ["en"] }` for tenants with no `i18n` block (single-language, no URL prefix). Middleware always calls `normalizeTenantI18n` before routing — the normalized object is what `parseLocale` receives.
+
+Locale codes must exist in `src/i18n/config.js` `LOCALES`. In production, tenant config is read from Cloudflare KV (`TENANTS` namespace); the seed file is the local/fallback source.
+
+## Server-Side Translation
+
+`src/i18n/getDictionary.js` is the primary seam for static UI strings on the server. It is `server-only` by convention (never import from a `"use client"` file).
+
+```js
+// Wrapped in React cache() — repeated calls in one render (layout + page) share
+// the same parsed dict object.
+export const getDictionary = cache(async (locale) => {
+  const code = isSupportedLocale(locale) && loaders[locale] ? locale : DEFAULT_LOCALE;
+  return await loaders[code]();  // dynamic import → code-split per locale
+});
+
+// Convenience wrapper used in server components:
+export async function getT(locale) {
+  return makeT(await getDictionary(locale));
+}
+```
+
+`getT(locale)` returns a `t(key, vars?, fallback?)` function bound to the resolved dictionary. Usage in a server component or layout:
+
+```js
+const t = await getT(locale);
+t("common.addToCart")              // dot-path lookup
+t("product.price", { price: "₹50" })  // interpolation
+t("missing.key", {}, "Add to Cart")   // explicit fallback
+```
+
+`makeT` in `src/i18n/t.js` supports both `{name}` and `{{name}}` interpolation tokens (the double-brace form preserves parity with strings ported from the legacy i18next dictionaries). Missing keys echo the key string in dev so they are immediately visible.
+
+### API-Managed Dictionaries (Future)
+
+`src/lib/api.js` exports `fetchLocaleDictionary(locale, options)` which calls `/api/v1/get-locale?locale=<code>` on the ERP. This function exists as a seam: when the backend supplies translations, `getDictionary` can deep-merge the API response over the JSON files without any call-site change. It is **not** wired into rendering today; the in-repo JSON files (`src/i18n/dictionaries/en.json` and `ar.json`) are the current source.
+
+## Client-Side Translation
+
+`src/i18n/I18nProvider.jsx` is a `"use client"` context provider. The server-resolved dictionary is SSR'd in the locale layout and passed as a prop — no network round-trip, no hydration flash.
+
+```jsx
+// In your locale layout (server component):
+const dict = await getDictionary(locale);
+return (
+  <I18nProvider locale={locale} dict={dict}>
+    {children}
+  </I18nProvider>
+);
+```
+
+Client components consume the context via `useI18n()`:
+
+```js
+const { t, locale, dir, isRtl, formatCurrency, formatNumber, formatDate, toLocaleNumerals } = useI18n();
+```
+
+`useI18n()` returns a safe English fallback when called outside the provider (e.g. during pack migration) instead of throwing.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `locale` | `string` | Active locale code (`"en"`, `"ar"`, …) |
+| `dir` | `"ltr"` \| `"rtl"` | Text direction |
+| `isRtl` | `boolean` | RTL shorthand |
+| `t(key, vars?, fallback?)` | `function` | Dictionary lookup with interpolation |
+| `formatCurrency(amount, currencySymbol, opts?)` | `function` | Locale-aware price |
+| `formatNumber(value, opts?)` | `function` | Locale-aware number |
+| `formatDate(date, opts?)` | `function` | Locale-aware date |
+| `toLocaleNumerals(value)` | `function` | Arabic-Indic digit conversion |
+
+## RTL Support
+
+`src/i18n/format.js` handles RTL-aware currency formatting: for RTL locales the currency symbol is placed after the number (`"50 AED"`) rather than before (`"AED 50"`). Arabic numerals (٠١٢…٩) are substituted for Western digits when `toLocaleNumerals` is called on `"ar"`.
+
+RTL layout itself is applied by the locale layout via `dir={dirOf(locale)}` on the root `<html>` element. Tailwind's `rtl:` variant works automatically once `dir="rtl"` is set on a parent.
+
+## Internal Link Navigation
+
+Every internal link must be prefixed with the active locale so navigation stays within the same language. `src/i18n/navigation.js` provides two helpers:
+
+**`localeHref(href, locale)`** — prepends the locale segment (no-op for the default locale):
+
+```js
+localeHref("/products", "en") // → "/products"
+localeHref("/products", "ar") // → "/ar/products"
+```
+
+**`switchLocaleInPath(pathname, nextLocale, locales)`** — used by the language switcher to swap the locale prefix on the current browser path.
+
+External URLs (`http://`, `https://`, `//`), anchor links (`#`), `mailto:`, and `tel:` are returned untouched.
+
+For client components, wrap `localeHref` with the locale from `useI18n()`:
+
+```jsx
+const { locale } = useI18n();
+<a href={localeHref("/cart", locale)}>Cart</a>
+```
+
+Never use a bare `<Link href="/products">` in components that must preserve the locale prefix — it will drop the user back to the default locale.
+
+## API Locale Signaling
+
+`apiFetch` in `src/lib/api.js` signals the active locale to the backend via the `Accept-Language` request header. The `?locale=` query parameter is intentionally disabled: the current ERP `/product/list-products` endpoint returns a 500 on any unknown query param, so the header is the only safe mechanism. Re-enable the param once the backend is updated to tolerate it (see the inline comment in `src/lib/api.js`).
+
+When a `locale` option is passed, `apiFetch` also appends a `tenant:<id>:<locale>` cache tag to the fetch so per-language responses can be independently revalidated.
+
+## Dictionary Files
+
+| File | Content |
+|------|---------|
+| `src/i18n/dictionaries/en.json` | English strings (reference dictionary) |
+| `src/i18n/dictionaries/ar.json` | Arabic translations |
+
+Keys use dot notation when accessed via `t()`, but the JSON may be flat (all keys at the top level) or nested — the `lookup` function in `src/i18n/t.js` handles both.

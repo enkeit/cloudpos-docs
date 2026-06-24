@@ -1,0 +1,39 @@
+---
+title: CloudPos Ecom Overview
+description: A guide to every part of the CloudPos Ecom storefront and how your website settings shape the shopper experience.
+---
+
+# CloudPos Ecom Overview
+
+**CloudPos Ecom** is the online storefront for your CloudPos business. Shoppers open your store URL in any browser — no app installation required — and can browse your catalog, add items to a cart or wishlist, and check out on any device.
+
+## What shoppers can do
+
+| Feature | Where to find it |
+|---|---|
+| Browse banners, categories, featured and best-selling products | Home page |
+| Search, filter by category/price, and sort the full catalog | `/products` |
+| View product images, variants, stock status, and descriptions | Product detail page (`/products/<slug>`) |
+| Add items to cart or wishlist | Product cards and detail pages |
+| Adjust quantities, remove items, and review the order summary | Cart page (`/cart`) |
+| Save items to revisit later | Wishlist page (`/wishlist`) |
+| Place an order | Checkout page (`/checkout`) |
+| Track orders and manage your profile | Account (`/profile`) |
+| Switch language | Language switcher in the navigation bar |
+
+## How website settings shape the storefront
+
+Almost every shopper-visible feature — from whether prices appear to which home page sections display — is controlled by **website settings** in your CloudPos admin backend. You never need to edit code; toggling a setting in the backend changes what shoppers see on the next page load.
+
+Two key rules:
+
+1. Settings are read from two backend sources: **website-settings** and **company-props**. When the same code exists in both, the **company-props value wins**.
+2. Most display toggles default to **ON** (the feature is visible). Checkout opt-in features default to **OFF** and must be explicitly enabled.
+
+See the full reference at [Website Settings Reference](/docs/ecom/user-guide/settings-reference).
+
+## Pages in this guide
+
+- [Browsing Products](/docs/ecom/user-guide/browsing-products) — home page sections, the products listing, search, filters, sorting, product detail pages, and variants
+- [Cart & Wishlist](/docs/ecom/user-guide/cart-and-wishlist) — adding items, managing quantities, the order summary, and the wishlist
+- [Website Settings Reference](/docs/ecom/user-guide/settings-reference) — complete table of every setting code, what it controls, and its default value

@@ -1,0 +1,99 @@
+---
+title: Checkout
+description: How shoppers place an order — guest flows, address, delivery date, payment methods, and WhatsApp ordering.
+---
+
+# Checkout
+
+The checkout page is where a shopper reviews their cart, enters a delivery address, picks a payment method, and places an order. The exact steps a shopper sees depend on which checkout settings your store has enabled in the CloudPos admin.
+
+## How a shopper enters checkout
+
+A shopper taps **Checkout** from their cart. What happens next depends on your settings:
+
+| Situation | What the shopper sees |
+|---|---|
+| No special settings active | Delivery address form, order summary, and a "Place Order" button |
+| **Login required** (CHECKOUT_LOGIN_REQUIRED is ON) | Redirected to the sign-in page; checkout is only accessible after logging in |
+| **Optional login** (CHECKOUT_OPTIONAL_LOGIN is ON) | A prompt offering to sign in for faster checkout, with an option to continue as a guest via phone OTP |
+| **OTP verification** (CHECKOUT_OTP_ENABLED is ON) | A phone-number entry screen followed by a one-time code before the address form |
+| **WhatsApp checkout** (ENABLE_WHATSAPP_CHECKOUT is ON) | An OTP verification gate, then the order is sent to the store's WhatsApp with a prefilled order summary |
+
+> Guest checkout in CloudPos Ecom is not truly anonymous. When a guest verifies their phone via OTP, a customer account is created automatically in the background — they just never set a password. If CHECKOUT_AUTO_ACCOUNT is also ON, the shopper is invited to set a password after the order is confirmed.
+
+### Guest checkout gate priority
+
+When a guest visits checkout, the store checks settings in this order:
+
+1. **CHECKOUT_LOGIN_REQUIRED** — if ON, redirect to login immediately (no checkout UI is shown).
+2. **CHECKOUT_OPTIONAL_LOGIN** — if ON, show the "Have an account? Sign in for faster checkout" gate. Tapping "Continue with phone" leads to OTP entry.
+3. **CHECKOUT_OTP_ENABLED** or **ENABLE_WHATSAPP_CHECKOUT** — if either is ON, show the phone + OTP verification screen.
+4. Otherwise, the guest proceeds straight to the address and payment form.
+
+## Delivery address
+
+After any required sign-in or OTP step, the shopper selects a saved delivery address or adds a new one. If no addresses are saved, the add-address form scrolls into view automatically.
+
+- Logged-in customers see a list of previously saved addresses and can add or delete entries.
+- Guest customers who verified via OTP can add an address; it is saved to their newly created account.
+- **WhatsApp checkout does not require a saved address.** The customer can confirm their delivery location directly in the WhatsApp conversation.
+
+## Delivery date
+
+When **ASK_DELIVERY_DATE** is ON, a date picker and an optional time field appear in the checkout form. The chosen date and time are included in the backend order record. For WhatsApp orders, they are also included in the prefilled WhatsApp message sent to the store.
+
+## Order summary
+
+The order summary panel shows:
+
+- Each cart item with its quantity and unit price
+- Subtotal, any ERP-calculated discounts, and applicable taxes (broken out by tax name when available)
+- Delivery charge
+- Coupon discount if a coupon code has been applied
+- Grand total
+
+Prices appear only when **Show Product Price** is active and, for guest or logged-out shoppers, when prices are set to be visible publicly.
+
+## Coupon codes
+
+When the backend has coupons configured and the coupon field is enabled, the shopper can enter a coupon code in the order summary panel. The code is validated against the ERP in real time and any discount is reflected immediately in the running total.
+
+## Payment methods
+
+The available payment options are determined by your store's backend configuration:
+
+| Payment method | When it appears |
+|---|---|
+| Cash on Delivery | Always available |
+| WhatsApp Order | When ENABLE_WHATSAPP_CHECKOUT is ON; the order is placed via the API and the shopper is then redirected to a WhatsApp chat with a prefilled order summary message |
+| Online payment (Razorpay) | When an online payment gateway is configured in the CloudPos admin; a Razorpay popup handles card, UPI, and net-banking |
+| Manual payment | When a "Manual Payment Gateway" is configured in the admin; the shopper enters a transaction reference number |
+
+When WhatsApp checkout is the only method enabled and a WhatsApp number is configured, the payment selector is hidden and all orders go through WhatsApp automatically.
+
+## Placing the order
+
+After selecting an address (if required) and a payment method, the shopper taps the action button. The label changes based on the selected method: "Place Order" for COD or manual, "Pay with Razorpay" for online, or "Order via WhatsApp" for WhatsApp. The ERP validates the cart, calculates final totals, and creates the order.
+
+On success, the shopper is taken to the order detail page (`/profile/orders/[order-number]`).
+
+### Auto-account after guest checkout
+
+If **CHECKOUT_AUTO_ACCOUNT** is ON and the shopper checked out as a guest via OTP, a "Set Password" screen appears after the order is confirmed. This lets the shopper turn their auto-created OTP account into a full account they can sign back into with a password. They can also skip this step and come back later.
+
+## Terms and conditions
+
+If your store has a terms text configured in the backend, a checkbox appears at checkout. The shopper must tick it before the place-order button becomes active.
+
+## Settings that control this
+
+These settings are configured in the CloudPos admin backend. See [Settings Reference](/docs/ecom/user-guide/settings-reference) for the full list.
+
+| Setting code | Default | What it controls |
+|---|---|---|
+| ENABLE_WHATSAPP_CHECKOUT | OFF | Place the order via a prefilled WhatsApp message instead of (or alongside) the standard online order |
+| ASK_DELIVERY_DATE | OFF | Show a preferred delivery date and time picker at checkout |
+| CHECKOUT_LOGIN_REQUIRED | OFF | Require the shopper to be signed in before they can access checkout |
+| CHECKOUT_OTP_ENABLED | OFF | Require guest shoppers to verify their phone number with a one-time code before proceeding |
+| CHECKOUT_OPTIONAL_LOGIN | OFF | Show a "sign in for faster checkout" prompt to guests, with an option to continue via phone OTP |
+| CHECKOUT_AUTO_ACCOUNT | OFF | After a guest OTP order, invite the shopper to set a password and activate their auto-created account |

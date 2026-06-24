@@ -1,0 +1,218 @@
+---
+title: Multi-Tenancy
+description: How one Cloudflare Worker serves many stores — tenant config model, host resolution, KV storage, and onboarding.
+---
+
+# Multi-Tenancy
+
+One Cloudflare Worker binary serves an arbitrary number of tenants. Each tenant is its own store, on its own domain(s), with its own ERP connection, branding, theme, and locale set. **A tenant is pure config — it costs no Worker bundle space.** Structural UI differences live in a small finite set of *template packs* (code); tenant-to-tenant differences are expressed as config.
+
+---
+
+## Tenant Config Model
+
+Each tenant is a `TenantConfig` object defined in `src/config/tenants.js`:
+
+```js
+/**
+ * @typedef {Object} TenantConfig
+ * @property {string}   id           "luzine"
+ * @property {string}   name         "Luzine Bakes"
+ * @property {string[]} domains      ["luzinebakes.in", "www.luzinebakes.in"]
+ * @property {string}   apiBaseUrl   "https://erp.cloudposai.in"
+ * @property {string}   tenantKey    value sent as the X-Tenant header to the ERP
+ * @property {string}   siteUrl      canonical origin, no trailing slash
+ * @property {{ packId: string, tokens?: Record<string,string>, fontKey?: string }} theme
+ * @property {{ logo?, favicon?, ogImage?, socials? }} branding
+ * @property {{ defaultLocale: string, locales: string[] }} i18n
+ * @property {Record<string, boolean>}  features   feature/section flags
+ * @property {Record<string, string>}   variants   per-slot UI variant hints
+ */
+```
+
+The `theme.tokens` map holds optional CSS variable overrides (e.g. `"--primary": "#cc434e"`). The `theme.fontKey` references an entry in `src/lib/theme.js` `FONTS`. Both are applied at request time — no redeploy required if the tenant config lives in KV.
+
+---
+
+## Storage: Two KV Namespaces
+
+At runtime the source of truth is **Cloudflare KV**, exposed as two bindings configured in `wrangler.jsonc`:
+
+| Binding | Key pattern | Value |
+|---|---|---|
+| `TENANTS` | `tenant:<id>` | Full `TenantConfig` as JSON |
+| `HOST_MAP` | `<hostname>` (lowercase) | `tenantId` string |
+
+`src/config/tenants.js` is the **dev seed and fallback** — it is what `scripts/push-tenants.mjs` uploads to KV, and what every lookup falls back to when KV is unavailable (e.g. `next dev` without a Cloudflare context).
+
+---
+
+## Host Resolution
+
+### In middleware (`src/middleware.js`)
+
+The edge middleware runs on every request:
+
+1. Reads the `Host` header.
+2. Looks up the hostname in the `HOST_MAP` KV binding (strips `www.`, tries `host`, `stripped`, `www.stripped`).
+3. Falls back to the in-code seed `HOST_MAP` (built from `src/config/tenants.js` `TENANTS[*].domains`) via `tenantIdForHost()`.
+4. Special cases: bare `localhost` / `127.0.0.1` / any `*.localhost` → `DEFAULT_TENANT_ID` (`"luzine"`). Any `*.workers.dev` host → `DEFAULT_TENANT_ID` (makes Cloudflare preview URLs testable before custom domains are attached).
+5. Unknown host (not in KV and not a local/preview fallback) → `307` redirect to `https://cloudposai.com`.
+
+Both host-to-id and id-to-config lookups are cached in short-lived in-isolate `Map` caches (TTL: 60 s) so a hot Worker does not hit KV on every request.
+
+### In server routes (`src/lib/tenant.js`)
+
+`getTenant(explicitId?)` is a React `cache()`-wrapped async function used in layouts, pages, and route handlers:
+
+1. If an explicit id is provided (from the `[tenant]` route param), use it.
+2. Otherwise read the `x-tenant-id` header set by middleware.
+3. Falls back to `DEFAULT_TENANT_ID`.
+
+It loads `TenantConfig` from KV (`TENANTS` binding) with a 60 s in-isolate memory cache, then falls back to the seed. It always returns a config with a normalized `i18n` block.
+
+```js
+// in any server component or route handler
+import { getTenant } from "@/lib/tenant";
+
+const tenant = await getTenant(params.tenant); // ISR-safe: uses route param
+// tenant.apiBaseUrl, tenant.tenantKey, tenant.theme.packId, …
+```
+
+> **ISR safety:** Calling `getTenant()` without `params.tenant` internally calls `headers()`, which opts the route into dynamic rendering. The ISR-safe pattern — used in all `[tenant]/[locale]` pages — is to thread `params.tenant` into `getTenant(params.tenant)` so the tenant id comes from the route param, not from headers.
+
+---
+
+## Path Rewriting
+
+The middleware rewrites the public path to inject tenant and locale as route params:
+
+```
+Public URL:   https://luzinebakes.in/ar/products
+Rewritten to: /luzine/ar/products
+              └───┘  └┘  └──────┘
+           tenantId  locale  rest
+```
+
+The browser URL is unchanged. The incremental-cache key automatically includes `[tenant]` and `[locale]`, so each tenant × locale combination has its own isolated cache.
+
+Paths that bypass the rewrite (they still receive the `x-tenant-id` header): `/api/*`, `/sitemap.xml`, `/robots.txt`, `/manifest.webmanifest`.
+
+---
+
+## Per-Tenant Isolation
+
+**ISR cache:** The `[tenant]/[locale]` params form part of every cached page's key — tenant A never receives tenant B's cached HTML.
+
+**Data cache tags:** `src/lib/api.js` `tenantTags(tenant, category)` returns tags such as `["tenant:luzine", "tenant:luzine:products"]`. Every `fetch*` helper attaches these via `next: { revalidate, tags }`. On-demand revalidation calls `revalidateTag("tenant:luzine")` to purge only one tenant's data.
+
+**API target:** Each ERP call uses `tenant.apiBaseUrl` and sets `X-Tenant: tenant.tenantKey`, so different tenants hit different ERP instances.
+
+**Auth cookies:** Each tenant is served from its own domain — httpOnly session cookies are naturally domain-isolated.
+
+---
+
+## Seed Tenants
+
+The seed in `src/config/tenants.js` defines the current live tenants:
+
+| id | name | pack | domains |
+|---|---|---|---|
+| `luzine` | Luzine Bakes | `base` | `luzinebakes.in` |
+| `tabir` | Tabir | `aurora` | `tabir.ae`, `www.tabir.ae` |
+| `microland` | Microland | `nova` | `microland.ae` |
+| `saflowersqa` | SA Flowers | `harvest` | `saflowersqa.com`, `www.saflowersqa.com` |
+| `giftat` | Toys Store | `toys` | `giftat.in`, `www.giftat.in` |
+| `easysolutions` | Easy Solutions | `base` | `ecomdemo.easysolutions.com.sa` |
+| `funzcart` | Funzcart | `nova` | `funzcart.localhost` (dev) |
+| `aurora` | Aurora | `aurora` | `aurora.localhost` (dev) |
+| `harvest` | Harvest Store | `harvest` | `harvest-demo.localhost` (dev) |
+| `legacy` | Legacy Store | `base` | `default.localhost`, `legacy.localhost` (dev) |
+
+`DEFAULT_TENANT_ID` is `"luzine"`.
+
+---
+
+## Onboarding a New Tenant
+
+### 1. Add the tenant config to the seed
+
+Edit `src/config/tenants.js`, add an entry to `TENANTS`:
+
+```js
+acme: {
+  id: "acme",
+  name: "Acme Store",
+  domains: ["acme.com", "www.acme.com"],
+  apiBaseUrl: "https://erp.acme.com",
+  tenantKey: "ACME_XXXXXXXXXXXXXXXXXXXX",
+  siteUrl: "https://acme.com",
+  theme: {
+    packId: "base",          // or "aurora", "nova", "harvest", etc.
+    fontKey: "poppins",
+    tokens: {
+      "--primary": "#0ea5e9",
+      "--primary-light": "#38bdf8",
+    },
+  },
+  branding: {
+    logo: "/logo/acme.png",
+    favicon: "/logo/acme.png",
+    ogImage: "/logo/acme-og.jpg",
+  },
+  i18n: { defaultLocale: "en", locales: ["en"] },
+  features: {},
+  variants: {},
+},
+```
+
+`tenantKey` is the ERP-issued `X-Tenant` value. `domains` drives both the seed `HOST_MAP` and what `push-tenants.mjs` writes to the `HOST_MAP` KV namespace.
+
+### 2. Push config to Cloudflare KV
+
+```bash
+# Push all tenants
+node scripts/push-tenants.mjs
+
+# Push one tenant only (faster for iteration)
+node scripts/push-tenants.mjs --tenant acme
+
+# Preview what would be written without writing
+node scripts/push-tenants.mjs --dry-run
+```
+
+The script writes `tenant:<id>` → JSON config to the `TENANTS` KV namespace and `<host>` → `<id>` for every domain to the `HOST_MAP` KV namespace. It requires wrangler auth and the KV namespaces configured in `wrangler.jsonc`.
+
+### 3. Add the domain to the Worker
+
+In the Cloudflare dashboard: **Workers & Pages → cloudposcom → Settings → Domains & Routes → Add Custom Domain** for each domain in the tenant's `domains` list. DNS must be proxied through Cloudflare.
+
+### 4. Deploy
+
+```bash
+npm run deploy   # opennextjs-cloudflare build && wrangler deploy
+```
+
+A redeploy is required any time you change bundled code (new template pack, `next.config.mjs`, seed defaults). A KV-only config change (tenant already in KV) does not strictly require a redeploy — but note that the current `middleware.js` resolves `HOST_MAP` from KV at runtime, so new hosts take effect immediately once pushed and the domain is added to the Worker.
+
+### 5. Smoke-test
+
+- Live domain → correct branding, theme colour, font, products.
+- `/sitemap.xml` and `/robots.txt` show the tenant's domain and URLs.
+- Cart → checkout → correct `X-Tenant` header reaches the ERP.
+- Unknown host → `307` → `https://cloudposai.com`.
+
+### Local development
+
+- `http://localhost:3000` → resolves to the default tenant (`luzine`).
+- `http://<id>.localhost:3000` → resolves to that tenant if its `domains` includes `<id>.localhost` (e.g. `http://aurora.localhost:3000`).
+
+---
+
+## Adding a New Font
+
+1. Drop the `.woff2` file into `public/fonts/`.
+2. Add an entry to `FONTS` in `src/lib/theme.js` with `stack`, `src`, and `weight`.
+3. Set the tenant's `theme.fontKey` to that key in `src/config/tenants.js`, push to KV, and redeploy.
+
+See [Theming](/docs/ecom/developer/theming) for how fonts and CSS tokens are applied.

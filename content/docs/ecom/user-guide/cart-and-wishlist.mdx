@@ -1,0 +1,106 @@
+---
+title: Cart & Wishlist
+description: How shoppers add products to the cart or wishlist, adjust quantities, review the order summary, and move items between lists.
+---
+
+# Cart & Wishlist
+
+CloudPos Ecom provides two ways for shoppers to save products: the **cart** (items ready to purchase) and the **wishlist** (a save-for-later list). Both are stored in the browser and persist across page visits.
+
+> The Add to Cart button and all price information are gated by the price-visibility rule. When prices are hidden — the typical B2B / enquiry-only configuration — shoppers see only **Enquire** and **Wishlist**; the cart is not offered. See [Website Settings Reference](/docs/ecom/user-guide/settings-reference) for details.
+
+## Adding items to the cart
+
+Items can be added from two places:
+
+**From a product card (listing page or home page sections):**
+
+1. Use the `−` / `+` stepper on the card to choose a quantity (default: 1).
+2. Press **Add**. A brief toast notification at the bottom of the screen confirms the item was added.
+
+**From the product detail page:**
+
+1. If the product has variants (size, colour, etc.), select the desired option for each attribute. An inline error message appears if you try to add to cart without completing the selection.
+2. Use the quantity selector (minimum 1) to set how many to add.
+3. Press **Add to Cart**. A confirmation toast appears at the bottom of the screen.
+
+> The Add to Cart button is disabled and labelled "Out of Stock" when the product's available stock is zero (and stock tracking is enabled). An overlay also covers the product image on cards to signal this state.
+
+## Cart page (`/cart`)
+
+### Item list
+
+Each line in the cart shows the product thumbnail, name, unit price × quantity, and line total (when prices are visible). Per-item controls:
+
+| Control | What it does |
+|---|---|
+| `−` button | Decreases quantity by 1 (minimum 1; pressing at 1 has no effect) |
+| `+` button | Increases quantity by 1; disabled when quantity already equals available stock (requires stock tracking to be enabled on the product) |
+| Trash icon | Removes that item from the cart entirely |
+| **Remove All** | Clears every item from the cart in one action |
+
+If a stock limit is hit when increasing quantity, a toast error message appears at the bottom of the screen.
+
+### Order summary
+
+The summary panel appears on the right side of the screen on desktop and at the top on mobile. When prices are visible it shows:
+
+| Line | Source |
+|---|---|
+| Per-item breakdown | Each product name, unit × quantity, and line total |
+| Subtotal | Sum of all line totals |
+| Discount | Any cart-level discount returned by the backend |
+| Tax | Individual named tax lines, or a single tax total if the backend returns one figure |
+| Shipping | Delivery charge as calculated by the backend |
+| **Total** | Grand total as returned by the backend |
+
+When prices are hidden, the summary shows only the item list without any monetary values.
+
+### Proceeding to checkout
+
+Press **Checkout** to navigate to `/checkout`. If the shopper is not logged in, a note beneath the button explains that a verified phone number is required to complete an order. Whether guests can proceed at all depends on the checkout settings described below.
+
+## Wishlist (`/wishlist`)
+
+The wishlist lets shoppers bookmark products without committing to purchase. Items persist in the browser until the shopper removes them.
+
+### Adding to the wishlist
+
+On the product detail page, press the **heart** button (shown alongside the Enquire button). The heart icon fills to indicate the item is saved. Pressing it again removes it from the wishlist.
+
+### Wishlist page actions
+
+Each wishlist card shows the product image, name, and price (when prices are visible). Two actions are available per card:
+
+| Action | What it does |
+|---|---|
+| **Move to Cart** | Adds the item to the cart and removes it from the wishlist in one step. Disabled when the item is out of stock. |
+| Trash icon | Removes the item from the wishlist without adding it to the cart |
+
+An empty wishlist shows a **Continue Shopping** button that links back to `/products`.
+
+## Price visibility in cart and wishlist
+
+The same two-part price-visibility rule that governs product listings also applies inside the cart and wishlist:
+
+- All monetary values (prices, line totals, subtotal, taxes, shipping, grand total) are shown only when `SHOW_PRODUCT_PRICE` is **on** **and** either `SHOW_PRICE_PUBLIC` is **on** or the visitor is a verified/approved account.
+- The **Move to Cart** button on wishlist cards is always visible regardless of price visibility.
+- The price displayed on each wishlist card follows the same rule.
+
+For the full rule explanation see [Website Settings Reference](/docs/ecom/user-guide/settings-reference).
+
+## Settings that control this
+
+| Friendly name | Code | Effect when turned off |
+|---|---|---|
+| Show Product Price | `SHOW_PRODUCT_PRICE` | All prices hidden in the cart, wishlist, and order summary |
+| Show Price to Public | `SHOW_PRICE_PUBLIC` | Prices hidden from guests and non-approved accounts |
+| Show Add to Cart Button | `SHOW_ADD_TO_CART_BUTTON` | The cart is hidden; shoppers cannot add items from any page |
+| Checkout Login Required | `CHECKOUT_LOGIN_REQUIRED` | Default (OFF) allows guests to reach checkout; turn ON to require login |
+| WhatsApp Checkout | `ENABLE_WHATSAPP_CHECKOUT` | When ON, adds a "Order via WhatsApp" path at checkout |
+| Ask Delivery Date | `ASK_DELIVERY_DATE` | When ON, shows a delivery date picker in the checkout form |
+| Checkout OTP Enabled | `CHECKOUT_OTP_ENABLED` | When ON, sends an OTP to verify the shopper's phone at checkout |
+| Checkout Optional Login | `CHECKOUT_OPTIONAL_LOGIN` | When ON, shows a login prompt at checkout but lets the shopper skip it |
+| Checkout Auto Account | `CHECKOUT_AUTO_ACCOUNT` | When ON, automatically creates an account for guest shoppers at checkout |
+
+Full details and defaults: [Website Settings Reference](/docs/ecom/user-guide/settings-reference).
