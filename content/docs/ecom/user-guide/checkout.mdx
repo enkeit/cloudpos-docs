@@ -64,12 +64,20 @@ The available payment options are determined by your store's backend configurati
 
 | Payment method | When it appears |
 |---|---|
-| Cash on Delivery | Always available |
-| WhatsApp Order | When ENABLE_WHATSAPP_CHECKOUT is ON; the order is placed via the API and the shopper is then redirected to a WhatsApp chat with a prefilled order summary message |
-| Online payment (Razorpay) | When an online payment gateway is configured in the CloudPos admin; a Razorpay popup handles card, UPI, and net-banking |
-| Manual payment | When a "Manual Payment Gateway" is configured in the admin; the shopper enters a transaction reference number |
+| Cash on Delivery | Available by default — **except when WhatsApp checkout is enabled**, in which case it is hidden |
+| WhatsApp Order | When ENABLE_WHATSAPP_CHECKOUT is ON. This is **exclusive**: when WhatsApp checkout is enabled it becomes the *only* payment option — Cash on Delivery, online gateways, and manual payment are all hidden. The order is placed via the API and the shopper is then redirected to a WhatsApp chat with a prefilled order summary message |
+| Online payment (Razorpay) | When an online payment gateway is configured in the CloudPos admin **and WhatsApp checkout is OFF**; a Razorpay popup handles card, UPI, and net-banking |
+| Manual payment | When a "Manual Payment Gateway" is configured in the admin **and WhatsApp checkout is OFF**; the shopper enters a transaction reference number |
 
-When WhatsApp checkout is the only method enabled and a WhatsApp number is configured, the payment selector is hidden and all orders go through WhatsApp automatically.
+> **WhatsApp checkout is mutually exclusive with all other payment methods.** When ENABLE_WHATSAPP_CHECKOUT is ON, the payment selector shows WhatsApp as the single option and every order is routed through WhatsApp. Turn it OFF to expose Cash on Delivery, online gateways, and manual payment.
+
+### Where the WhatsApp number comes from
+
+The number the order is sent to is resolved in this order:
+
+1. The **value** of `ENABLE_WHATSAPP_CHECKOUT` itself (the toggle's value field can hold the destination WhatsApp number).
+2. If that is empty, the raw `COMPANY_CUSTOMER_CARE_WHATSAPP` value — used here **even if its status toggle is off** (unlike the floating WhatsApp button, which respects the status toggle).
+3. If neither is set, no number is attached.
 
 ## Placing the order
 
@@ -91,7 +99,7 @@ These settings are configured in the CloudPos admin backend. See [Settings Refer
 
 | Setting code | Default | What it controls |
 |---|---|---|
-| ENABLE_WHATSAPP_CHECKOUT | OFF | Place the order via a prefilled WhatsApp message instead of (or alongside) the standard online order |
+| ENABLE_WHATSAPP_CHECKOUT | OFF | Route every order via a prefilled WhatsApp message. When ON it **replaces** all other payment methods (Cash on Delivery, online, manual). Its value field can also hold the destination WhatsApp number. |
 | ASK_DELIVERY_DATE | OFF | Show a preferred delivery date and time picker at checkout |
 | CHECKOUT_LOGIN_REQUIRED | OFF | Require the shopper to be signed in before they can access checkout |
 | CHECKOUT_OTP_ENABLED | OFF | Require guest shoppers to verify their phone number with a one-time code before proceeding |

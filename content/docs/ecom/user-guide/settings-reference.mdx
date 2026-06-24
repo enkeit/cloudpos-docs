@@ -101,7 +101,7 @@ All checkout features are **opt-in** and default to OFF. Enable only the feature
 
 | Setting | Code | What it controls | Default |
 |---|---|---|---|
-| WhatsApp Checkout | `ENABLE_WHATSAPP_CHECKOUT` | Adds an "Order via WhatsApp" path at checkout | OFF |
+| WhatsApp Checkout | `ENABLE_WHATSAPP_CHECKOUT` | Makes "Order via WhatsApp" the **only** checkout payment method — when ON, Cash on Delivery, online gateways, and manual payment are all hidden. The setting's value field can also hold the destination WhatsApp number (falls back to `COMPANY_CUSTOMER_CARE_WHATSAPP`). | OFF |
 | Ask Delivery Date | `ASK_DELIVERY_DATE` | Shows a delivery date picker in the checkout form | OFF |
 | Checkout Login Required | `CHECKOUT_LOGIN_REQUIRED` | Prevents guests from completing checkout — a login is required | OFF |
 | Checkout OTP Enabled | `CHECKOUT_OTP_ENABLED` | Sends a one-time password (OTP) to verify the shopper's phone number at checkout | OFF |
@@ -126,7 +126,7 @@ Where a dedicated "customer care" code is provided, the storefront prefers it an
 | Company Phone | `COMPANY_PHONE` | Fallback phone number (can be set in website-settings) |
 | Customer Care Email | `COMPANY_CUSTOMER_CARE_EMAIL` | Preferred contact email address; falls back to `COMPANY_EMAIL` |
 | Company Email | `COMPANY_EMAIL` | Fallback email address (can be set in website-settings) |
-| Customer Care WhatsApp | `COMPANY_CUSTOMER_CARE_WHATSAPP` | WhatsApp number shown as a floating button; only displayed when the prop's **status toggle** is on |
+| Customer Care WhatsApp | `COMPANY_CUSTOMER_CARE_WHATSAPP` | WhatsApp number shown as a floating button; only displayed when the prop's **status toggle** is on. Note: WhatsApp *checkout* uses this number as a fallback **regardless of the status toggle** when `ENABLE_WHATSAPP_CHECKOUT` has no value of its own |
 | Working Hours | `WORKING_TIME` | Business hours text shown in the contact section; only displayed when the prop's **status toggle** is on |
 | Company Description | `DESCRIPTION` | Short company blurb shown in the about or footer area; only displayed when the prop's **status toggle** is on |
 | Default State | `DEFAULT_COMPANY_STATE` | Pre-selects the state field in address forms at checkout |
