@@ -30,6 +30,8 @@ When a guest visits checkout, the store checks settings in this order:
 3. **CHECKOUT_OTP_ENABLED** or **ENABLE_WHATSAPP_CHECKOUT** — if either is ON, show the phone + OTP verification screen.
 4. Otherwise, the guest proceeds straight to the address and payment form.
 
+The phone + OTP verification screen shows a two-step progress indicator (**Verify → Deliver**) so the shopper knows where they are in the flow. On wider screens it also shows a compact order summary alongside the form; on mobile that summary collapses into a single bar above the form. The phone and OTP fields auto-focus as each step appears. All amounts shown here use the store's configured currency.
+
 ## Delivery address
 
 After any required sign-in or OTP step, the shopper selects a saved delivery address or adds a new one. If no addresses are saved, the add-address form scrolls into view automatically.
