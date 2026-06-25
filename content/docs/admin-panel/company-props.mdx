@@ -1,0 +1,241 @@
+---
+title: Company Props
+description: >-
+  Company Properties
+
+  Overview
+
+
+  Company Properties allow administrators to configure company-specific settings
+  without modifying the system. These settings control various features across
+  the POS, Inventory, E-commerce, Restaurant, Website, and Mobile App modules.
+
+
+  Each company maintains its own property values, allowing different businesses
+  to customize CLOUDPOS according to their operational requirements.
+
+
+  Most Company Properties are managed by the Company Administrator.
+---
+# Navigation
+
+**Settings → Company Properties**
+
+From this screen, administrators can create, edit, and manage company-specific configuration values.
+
+---
+
+# Property Data Types
+
+CLOUDPOS supports multiple property types to store different kinds of information.
+
+| Data Type     | Description                                      | Example                   |
+| ------------- | ------------------------------------------------ | ------------------------- |
+| **Boolean**   | Enables or disables a feature (Yes/No).          | Enable KOT Print          |
+| **Text**      | Stores a single line of text.                    | WhatsApp Number           |
+| **Long Text** | Stores multi-line content.                       | About Us                  |
+| **List**      | Select one value from predefined options.        | Default Currency          |
+| **Multiple**  | Select multiple values from a predefined list.   | Supported Payment Methods |
+| **File**      | Upload files such as logos, icons, or documents. | Company Logo              |
+
+---
+
+# Common Company Properties
+
+## Show Cart Control
+
+**Data Type:** Boolean
+
+Determines whether the **Add to Cart** button is displayed in the online catalogue or e-commerce website.
+
+**Options**
+
+* Enabled
+* Disabled
+
+---
+
+## Featured Product Section
+
+**Data Type:** Boolean
+
+Controls the visibility of the **Featured Products** section on the company's online store.
+
+**Options**
+
+* Show Featured Products
+* Hide Featured Products
+
+---
+
+## WhatsApp Number
+
+**Data Type:** Text
+
+Stores the company's official WhatsApp number.
+
+This number may be displayed on:
+
+* Website
+* Mobile App
+* Contact Page
+* Product Enquiry
+* Customer Support
+
+**Example**
+
+```
++91 9876543210
+```
+
+---
+
+## Company Logo
+
+**Data Type:** File
+
+Uploads the official company logo.
+
+The uploaded logo is used throughout the system, including:
+
+* POS Invoice
+* Sales Reports
+* Purchase Reports
+* Website
+* Mobile App
+* Printed Documents
+
+**Recommended Format**
+
+* PNG
+* Transparent Background
+* High Resolution
+
+---
+
+## Company Favicon
+
+**Data Type:** File
+
+Uploads the website favicon displayed in the browser tab.
+
+**Recommended Size**
+
+* 32 × 32 px
+* ICO or PNG format
+
+---
+
+## Show Share Button
+
+**Data Type:** Boolean
+
+Controls whether product sharing options are available on the online catalogue and e-commerce pages.
+
+When enabled, customers can easily share products through:
+
+* WhatsApp
+* Facebook
+* Email
+* Other social media platforms
+
+---
+
+## About Us
+
+**Data Type:** Long Text
+
+Stores the company's "About Us" information.
+
+This content is displayed on:
+
+* Website
+* Mobile App
+* Company Profile Page
+
+Supports multi-line formatted text.
+
+---
+
+## Enable KOT Print
+
+**Data Type:** Boolean
+
+Applicable only to the **Restaurant POS Module**.
+
+When enabled, every order automatically prints a **Kitchen Order Ticket (KOT)** for kitchen staff.
+
+**Options**
+
+* Enabled
+* Disabled
+
+---
+
+## Show Tax in POS
+
+**Data Type:** Boolean
+
+Determines whether tax details are displayed on the POS billing screen and printed invoices.
+
+Useful for businesses that require tax visibility during billing.
+
+---
+
+## POS Print Double Bill
+
+**Data Type:** Boolean
+
+Determines whether the POS prints two copies of each invoice.
+
+Typical usage:
+
+* Customer Copy
+* Store/Sales Copy
+
+**Options**
+
+* Single Print
+* Double Print
+
+---
+
+# Additional Company Properties
+
+Depending on the enabled modules, additional company properties may include:
+
+* Company Email
+* Company Website
+* Contact Address
+* Social Media Links
+* Invoice Footer
+* Invoice Header
+* Default Currency
+* Default Language
+* Default Warehouse
+* Receipt Footer Message
+* Loyalty Program Settings
+* Online Ordering Settings
+* Delivery Charges
+* GST/VAT Display Options
+* POS Theme Settings
+* Barcode Label Settings
+* QR Code Display
+* E-commerce Homepage Banner
+* Product Review Settings
+* Customer Registration Options
+* Delivery Radius
+* Notification Preferences
+* Mobile App Settings
+* Theme Colours
+* Business Working Hours
+
+---
+
+# Best Practices
+
+* Configure company properties during the initial setup.
+* Restrict access to Company Properties to authorized administrators.
+* Verify uploaded logo and favicon images before publishing.
+* Review feature toggles periodically to ensure they align with current business requirements.
+* Use meaningful values for text-based properties to maintain consistency across all modules.
