@@ -1,37 +1,286 @@
 ---
 title: Products & Categories
-description: Managing your product catalog and categories in the Admin Panel
+description: >-
+  Overview
+
+
+  The Manage Products module is the central location for creating, editing, and
+  maintaining all products in CLOUDPOS. It allows businesses to manage product
+  information, pricing, inventory settings, product properties, taxation,
+  multilingual content, SEO, and attachments from a single screen.
+---
+**Products → Manage Products**
+
+From here, users can create new products, update existing products, and configure all product-related settings.
+
 ---
 
-# Products & Categories
+# Product List
 
-## Adding a Product
+The Product List displays all products available in the system.
 
-1. Go to **Products → Add Product**.
-2. Fill in the required fields:
-   - **Name** — Product display name
-   - **Category** — Select or create a category
-   - **Price** — Selling price
-   - **Unit** — Unit of measurement (pcs, kg, litre, etc.)
-   - **Barcode** — Optional; can be scanned at POS
-   - **Stock Quantity** — Starting stock (if tracking is enabled)
-3. Click **Save**.
+Users can:
 
-## Bulk Import
+* Add New Product
+* Edit Product Details
+* Search Products
+* Filter by Category, Brand, or Status
+* Enable/Disable Products
+* View Product Stock
+* Manage Product Pricing
 
-Use the **Import** button on the Products list page to upload a CSV file. Download the template first to get the correct column format.
+---
 
-## Managing Categories
+# Add / Edit Product
 
-Go to **Products → Categories** to create, edit, or reorder categories. Categories appear as filter tabs on the POS app home screen.
+Creating or editing a product involves configuring several sections.
 
-## Product Variants
+---
 
-If a product comes in multiple sizes/colours, enable **Variants** on the product and add each variant with its own price and stock.
+## 1. Basic Information
 
-## Stock Management
+Enter the essential product information.
 
-Enable **Stock Tracking** per product. Once enabled:
-- Stock decreases automatically on each sale
-- You can set a **Minimum Stock** alert threshold
-- Manual stock adjustments are logged under **Inventory**
+### Fields
+
+* Product Name
+* Product Code (SKU)
+* Barcode
+* Category
+* Brand
+* Description
+* Product Status (Active/Inactive)
+
+This information is used throughout Sales, Purchase, Inventory, POS, and E-commerce modules.
+
+---
+
+# 2. Product Properties
+
+Product Properties allow additional specifications to be assigned to products.
+
+These properties can be customized based on business requirements.
+
+### Common Product Properties
+
+* Product Size
+* Product Color
+* Weight
+* Length
+* Width
+* Height
+* Voltage
+* Watts
+* Capacity
+* Material
+* Brand
+* Model Number
+* Warranty
+* Country of Origin
+
+Properties can be configured as:
+
+* Text
+* Number
+* List
+* Multiple Selection
+* Boolean
+
+**Examples**
+
+| Property | Value           |
+| -------- | --------------- |
+| Color    | Black           |
+| Size     | XL              |
+| Weight   | 2.5 KG          |
+| Voltage  | 220V            |
+| Power    | 1200 Watts      |
+| Brand    | ABC Electronics |
+
+These properties help customers identify products and improve product filtering in the online store.
+
+---
+
+# 3. Product Unit
+
+Assign the primary unit used for purchasing and selling the product.
+
+### Examples
+
+* PCS
+* KG
+* Gram
+* Litre
+* ml
+* Box
+* Pack
+* Carton
+* Dozen
+
+The selected unit becomes the product's default inventory unit.
+
+---
+
+# 4. Multi Unit Sale Mapping
+
+CLOUDPOS supports selling the same product in multiple units while maintaining inventory using a single base unit.
+
+Each selling unit includes its own:
+
+* Conversion Rate
+* Barcode
+* Selling Price
+* Wholesale Price
+
+### Example
+
+| Unit   | Conversion | Barcode       |
+| ------ | ---------- | ------------- |
+| PCS    | 1          | 8901234567890 |
+| Pack   | 12 PCS     | 8901234567891 |
+| Box    | 24 Packs   | 8901234567892 |
+| Carton | 10 Boxes   | 8901234567893 |
+
+This feature is especially useful for supermarkets, wholesalers, pharmacies, and hardware stores.
+
+---
+
+# 5. Price Details
+
+Configure product pricing.
+
+### Available Prices
+
+* Purchase Price
+* Retail Selling Price
+* Wholesale Price
+* Distributor Price
+* Online Price
+* Minimum Selling Price
+* Maximum Retail Price (MRP)
+
+Price information is used in POS, Sales, Purchase, and E-commerce.
+
+---
+
+# 6. Tax Mapping
+
+Assign the applicable tax for the product.
+
+Supported tax configurations include:
+
+* GST
+* VAT
+* ZATCA VAT
+* Tax Inclusive
+* Tax Exclusive
+* Zero Rated
+* Tax Exempt
+
+Proper tax mapping ensures accurate invoice calculations and statutory compliance.
+
+---
+
+# 7. Product Attachments
+
+Upload files associated with the product.
+
+Supported attachments include:
+
+* Product Images
+* User Manuals
+* Technical Documents
+* Warranty Cards
+* Certificates
+* Videos
+* Specification Sheets
+
+Attachments are available for internal reference and, where configured, can also be displayed on the online store.
+
+---
+
+# 8. Multi-Language Names
+
+CLOUDPOS supports multiple languages for product information.
+
+Users can maintain product names and descriptions in different languages.
+
+### Example
+
+| Language  | Product Name |
+| --------- | ------------ |
+| English   | LED Bulb     |
+| Arabic    | لمبة LED     |
+| Hindi     | एलईडी बल्ब   |
+| Malayalam | എൽഇഡി ബൾബ്   |
+
+This feature improves customer experience across multilingual websites and mobile applications.
+
+---
+
+# 9. SEO Information
+
+Configure Search Engine Optimization (SEO) settings for products published online.
+
+### SEO Fields
+
+* SEO Title
+* Meta Description
+* Meta Keywords
+* URL Slug
+* Canonical URL
+
+Proper SEO settings improve search engine visibility and increase product discoverability.
+
+---
+
+# 10. Inventory Settings
+
+Configure inventory-related options for the product.
+
+Options include:
+
+* Track Inventory
+* Minimum Stock Level
+* Maximum Stock Level
+* Reorder Level
+* Batch Tracking
+* Expiry Date Tracking
+* Serial Number Tracking
+
+These settings help maintain accurate stock control and prevent stock shortages.
+
+---
+
+# 11. Product Availability
+
+Control where the product can be sold.
+
+Examples include:
+
+* POS
+* E-commerce Website
+* Mobile Application
+* B2B Portal
+* Restaurant Menu
+* Catalogue Only
+
+This allows businesses to sell selected products through specific sales channels.
+
+---
+
+# Best Practices
+
+* Use unique product codes and barcodes for each product.
+* Upload high-quality product images for better customer engagement.
+* Maintain accurate pricing and tax mapping before making products available for sale.
+* Use product properties consistently to improve search and filtering.
+* Configure multi-unit mappings carefully to ensure correct inventory calculations.
+* Add multilingual names and SEO information for products published on the online store.
+* Review product information regularly to keep inventory and pricing up to date.
+
+---
+
+# Summary
+
+The **Manage Products** module provides a complete solution for maintaining product information in CLOUDPOS. From basic details and pricing to product specifications, inventory settings, multilingual content, SEO, attachments, and tax configuration, all product-related data can be managed from a single interface, ensuring consistency across POS, Inventory, Accounting, and E-commerce modules.
