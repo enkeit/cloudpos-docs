@@ -1,22 +1,45 @@
 ---
 title: Kiosk Mode
-description: Self-service ordering kiosk for customers
+description: The self-service ordering kiosk screens in CloudPOS, what they contain, and their availability in the current app version.
 ---
 
 # Kiosk Mode
 
-Kiosk Mode turns the device into a self-service ordering terminal for customers.
+Kiosk Mode turns a device into a self-service ordering terminal for customers.
 
-## Enabling Kiosk Mode
+## Availability in the current version
 
-Kiosk Mode is activated from the Admin Panel under **Store Settings → Kiosk**. Once enabled, staff can launch it from the POS app sidebar.
+The kiosk screens are built into the app, but **no menu item opens them in the current version**. Staff cannot start kiosk mode from the side menu, the phone drawer or Settings. The description below explains what the kiosk contains so you know what to expect when it is enabled for your company.
+
+If you need a self-service kiosk today, contact your CloudPOS administrator.
 
 ## How Kiosk Works
 
 1. Customer browses the product catalog on the kiosk screen.
 2. They add items to their cart and proceed to checkout.
 3. Payment is processed (cash or card, depending on configuration).
-4. A receipt is printed and the order appears in the kitchen queue.
+4. The success screen shows the order number, and the customer can tap **Print receipt**.
+
+## The kiosk screens
+
+The customer goes through these screens in order:
+
+| Screen | What the customer sees and does |
+|---|---|
+| Welcome | A full-screen start page: **ORDER HERE**, **Tap to begin**, **Start order**. A language sheet lets the customer switch language. |
+| Catalogue (home) | **Browse our products**: categories across the top and product cards. It uses the store's current products, categories, prices and currency. |
+| Product options | Choose options and quantity for one product. If nothing is selected: "Go back and choose a product." |
+| Cart review | **Review your order**: **Your order**, **Items**, **Remove item**, **Subtotal**, **Included tax**, **Total**. An empty cart shows "Your order is empty". |
+| Order details | **Order details**: **Order type** ("How would you like to receive your order?"), **Delivery** with **Delivery address** (**Delivery charge applies** or **No extra charge**), **Vehicle number** for car pickup, **Add contact details**, then **Continue to payment**. |
+| Payment | **Choose a payment method** (**Select a payment method**), **Payable total**, **Secure payment**. |
+| Success | **Order complete!** "Thank you. Your order has been received." with the **ORDER NUMBER**, **Amount paid**, **Print receipt** and **Start new order**. |
+| Payment failure | Shown when payment does not go through, with a way back to try again. |
+
+Prices on the kiosk are the same tax-inclusive prices used at the counter.
+
+### Inactivity timeout
+
+If nobody touches the kiosk for **2 minutes**, a warning appears: "This order will reset in 15 seconds to protect your privacy." The customer can choose to continue. If nobody responds, the kiosk resets the session and returns to the first screen, ready for the next customer.
 
 ## FAQ & Policy Pages
 
@@ -25,8 +48,24 @@ The kiosk includes built-in pages for:
 - **Privacy Policy**
 - **Terms & Conditions**
 
-These pages are editable from the Admin Panel.
+The FAQ is loaded from the company FAQ list on the server, so the admin can edit it. Privacy Policy and Terms & Conditions are standard texts built into the app.
 
-## Exiting Kiosk Mode
+## Enabling and exiting Kiosk Mode
 
-To exit kiosk mode (staff only), tap the hidden exit button and enter the staff PIN.
+In the current version there is no switch, menu entry or staff exit control for the kiosk in the POS app. When a later version adds a way to start the kiosk, this page will describe how to turn it on and how staff leave it. Until then, the inactivity reset below is the only way a kiosk session ends on its own.
+
+## How it works
+
+- The kiosk uses the same product, category, cart, store and currency data as the counter. It does not need its own catalogue.
+- Kiosk orders are a separate sales channel. The dashboard's **Sales by Channel** chart already shows **POS**, **Web** and **Kiosk** separately.
+- Coupon codes on web and kiosk checkout are calculated by the server.
+
+## Related
+
+- [API: Products and categories](/docs/api/products-and-categories)
+- [API: Cart and orders](/docs/api/cart-and-orders)
+- [API: Payments, delivery and discounts](/docs/api/payments-delivery-discounts)
+- [Billing](/docs/pos-app/billing)
+- [Restaurant and kitchen](/docs/pos-app/restaurant-and-kitchen)
+- [Dashboard](/docs/pos-app/dashboard)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles)

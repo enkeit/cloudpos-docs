@@ -1,46 +1,432 @@
 ---
-title: Billing & Checkout
-description: How to create orders, add items to cart, and process payments
+title: Billing
+description: Ring up a sale in CloudPOS. Add products, pick a customer, set delivery, discount and payment, then confirm, print or send by WhatsApp.
 ---
 
-# Billing & Checkout
+# Billing
 
-The billing screen is the core of the POS. It is split into three panels:
+Billing is the main sales screen. You add products to the cart, choose a customer, set delivery, discount and payment, and then confirm the order. Most sales staff land here after sign-in.
 
-- **Left** — Product catalog and category browser
-- **Center** — Active cart / order items
-- **Right** — Payment summary and actions
+You open it from the side menu:
 
-## Adding Products to Cart
+- **Home** opens the standard billing screen (permission `menu.home.main.access`).
+- **Billing** opens the same screen in supermarket mode (permission `menu.supermarket.main.access`).
 
-1. Browse categories in the left panel or use the search bar.
-2. Tap a product to add it to the cart.
-3. Tap the cart item to adjust quantity, price, or apply a discount.
+Sales executives (`sales_executive`) land on **Billing** after sign-in. Users with the `restaurant_sales` role see the restaurant layout instead. See [Restaurant and kitchen](/docs/pos-app/restaurant-and-kitchen).
 
-## Applying Discounts & Coupons
+![Empty billing screen](media:billing-empty)
+*Home / Billing: the new-order screen with an empty cart*
 
-- Tap **Discount** on the price summary to enter a flat or percentage discount.
-- To apply a coupon, tap **Coupon** and enter or scan the coupon code.
+## Quick start: sell two buckets to a new customer
 
-## Selecting a Customer
+This is the demo sale used across these docs. Store "متجر النجمة Store", counter 11, prices in SAR.
 
-Tap the **Customer** field at the top of the cart to search and attach a customer. This enables loyalty points and saves purchase history.
+1. Scan or search **classic chicken bucket**. Tap it twice, or set **Qty** to 2. The price is 220.00 each.
+2. Add **crispy chicken bucket** once. The price is 218.00.
+3. Check the totals panel: net 658.00, tax 100.37.
+4. Open the customer picker. Tap **Add New Customer** and create Layla Al-Harbi (see [Customers](/docs/pos-app/customers)). She is selected automatically.
+5. Open payment. Enter card 400 and cash 300. The screen shows 42.00 excess. Leave **Excess Amount** off, so 42.00 is returned as change.
+6. Press **F6** (**Confirm and Print**) or open **Finalize Order** and press **Confirm Order** (**F2**).
+7. The app prints the receipt `2-11-261027-0003`. The server creates order ORD-004851, status CONFIRMED, payment Paid.
 
-## Payment
+![Cart with two items](media:billing-cart)
+*Billing with two items: tax-inclusive prices, per-line tax amount, totals panel (net, tax, total payable, paid, balance)*
 
-1. Tap **Pay** to open the payment modal.
-2. Select a payment method (Cash, Card, UPI, etc.).
-3. Enter the amount received and tap **Confirm**.
-4. A receipt will be printed or sent via WhatsApp.
+## Screen layout (desktop and tablet)
 
-## Delivery Methods
+The billing screen has four areas.
 
-For businesses with delivery, select a **Delivery Method** from the modal before completing payment. This logs the delivery address and method on the order.
+| Area | What it holds |
+|---|---|
+| Header | **New Order** / **Edit Order** title, customer field (**Enter mobile number**), customer balance, B2B/B2C selector (only when the `B2B` setting is on), keyboard show/hide, **Keyboard Shortcuts (Ctrl+H)** |
+| Product entry | **Search products** box, **Barcode** field, category panel, product grid |
+| Cart | The order lines table |
+| Right panel | Tabs **Products** and **Orders**, the totals panel and the action buttons |
 
-## Restaurant Mode
+### Product views
 
-In restaurant mode, the billing screen shows a **Tables Panel**. Select a table, take an order per seat, and send it to the kitchen as a KOT before final checkout.
+The product area has three views. Switch with the view buttons.
 
-## Pending / Saved Orders
+- **Grid view**: large tiles with image, name and price.
+- **List view**: one row per product with more detail.
+- **Compact view**: small tiles, more products per screen.
 
-Incomplete orders are saved as pending. Access them from the **Orders** tab in the bottom bar (mobile) or the **Pending Orders** sidebar (desktop).
+Each tile shows stock state. **Out of stock** means quantity 0. **Low stock** means the stock is at or under the reorder level.
+
+Use **Collapse categories** / **Expand categories** to hide or show the category panel. Tap a category to show only its products.
+
+### Cart columns
+
+| Column | Meaning |
+|---|---|
+| **#** | Line number |
+| **Item Name** | Product name (in the current language) |
+| **Item Code** | Only when `ITEM_CODE_ENABLED` is on |
+| **Unit** | Sale unit. You can pick another unit (pack, box) when `MULTI_SALE_UNIT_ENABLED` is on |
+| **Qty** | Quantity. Decimals are allowed for weighed items |
+| **Tax (%)** | Tax rate. Shown only when `SHOW_TAXRATE_POS` is on |
+| **Tax Amt** | Tax inside the line total. Shown only when `SHOW_TAX_POS` is on |
+| **MRP** | Maximum retail price. Shown only when `SHOW_MRP_POS` is on |
+| **Price** | Unit selling price, tax included |
+| **Total** | Price × Qty, tax included |
+| **Actions** | View details, purchase history, remove |
+
+In the demo cart the lines read: classic chicken bucket, Qty 2, Price 220.00, Tax Amt 67.12, MRP 250, Total 440.00; crispy chicken bucket, Qty 1, Price 218.00, Tax Amt 33.25, MRP 230, Total 218.00.
+
+### Totals panel
+
+The totals panel shows:
+
+- **Subtotal** and **Net Total** (tax included).
+- **Tax** (the tax already inside the prices).
+- **Discount** (when a discount or coupon is applied).
+- **Delivery Charge** (or **Free**).
+- **Total Payable**.
+- **Total Paid** and **Balance** (change or amount still due).
+
+For the demo cart: net 658.00, tax 100.37, total payable 658.00. See [Payments and tax](/docs/pos-app/payments-and-tax) for the maths.
+
+## Adding products
+
+### Search
+
+1. Click **Search products** (or press **Ctrl+S**).
+2. Type part of the name, barcode or item code.
+3. Press **Enter** or tap a result to add it.
+
+Search works on the products cached on this device, so it works offline. If no products show, use **Resync Products** in Settings.
+
+### Barcode scan
+
+1. Focus the **Barcode** field (**Ctrl+A** when barcode entry is enabled).
+2. Scan the label. The product is added with quantity 1.
+3. Scan again to add one more.
+
+When `BARCODE_SALES` is on, the screen is tuned for scanning. If the code is not found you see "Product with barcode … not found".
+
+### Weighed and counted items (embedded barcodes)
+
+Scale labels carry the quantity inside the barcode. The app reads two formats. Both start with `000` and end with a 5-digit payload.
+
+| Length | Layout | Use |
+|---|---|---|
+| 12 digits | `000` + 4-digit product code + 5-digit payload | Current format |
+| 14 digits | `000` + 6-digit product code + 5-digit payload | Older format |
+
+- For items sold by KG, the payload is grams. `01500` means 1.5 kg. `00725` means 0.725 kg.
+- For other items, the payload is a piece count. `00003` means 3 pieces.
+
+Example: barcode `000123401500` adds product code `1234` with quantity 1.500 kg.
+
+The app looks up the product code the same way as a normal barcode. To load products into the scale, use the **Weigh machine download** page. It exports products that have an SKU as `PLU.csv`. See [Products and stock](/docs/pos-app/products-and-stock).
+
+### Quick tiles and Select Price
+
+The **Orders** tab of the right panel shows your saved orders on top and quick-access products below. Quick-access products are products marked for quick access in the catalogue.
+
+Tapping a quick tile opens **Select Price for** the product. It shows fixed quick prices: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15 and 20 (in your currency). Pick one and the product is added at that price.
+
+![Select Price dialog](media:select-price)
+*Select Price dialog: quick price buttons shown when a quick-pick product is configured with price options*
+
+### Variants, units and stock batches
+
+- When `PRODUCT_VARIANT_ENABLED` is on, a product with variants opens **Select variant**. Pick one to add it.
+- When one product has several stock batches with different prices, a stock picker asks which batch to sell. Which fields split batches is set by the `STOCK_GROUPING_FIELDS` master data (default: price and unit).
+- Change the **Unit** of a line to sell a pack or box. The price follows the unit's price.
+
+### Zero-price and custom items
+
+Use **Add Product** (or **Add Item** on the product entry row) to add a line with your own name, **Quantity** and **Unit Price**. The dialog title is **Set Price & Quantity**.
+
+### Stock limits and oversell
+
+- `ALLOW_OVERSELL` is on by default. You can sell more than the stock on hand.
+- When it is off, quantity is limited to stock. Going over opens **Oversell approval required**. A user with approval can press **Approve & Add to Cart**.
+- When `POS_HIDE_NONSTOCK_PRODUCT` is on and stock tracking is enabled, products with zero stock are hidden.
+
+## Editing the cart
+
+- Change **Qty** with the steppers, or focus the row and press **+** or **-**.
+- Edit **Price** by clicking the price cell (or **Ctrl+P**). Users with `billing.product.edit` can also edit the product itself.
+- Remove a line with the remove icon or **Delete**.
+- Open product details with **View details** (needs `billing.product.view`).
+- **Clear Cart** (**F1**) empties the order.
+
+### Security key for clearing
+
+When `POS_AUTHENTICATE_CLEARCART` is on, clearing the cart, removing a line or deleting a saved order asks for a key. The dialog is **Security Key Required**: "Enter the 4-digit security key to …". The key is set by your admin in that setting's value.
+
+## Customer
+
+Every confirmed order needs a customer.
+
+1. Click the customer field, or press **F3** in Finalize Order.
+2. Search by name or phone ("Search by name or phone number...").
+3. Pick a customer. The card shows **B2C** or **B2B**, phone and balance.
+4. To add a new one, press **Add New Customer**.
+
+![Customer picker](media:billing-customer-picker)
+*Customer picker: search by name or phone, B2C/B2B badge, selected customer panel and Add New Customer*
+
+After you submit the form, the new customer is selected straight away.
+
+![New customer selected](media:customer-added)
+*New customer Layla Al-Harbi selected automatically, showing her phone and SAR 0.00 balance*
+
+Notes:
+
+- `AUTO_ASSIGN_DEFAULT_CUSTOMER` selects a walk-in customer by phone for you. With `HIDE_DEFAULT_PHONE` on (default), that phone is masked on prints.
+- `SKIP_CUSTOMER_SELECTION` skips the customer step in checkout.
+
+### Customer purchase history
+
+When `SHOW_CUSTOMER_LAST_BUYED_PRICE_LIST` is on, each cart row has a history icon. Click it, or focus the row and press **H**. **Customer purchase history** lists the last prices this customer paid for this product. Press **Use This** to apply an old price, or **Use Current Price** to keep the price.
+
+History is not shown for the default walk-in customer.
+
+## Finalize Order
+
+**Finalize Order** is the checkout dialog. It opens when you confirm (unless the skip settings are on). It has four steps, each with a function key.
+
+| Step | Key | What you set |
+|---|---|---|
+| Customer | **F3** | The customer (see above) |
+| Delivery | **F4** | Delivery method, address, car number, date, comment |
+| Discount | **F10** | Flat, percentage or coupon |
+| Payment | **F5** | Payment methods and amounts |
+
+The right side shows the **Order Summary**: items, net, tax, discount, delivery, previous balance and total payable.
+
+![Finalize Order](media:finalize-order)
+*Finalize Order: customer (F3), delivery (F4), discount (F10), payment (F5), order summary with previous balance, and Confirm / Confirm and Print / Confirm & Whatsapp*
+
+Use **Next**, **Back** and **Skip** to move between steps. Each step shows **Configured** or **Not Configured**.
+
+### Delivery (F4)
+
+1. Pick a method. The demo store has Toyou, Door Delivery, **Store Takeaway**, Car Delivery, Third Party logistics, Hungerstation and Dine In.
+2. Each method shows its price or **Free**.
+3. Fill extra fields when asked:
+   - **Car Number:** for car delivery.
+   - **Choose an address:** or **Address:** for door delivery. **Pincode** is required when `ECOMMERCE_ENABLED` is on.
+   - **Delivery Date:** and **Delivery Time:** when `ASK_DELIVERY_DATE` is on.
+4. Add a **Comment:** for special instructions.
+
+![Delivery methods](media:delivery-methods)
+*Delivery methods in Finalize: Toyou, Door Delivery, Store Takeaway, Car Delivery, Third Party logistics, Hungerstation, Dine In (with price or Free) and an order comment*
+
+`DEFAULT_DELIVERY_METHOD` preselects a method. The demo order used **Store Takeaway**.
+
+Delivery charges apply only when `FREE_DELIVERY_MINIMUM_AMOUNT` is enabled. See [Payments and tax](/docs/pos-app/payments-and-tax#delivery-charge).
+
+### Discount and coupon (F10)
+
+The **Discount & Coupon** panel is shown when `DISCOUNT_AND_COUPON` is on.
+
+1. Enter a **Flat Discount**, or a **Percentage Discount (%)**, or pick a coupon under **Select Coupon** ("Search by code or name...").
+2. Check **Net Total:**, **Discount Amount:** and **Total after Discount:**.
+3. Press **Apply Discount**. Use **Skip** to move on, or clear the values to remove the discount.
+
+![Discount and coupon](media:discount-coupon)
+*Discount & Coupon panel: flat discount, percentage discount or a coupon, with live total after discount*
+
+Rules:
+
+- A flat discount cannot be negative and cannot exceed the cart total.
+- A percentage cannot be negative or above 100%.
+- Coupons follow validity dates, limits and min/max order amounts. Lines with an offer are excluded.
+
+### Payment (F5)
+
+The payment dialog lists the methods from the `PAYMENT_METHOD` master data (the demo has Cash, Card and others). **Sell on Credit** is always added.
+
+1. Tick one or more methods. Each method has a shortcut: **Ctrl+1** to **Ctrl+5** select or focus methods 1 to 5.
+2. Type the amount received for each one ("Enter received amounts"). **Exact cash** fills the remaining amount in cash.
+3. Enter a **Transaction Reference** for card or online payments if needed (**Ctrl+6**).
+4. Watch **Remaining Amount** and **Excess Amount**.
+5. Press **Apply Payment Methods**.
+
+![Split payment](media:payment-split)
+*Payment dialog: split payment (card 400 + cash 300) with keyboard shortcuts, sell-on-credit remainder and 42.00 excess that can be kept as customer credit*
+
+#### Split payment example
+
+Total 658.00. Card 400 + cash 300 = 700.00. The excess is 42.00.
+
+- With **Excess Amount** off, the dialog says "SAR 42.00 will be returned as change unless customer credit is enabled." This is what the demo did.
+- Turn **Excess Amount** on (**Ctrl+7**) to keep 42.00 on the customer's account as credit ("Will be created as customer account credit"). **Ctrl+8** jumps to the credit amount field. This is the **Add To Customer Account** option. The opposite is **Return As Change**.
+
+The **Posting Preview** shows what will be saved: **Cash Posted:**, **Card Posted:**, **To Customer Credit:** and **Cash Balance:**.
+
+#### Sell on Credit
+
+Tick **Sell on Credit** to post the unpaid part to the customer's account. The amount is auto-calculated ("Amount Due (will be added to customer account)"). You can mix it with a part payment, for example 300 cash and 358 on credit.
+
+You cannot use **Sell on Credit** and **Add To Customer Account** together.
+
+#### Pine Labs
+
+When `PINELAB_PAYMENT` is on, a terminal method shows **Pay with Pine Labs**. The sale continues only after the terminal approves ("Paid with Pine Labs ✓").
+
+After payment, the header chip shows the method. With two methods it reads **Multi**. **Total Paid** and **Balance** update. Change is shown in red.
+
+![Ready to confirm](media:billing-ready)
+*Ready to confirm: customer Layla Al-Harbi, Multi payment, paid 700.00 against 658.00 with 42.00 change shown in red; history icon shows the customer's last purchase price*
+
+## Confirming the order
+
+| Button | Key | What it does | Hidden when |
+|---|---|---|---|
+| **Confirm Order** | **F2** | Confirms without printing | `SHOW_CONFIRM_ORDER_BUTTON` is off |
+| **Confirm and Print** / **Confirm & Print** | **F6** | Confirms and prints the receipt | `SHOW_CONFIRM_ORDER_AND_PRINT_BUTTON` is off |
+| **Confirm & Whatsapp** | – | Confirms and sends the receipt by WhatsApp | `SHOW_CONFIRM_WHATSAPP_BUTTON` is off (default) |
+| **Save Order** | **F8** | Holds the order without confirming | Never |
+| **Clear Cart** | **F1** | Empties the cart | Never |
+
+- `SKIP_CHECKOUT_ON_CONFIRM` and `SKIP_CHECKOUT_ON_CONFIRM_AND_PRINT` confirm straight away, without opening Finalize Order. The default delivery and payment are used.
+- `POS_PRINT_DOUBLE_BILL` prints two copies.
+- **Open cash drawer** (**Alt+D**) kicks the drawer through the receipt printer.
+
+### What happens after confirm
+
+The demo order produced:
+
+- Receipt number `2-11-261027-0003`, printed at once.
+- Order ORD-004851, status **CONFIRMED**, payment **Paid**.
+- Invoice INV-OR1002060, created automatically, ZATCA status **NOT SENT**.
+- Receipt RCP1001953 for the payment.
+
+Find the order in **Sales → Orders**. See [Sales and orders](/docs/pos-app/sales-and-orders).
+
+## Save Order (held orders)
+
+**Save Order** keeps the order without payment. Use it when a customer will come back.
+
+1. Press **Save Order** (**F8**). You see "Order Saved Successfully".
+2. The order appears in the **Orders** tab of the right panel.
+3. Tap it to load it back ("Order loaded for editing"). The header changes to **Edit Order**.
+4. Change items, then confirm as usual.
+
+**F9** is **Save / Offline Print**: online it saves the order; offline it saves and prints. **F7** (**Create New Order**) starts a fresh order.
+
+A saved order can be printed (**Print saved order**) or deleted (**Delete saved order**).
+
+## Shift not opened
+
+When `COMPULSORY_SHIFT_OPEN` is on, billing checks for an open shift. If none is open you see **Shift Not Opened**: "You must open a shift before starting sales." Press **Open Shift** to open one, or **Go Back**. See [Day close and shifts](/docs/pos-app/day-close-and-shifts).
+
+When `COMPULSORY_DAY_CLOSE_REGISTER` is on, the app asks at store selection whether to close a past business day that is still open (**Yes** opens Day Close, **No** continues to the app).
+
+## Keyboard shortcuts
+
+Press **Ctrl+H** for the full list.
+
+![Keyboard shortcuts](media:keyboard-shortcuts)
+*Keyboard Shortcuts (Ctrl+H): global, billing, cart, add-product, shared navigation and checkout shortcuts, plus the keyboard focus outline switch*
+
+| Group | Key | Action |
+|---|---|---|
+| Global | **Ctrl+H** | Open this help |
+| Global | **Ctrl+K** | Show or hide the on-screen keyboard |
+| Global | **Ctrl+D** | Focus the cart (first row, Item Name) |
+| Global | **Alt+D** | Open cash drawer |
+| Global | **Ctrl+A** | Focus the barcode input (when enabled) |
+| Global | **Ctrl+S** | Focus product search |
+| Billing | **F1** | Clear Cart |
+| Billing | **F2** | Confirm Order |
+| Billing | **F6** | Confirm and Print |
+| Billing | **F7** | Create New Order |
+| Billing | **F8** | Save Order |
+| Billing | **F9** | Save / Offline Print |
+| Billing | **F12** | Sidebar keyboard mode (Tab to cycle, Esc to exit) |
+| Cart | **Delete** | Remove the focused line |
+| Cart | **+ / -** | Change quantity |
+| Cart | **Ctrl+U** | Focus Unit |
+| Cart | **Ctrl+Q** | Focus Qty |
+| Cart | **Ctrl+P** | Focus Price |
+| Cart | **H** | Customer purchase history |
+| Checkout | **F3 / F4 / F10 / F5** | Customer / Delivery / Discount / Payment step |
+| Checkout | **F2 / F6** | Confirm Order / Confirm & Print |
+| Checkout | **F8 / F9** | Save Order / Save and Print |
+| Add product | **F9 / F8** | Save / Save & Create |
+| Add product | **F4** | Close |
+| Shared | **Tab**, **Shift+Tab**, arrows, **Enter**, **Esc** | Move, select, close |
+| Payment dialog | **Ctrl+1…5**, **Ctrl+6**, **Ctrl+7**, **Ctrl+8** | Methods, reference, excess toggle, credit amount |
+
+## Phone layout
+
+On phones, billing uses a bottom bar with four tabs:
+
+| Tab | Shows |
+|---|---|
+| **Market** | Products and categories |
+| **Billing** | Barcode and quick entry |
+| **Order** | Saved orders and quick tiles |
+| **Cart** | The cart, totals and **Proceed to Payment** |
+
+The checkout steps and rules are the same as on desktop.
+
+## How it works
+
+### Receipt numbers
+
+Each confirmed sale gets a receipt number on the device before it is sent:
+
+`store-counter-YYMMDD-sequence`
+
+- `store` is the store id (2 for "متجر النجمة Store").
+- `counter` is the POS counter number, two digits (11). Set it in **Settings → POS Counter Identity**. It must be unique in the store.
+- `YYMMDD` is the business date (261027 = 27 Oct 2026).
+- `sequence` is the daily sequence for this counter, four digits (0003).
+
+The sale also gets a hidden `client_sale_id` (UUIDv7). The server uses it to avoid duplicates. The receipt number is never replaced by the server order number (ORD-…).
+
+### Offline-first and online-first
+
+The `POS_OFFLINE_SALES` setting decides how **Confirm Order** works.
+
+| Mode | Setting | What happens |
+|---|---|---|
+| Offline-first | `POS_OFFLINE_SALES` on (default) | The sale is saved on the device with its receipt number. The receipt prints at once. The app sends it to the server once in the background. |
+| Online-first | `POS_OFFLINE_SALES` off | The app waits for the server. If accepted, the cart clears and the receipt prints. If rejected, the cart stays so you can fix it. If the answer is unclear, the cart clears without printing and the sale is flagged for review. |
+
+Sales that did not reach the server appear in **Sales → Confirmed Orders**. There is no automatic retry. Open that list and press **Sync with Database**. See [Sales and orders](/docs/pos-app/sales-and-orders).
+
+### Settings that change billing
+
+| Setting | Effect |
+|---|---|
+| `BARCODE_SALES` | Barcode scan mode |
+| `SHOW_TAX_POS`, `SHOW_MRP_POS`, `SHOW_TAXRATE_POS`, `ITEM_CODE_ENABLED` | Extra cart columns |
+| `SHOW_CONFIRM_ORDER_BUTTON`, `SHOW_CONFIRM_ORDER_AND_PRINT_BUTTON`, `SHOW_CONFIRM_WHATSAPP_BUTTON` | Which confirm buttons show |
+| `SKIP_CHECKOUT_ON_CONFIRM`, `SKIP_CHECKOUT_ON_CONFIRM_AND_PRINT` | Confirm without Finalize Order |
+| `SKIP_CUSTOMER_SELECTION`, `AUTO_ASSIGN_DEFAULT_CUSTOMER`, `HIDE_DEFAULT_PHONE` | Customer step |
+| `DEFAULT_DELIVERY_METHOD`, `DEFAULT_PAYMENT_METHOD` | Preselected delivery and payment |
+| `ASK_DELIVERY_DATE`, `ECOMMERCE_ENABLED`, `FREE_DELIVERY_MINIMUM_AMOUNT` | Delivery fields and charges |
+| `DISCOUNT_AND_COUPON`, `POS_OFFERS`, `PRICE_ROUND_OFF` | Discounts, offers, rounding |
+| `ALLOW_OVERSELL`, `POS_HIDE_NONSTOCK_PRODUCT` | Stock limits |
+| `POS_AUTHENTICATE_CLEARCART` | Security key for clear and remove |
+| `COMPULSORY_SHIFT_OPEN`, `COMPULSORY_DAY_CLOSE_REGISTER` | Shift and day close gates |
+| `POS_OFFLINE_SALES` | Offline-first or online-first confirm |
+| `POS_PRINT_DOUBLE_BILL` | Two receipt copies |
+| `PINELAB_PAYMENT` | Pine Labs terminal |
+| `B2B` | B2B/B2C selector and B2B printer profile |
+
+Full list with defaults: [Settings reference](/docs/pos-app/settings-reference).
+
+## Related
+
+- API: [Cart and orders](/docs/api/cart-and-orders)
+- API: [Payments, delivery and discounts](/docs/api/payments-delivery-discounts)
+- API: [Products and categories](/docs/api/products-and-categories)
+- API: [Customers](/docs/api/customers)
+- API: [Settings and master data](/docs/api/settings-and-master-data)
+- API: [Sync and realtime](/docs/api/sync-and-realtime)
+- [Payments and tax](/docs/pos-app/payments-and-tax)
+- [Customers](/docs/pos-app/customers)
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Quotations and proforma](/docs/pos-app/quotations-and-proforma)
+- [Printing](/docs/pos-app/printing)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Troubleshooting FAQ](/docs/pos-app/troubleshooting-faq)

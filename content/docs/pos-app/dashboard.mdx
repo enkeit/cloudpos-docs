@@ -1,29 +1,226 @@
 ---
 title: Dashboard
-description: Understanding the POS app dashboard and sales overview
+description: The CloudPOS dashboards for sales executives, company admins and suppliers, every card and graph, the data behind it and the permissions that show or hide it.
 ---
 
 # Dashboard
 
-The Dashboard gives a real-time snapshot of business performance.
+The dashboard is the first screen a company admin sees after login. Sales executives open it from the **Dashboard** menu item. It shows sales, money in cash and bank, customers, products, ZATCA status and team activity for the chosen period.
 
-## What's on the Dashboard
+You need the permission `menu.dashboard.main.access` to see the **Dashboard** menu item.
 
-- **Today's Sales** — Total revenue for the current day
-- **Orders Count** — Number of invoices processed
-- **Top Products** — Best-selling items by quantity or revenue
-- **Sales Chart** — Line chart showing sales trend over the past 7 or 30 days
-- **Low Stock Alerts** — Products that need restocking
+## Which dashboard you get
 
-## Role-Based Views
+The app picks the dashboard by your role.
 
-| Role | Dashboard View |
-|------|---------------|
-| Admin | Full company overview |
-| Store Manager | Store-level metrics |
-| Sales Executive | Personal sales summary |
-| Cashier | Today's session summary |
+| Role | Dashboard | Title on screen |
+|---|---|---|
+| `sales_executive`, `restaurant_sales` | Sales executive dashboard | **Sales Executive Dashboard** |
+| `supplier` | Supplier dashboard | **Supplier Dashboard** |
+| Every other role (for example `company_admin`, `purchase_manager`) | Company admin dashboard | company dashboard |
 
-## Refreshing Data
+Only `company_admin` lands on the dashboard straight after login. Other roles land on their work screen (Billing, Restaurant, Attender or Kitchen Master) and open the dashboard from the menu.
 
-Pull down on the dashboard to refresh. Data syncs automatically every few minutes when connected to the internet.
+## Choosing the period
+
+1. Find the period selector at the top right, next to the date.
+2. Pick **Today**, **This Week**, **This Month** or **This Year**.
+3. The dashboard reloads every period-based card.
+
+The starting period comes from the company setting `DASHBOARD_DEFAULT_PERIOD` (`today`, `week`, `month` or `year`). If the setting is missing, the dashboard starts on **Today**.
+
+How the dates are worked out:
+
+| Period | Start date | End date |
+|---|---|---|
+| Today | today | today |
+| This Week | 7 days ago | today |
+| This Month | first day of this month | today |
+| This Year | 1 January this year | today |
+
+## The sales executive dashboard
+
+This is what a sales executive such as salesexecutiv2 at store "متجر النجمة Store" sees. The header says **Welcome, salesexecutiv2!** (or **Welcome back!** if the name is not loaded).
+
+![Sales executive dashboard](media:dashboard)
+*Sales Executive Dashboard: failed ZATCA banner, sales overview and company account overview*
+
+The sections, from top to bottom:
+
+### Failed Zatca Invoice banner
+
+A red banner titled **Failed Zatca Invoice** with the subtitle **Tap to review and resend.** and a count.
+
+- It shows only when ZATCA Phase 2 is on (`ZATCA_PHASE_2`) and the count is above 0.
+- It shows only if you have the invoice permission `menu.transactions.invoice.access`.
+- Tap it to open **Transactions → Invoice**, where you can resend failed invoices.
+- In the demo the banner showed **323**.
+
+The count is the number of invoices with ZATCA status failed (`GET /api/v1/invoice/list-invoices?zatca_status=failed`). The banner loads its own count. If the first try fails, it retries once after 5 seconds.
+
+### Sales Overview
+
+Six cards for the chosen period:
+
+| Card | What it shows | Demo (Today) |
+|---|---|---|
+| **Count** | number of sales in the period | 2 |
+| **Amount** | value of sales in the period, with currency | SAR 410 |
+| **Customers** | customers who bought in the period | 1 |
+| **Products** | total products in the catalogue | 4874 |
+| **Revenue** | all-time sales value | SAR 1,866,557.25 |
+| **Orders** | all-time order count | 4651 |
+
+These come from `GET /api/v1/dashboard`. The response has `total_sales.today`, `.week`, `.month` and `.year`, each with `total_sales`, `total_customers` and `total_amount`, plus all-time `count` and `total`, and `total_products`.
+
+### Company Account Overview
+
+![Account and activity cards](media:dashboard-activity)
+*Dashboard: company account overview and activity overview cards*
+
+Cards for **Bank Account** (money received into bank), **Cash Account** (cash received), **Total Revenue**, **Total Customers** and **Total Orders**.
+
+Data: `GET /api/v1/dashboard/company-overview?start_date=&end_date=`.
+
+### Activity Overview
+
+Small cards: **Catalog Products**, **Products Added Today**, **Products Added This Week**, **Products Added This Month**, **New Orders**, **New Customers**. Same data source as the account overview (`products.*`, `orders.new_orders`, `customers.new_customers`).
+
+### ZATCA Overview and Your Account Overview
+
+![ZATCA overview](media:dashboard-zatca)
+*Dashboard: ZATCA overview for invoices and vouchers, and your own cash/bank overview*
+
+**ZATCA Overview** has two groups, **Invoice ZATCA** and **Voucher ZATCA**. Each has four cards:
+
+| Card | Meaning |
+|---|---|
+| **Successfully sent** | accepted by ZATCA |
+| **Not sent** | waiting to be submitted |
+| **Failed** | needs attention; resend from the invoice or voucher list |
+| **Warning** | accepted with warnings; review required |
+
+In the demo, **Not sent** showed 3 invoices. This section shows only when ZATCA Phase 2 is on. Use the refresh icon (**Refresh ZATCA overview**) to reload it. Data: `GET /api/v1/dashboard/zatca-overview` for the chosen period.
+
+**Your Account Overview** shows four cards: **Cash Received**, **Cash Sent**, **Bank Received** and **Bank Sent**.
+
+### Your Sales Performance and customers
+
+![Sales performance](media:dashboard-performance)
+*Dashboard: your sales performance, your customers (debit, credit, VVIP) and product overview*
+
+**Your Sales Performance:** **Today's Sales**, **This Week**, **This Month** and **Total Sales**.
+
+**Customers:** **Total Customers**, **Debit Customers** (customers who owe money), **Credit Customers** (customers with balance in their favour) and **Crucial Customers** (VVIP clients). Data: `GET /api/v1/dashboard/customer-stats?period=&start_date=&end_date=`.
+
+### Product Overview and Category Overview
+
+![Product and category overview](media:dashboard-products)
+*Dashboard: product breakdown (inactive, sellable, purchasable, taxable) and category overview*
+
+**Product Overview:** **Total Products**, **Active Products**, **Low Stock**, **Total Stock Qty**, **Inactive Products**, **Sellable Products**, **Purchasable Products**, **Taxable Products**, **Non-Taxable Products**, **Products In Stock**.
+
+**Category Overview:** total, sellable, purchasable, taxable and non-taxable categories.
+
+Data: `GET /api/v1/dashboard/products-stats`.
+
+### Works Team, Sales Graph, Orders and Customers
+
+![Graphs](media:dashboard-graphs)
+*Dashboard: works team, hourly sales graph and orders & customers graph*
+
+- **Works Team:** the team members returned with the dashboard data (name, email, phone).
+- **Sales Graph:** sales over time. It has its own selector: **Today**, **This Week**, **This Month**. Data: `GET /api/v1/dashboard/executive-sales-graph?period=`.
+- **Orders & Customers:** monthly orders and new customers for the current year. Data: `GET /api/v1/dashboard/orders-graph?year=` and `GET /api/v1/dashboard/customers-graph?year=`.
+- **Sales by Channel:** sales split by **POS**, **Web** and **Kiosk**. Data: `GET /api/v1/dashboard/sales-stats`.
+- **Sales Executive Overview:** **Total Executives** and **Sales per Executive** graph. Data: `GET /api/v1/dashboard/executives-overview?start_date=&end_date=`.
+
+### Extra widgets
+
+At the bottom, each with its own refresh button (**Refresh widget**):
+
+| Widget | Cards or columns | Endpoint |
+|---|---|---|
+| **Orders Summary** | **Orders Today**, **Average Order Amount** | `dashboard/orders-widget` |
+| **Latest Orders** | **Order ID**, **Date**, **Customer**, **Status**, **Total** | `dashboard/latest-orders` |
+| **Customer Transactions Summary** | **Total Customers**, **Total Credit**, **Total Debit**, **Balance** | `dashboard/customer-transactions-summary` |
+| **Revenue Stats** | **Total On Order**, **Credit Collected**, **Credit Sales**, **Total In Bank**, **Total In Cash** | `dashboard/revenue-stats` |
+| **Suppliers Graph** | supplier activity graph | `dashboard/suppliers-graph` |
+
+If a widget fails, it shows **Could not load this widget.** The rest of the dashboard keeps working.
+
+## The company admin dashboard
+
+The admin dashboard uses the same building blocks in this order:
+
+1. **Failed Zatca Invoice** banner.
+2. **Sales Overview** cards (Count, Amount, Customers, Products, Revenue, Orders).
+3. **Company Account Overview**: **Bank Accounts** (**Total Bank Balance**), **Cash Accounts** (**Total Cash Balance**), **Total Revenue** (**Overall Revenue**), **Total Customers** (**Active Customers**), **Total Orders** (**Completed Orders**).
+4. **ZATCA Overview**.
+5. **Product Overview**: **Total Products**, **Active Products** (**Currently Selling**), **Low Stock** (**Needs Attention**), **Total Stock Qty** (**Overall Inventory**), **Sellable Products** (**Ready for Sale**).
+6. **Customer Overview**: **All Customers**, **Debit Customers** (**Pending Payments**), **Credit Customers** (**Balance Available**), **Crucial Customers** (**VVIP Clients**), **New Customers** (**Added Today**).
+7. **Sales Executive Overview**: **Total Executives**, **Total Sales** and a sales trend.
+8. Sales graphs and the extra widgets.
+9. **Works Team**.
+
+## The supplier dashboard
+
+Title **Supplier Dashboard**. It shows:
+
+- **Supplier Overview**: **Total Suppliers** and **New Suppliers** (`dashboard/suppliers-overview`).
+- **Supplier Purchase Graph** (`dashboard/suppliers-purchase-graph`).
+- **Supplier Transactions Graph** (`dashboard/supplier-transactions-graph`).
+- **Supplier Credit/Balance Graph** (`dashboard/supplier-credit-balance`).
+- The **Suppliers Graph** widget.
+
+## Widget permissions
+
+Every card checks a permission before it shows. Nothing restricted appears until the role list has loaded. If you cannot see a card, ask the admin to tick it in **Admin Panel → Roles → Dashboard Widgets**.
+
+There are two forms:
+
+- Whole widget: `dashboard.widgets.<widget>.access`
+- One card: `dashboard.widgets.<widget>.<field>.access`
+
+| Widget | Whole-widget permission | Card permissions used by the app |
+|---|---|---|
+| Company overview | `dashboard.widgets.company_overview.access` | `bank_account.received_amount`, `bank_account.sent_amount`, `cash_account.received_amount`, `cash_account.sent_amount`, `revenue.total_sales`, `customers.total_customers`, `customers.new_customers`, `orders.total_orders`, `orders.new_orders`, `products.total`, `products.added_today`, `products.added_week`, `products.added_month` |
+| Products stats | `dashboard.widgets.products_stats.access` | `total_products`, `active_products`, `low_stock`, `total_products_stock_qty`, `inactive_products`, `sellable_products`, `purchasable_products`, `taxable_products`, `non_taxable_products`, `products_in_stock`, `total_category`, `sellable_category`, `purchasable_category`, `taxable_category`, `non_taxable_category` |
+| Customer stats | `dashboard.widgets.customer_stats.access` | `total_customers`, `debit_customers`, `credit_customers`, `crucial_customers` |
+| Executives overview | `dashboard.widgets.executives_overview.access` | `total_executives`, `sales_executive_graph` |
+| ZATCA overview | `dashboard.widgets.zatca_overview.access` | `success_zatca`, `not_sent`, `failed`, `warning`, `voucher_success`, `voucher_not_sent`, `voucher_failed`, `voucher_warning` |
+| Orders widget | `dashboard.widgets.orders_widget.access` | `total_orders_today`, `average_order_amount` |
+| Customer transactions summary | `dashboard.widgets.customer_transactions_summary.access` | `total_customers`, `total_credit`, `total_debit`, `total_balance` |
+| Suppliers overview | `dashboard.widgets.suppliers_overview.access` | `suppliers.total_suppliers`, `suppliers.new_suppliers` |
+| Latest orders | `dashboard.widgets.latest_orders.access` | – |
+| Orders graph | `dashboard.widgets.orders_graph.access` | – |
+| Customers graph | `dashboard.widgets.customers_graph.access` | – |
+| Executive sales graph | `dashboard.widgets.executive_sales_graph.access` | – |
+| Sales stats | `dashboard.widgets.sales_stats.access` | – |
+| Revenue stats | `dashboard.widgets.revenue_stats.access` | – |
+| Suppliers graph | `dashboard.widgets.suppliers_graph.access` | – |
+| Suppliers purchase graph | `dashboard.widgets.suppliers_purchase_graph.access` | – |
+| Supplier transactions graph | `dashboard.widgets.supplier_transactions_graph.access` | – |
+| Supplier credit balance | `dashboard.widgets.supplier_credit_balance.access` | – |
+
+A section is hidden completely when you have none of its card permissions. The backend also defines `dashboard.widgets.section.access` as the parent entry of these widget permissions.
+
+## How it works
+
+- **Figures are server-side.** The dashboard shows what the server returns for the active store and your sign-in. Offline sales that have not synced yet (see **Sales → Confirmed Orders**) are not counted until they reach the server.
+- **Reload on period change.** Changing the period always refetches; cached figures are not reused, so the numbers match the selected period.
+- **Timeouts.** Each call waits up to 15 seconds. A failed call leaves its section empty or shows **No data available**; the other sections still load.
+- **Currency.** Money cards use the company `CURRENCY` setting (SAR in the demo).
+- **ZATCA sections** depend on `ZATCA_PHASE_2`. With Phase 2 off, the banner and the ZATCA overview are hidden.
+
+## Related
+
+- [API: Dashboard](/docs/api/dashboard)
+- [API: ZATCA](/docs/api/zatca)
+- [API: Settings and master data](/docs/api/settings-and-master-data)
+- [API: Overview](/docs/api)
+- [Reports](/docs/pos-app/reports)
+- [ZATCA](/docs/pos-app/zatca)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles)
+- [Settings reference](/docs/pos-app/settings-reference)

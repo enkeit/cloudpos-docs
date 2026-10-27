@@ -1,0 +1,525 @@
+---
+title: Transactions, Invoices and Receipts API
+description: Invoices (with ZATCA status filters), receipts, customer vouchers, the customer ledger, company accounts and expenses (general payments).
+---
+
+# Transactions, Invoices and Receipts API
+
+These endpoints power the **Transactions** menu (**Invoice**, **Receipts**, **Customer Voucher**, **Proforma Invoice**, **Expense**), **Party Accounts > Customer Transactions**, the **Customer Transaction Reports** and the cash/bank figures on the dashboard.
+
+All paths are relative to `{{server}}`. Send `X-Tenant: <your-tenant-key>`, `Authorization: Bearer <access-token>` and `Content-Type: application/json`. Most calls add `store_id` = the active store.
+
+## How a sale shows up here
+
+When the demo order **ORD-004851** (receipt number `2-11-261027-0003`, total 658.00, tax 100.37) was confirmed, the server created automatically:
+
+- invoice **INV-OR1002060** for 658.00, linked to the offline receipt number, ZATCA status **NOT SENT**;
+- receipt **RCP1001953** with the payment breakdown **cash 258.00 + card 400.00** (cash is stored net of the 42.00 change);
+- ledger lines for the customer (invoice debit, receipt credits) and a cost-of-goods line.
+
+Invoice, receipt and voucher numbers use the company prefixes `INVOICE_PREFIX` (INV), `RECEIPT_PREFIX` (RCP) and `VOUCHER_PREFIX` (VCH).
+
+## Endpoint summary
+
+| Method | Path | Used by |
+|---|---|---|
+| GET | `/api/v1/invoice/list-invoices` | **Invoice List** (with ZATCA filter) |
+| GET | `/api/v1/invoice/invoice-details/{id}` | Invoice view, share, print |
+| POST | `/api/v1/invoice/invoice-create` | Create invoice (manual) |
+| GET | `/api/v1/receipt/list-receipts` | **Receipt List** |
+| GET | `/api/v1/receipt/receipt-details/{id}` | Receipt view |
+| POST | `/api/v1/receipt/create-receipt` | **Create Receipt** |
+| GET | `/api/v1/voucher/vouchers-list` | **Customer Voucher List** |
+| POST | `/api/v1/voucher/vouchers-create` | **Create Voucher** |
+| GET | `/api/v1/transaction/list-transactions` | Customer Transaction Reports (grouped per customer) |
+| GET | `/api/v1/transaction/transaction-details/{id}` | Transaction Details |
+| GET | `/api/v1/accounts/company-accounts` | Company accounts (cash/bank totals) |
+| GET | `/api/v1/general-payment/list-general-payments` | **Expenses** list |
+| GET | `/api/v1/general-payment/account-options` | Create Expense: debit/credit account pickers |
+| POST | `/api/v1/general-payment/create-general-payment` | **Create Expense** |
+
+The customer ledger (`/transaction/customer-transactions`) is documented in [Customers API](/docs/api/customers). ZATCA print, resync and bulk send are in [ZATCA API](/docs/api/zatca).
+
+## GET /api/v1/invoice/list-invoices
+
+| Name | Type | Notes |
+|---|---|---|
+| `name` (or `customer_name`) | string | Customer name |
+| `phone` (or `customer_phone`) | string | Customer phone |
+| `customer_id` | integer | One customer |
+| `invoice_number` | string | Partial match |
+| `order_number` (or `order_reference`, `receipt_number`) | string | Server order number **or** printed offline receipt number |
+| `type` | string | Invoice type, for example `order` |
+| `zatca_status` | string | `sent`, `not_sent` or `failed` (see below) |
+| `date_from`, `date_to` | date | Uses the linked transaction date (or the invoice's own date); the app's **Today** chip sends today for both |
+| `per_page` | integer | Default 20 (the app uses up to 1000 for export) |
+| `page` | integer | Page |
+| `store_id` | integer | Active store |
+
+ZATCA filter values:
+
+| UI filter | Sent as | Server meaning |
+|---|---|---|
+| Sent / Success | `sent` | Has a successful ZATCA submission |
+| Not Sent | `not_sent` | Never submitted |
+| Failed | `failed` | Has a failed submission and no successful one |
+
+### Response
+
+```json
+{
+  "status": "success",
+  "message": "Invoices listed successfully",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 6816,
+        "invoice_number": "INV-OR1002060",
+        "type": "order",
+        "amount": "658.000",
+        "total_tax": "100.370",
+        "total_discount": "0.000",
+        "invoice_date": "2026-10-27",
+        "due_date": "2026-10-27",
+        "customer_id": 2767,
+        "customer_name": "Layla Al-Harbi",
+        "paid_amount": "658.00",
+        "balance_amount": 0,
+        "order_number": "ORD-004851",
+        "receipt_number": "2-11-261027-0003",
+        "client_sale_id": "<uuid-v7>",
+        "zatca_status": { "status": "not_sent", "zatca_status": null }
+      }
+    ],
+    "per_page": 20,
+    "last_page": 1,
+    "total": 1
+  }
+}
+```
+
+*Illustrative row for the demo invoice (the captured response for its filter was empty). `paid_amount` is the sum of paid receipt payments; `balance_amount` = amount − paid.*
+
+`zatca_status.status` is the latest submission's state (`success`, `failed`…) or `not_sent`; `zatca_status.zatca_status` is ZATCA's own reporting/clearance result.
+
+## GET `/api/v1/invoice/invoice-details/{id}`
+
+Returns the invoice with its customer, `invoice_items` and the order references.
+
+```json
+{
+  "status": "success",
+  "message": "Invoice details retrieved successfully",
+  "data": {
+    "id": 6816,
+    "invoice_number": "INV-OR1002060",
+    "amount": "658.000",
+    "total_tax": "100.370",
+    "order_number": "ORD-004851",
+    "receipt_number": "2-11-261027-0003",
+    "invoice_items": [
+      { "item_name": "classic chicken bucket", "quantity": "2.000", "unit_amount": "186.441", "tax": "67.12", "total_amount": "440.000" },
+      { "item_name": "crispy chicken bucket", "quantity": "1.000", "unit_amount": "184.746", "tax": "33.25", "total_amount": "218.000" }
+    ],
+    "customer": { "id": 2767, "user": { "name": "Layla Al-Harbi", "phone": "0551234567" } }
+  }
+}
+```
+
+*Illustrative, trimmed. Line tax follows the tax-inclusive rule: 440 × 18 ÷ 118 = 67.12 and 218 × 18 ÷ 118 = 33.25.* Not found → `"Invoice not found"`.
+
+## POST /api/v1/invoice/invoice-create
+
+Creates a manual invoice (not from an order).
+
+| Field | Required | Notes |
+|---|---|---|
+| `customer_id` | yes | Customer |
+| `type` | yes | `order` or `other` |
+| `invoice_date`, `due_date` | yes | Dates |
+| `amount` | yes | Total |
+| `status` | yes | `paid`, `pending` or `overdue` |
+| `payment_method` | when `status` is `paid` | `PAYMENT_METHOD` id |
+| `invoice_items` | yes | `[{item_name, unit_amount, tax, quantity, total_amount}]`; optional `tax_rate`, `tax_amount`, `unit_amount_includes_tax` |
+| `coupon_id`, `flat_discount`, `percentage_discount`, `discount_amount` | no | Discount, sent only when used |
+
+```json
+{
+  "customer_id": 2767,
+  "type": "other",
+  "due_date": "2026-11-03",
+  "invoice_date": "2026-10-27",
+  "amount": 236.0,
+  "status": "pending",
+  "payment_method": "<payment-method-id>",
+  "invoice_items": [
+    { "item_name": "Catering service", "unit_amount": 200, "tax": 18, "quantity": 1, "total_amount": 236 }
+  ]
+}
+```
+
+Validation errors → **422** `{"status":false,"message":"<first error>","errors":{...}}`. The app also blocks this call when the company subscription is blocked.
+
+## GET /api/v1/receipt/list-receipts
+
+| Name | Type | Notes |
+|---|---|---|
+| `date_from`, `date_to` | date | Created date, in the company time zone |
+| `per_page` | integer | Default 20 |
+| `page` | integer | Page |
+| `store_id` | integer | Sent by the app |
+
+The other filters on the **Receipt List** (receipt, order or offline receipt number, reference, name, phone, email, status, method) are applied in the app after loading. Payment method ids are converted to names (`CASH`, `CARD`…).
+
+```json
+{
+  "status": "success",
+  "message": "Receipts listed successfully",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 5970,
+        "receipt_number": "RCP1001953",
+        "amount": "658.000",
+        "receipt_status": "paid",
+        "payment_reference": null,
+        "customer_id": 2767,
+        "company_id": 2,
+        "receipt_payments": [
+          { "invoice_id": 6816, "payment_method": "CASH", "paid_amount": "258.00", "status": "paid", "payment_date": "2026-10-27", "order_number": "ORD-004851", "offline_receipt_number": "2-11-261027-0003" },
+          { "invoice_id": 6816, "payment_method": "CARD", "paid_amount": "400.00", "status": "paid", "payment_date": "2026-10-27", "order_number": "ORD-004851", "offline_receipt_number": "2-11-261027-0003" }
+        ],
+        "company": { "id": 2, "name": "FUNZCART", "timezone": "Asia/Riyadh" },
+        "customer": { "id": 2767, "customer_type": "B2C", "user": { "name": "Layla Al-Harbi", "phone": "0551234567" } }
+      }
+    ],
+    "per_page": 20
+  }
+}
+```
+
+*Shape from a captured response (RCP1001952); values are the demo receipt. The real `company` object is larger and its tenant key is never shown in the app.*
+
+## GET `/api/v1/receipt/receipt-details/{id}`
+
+Returns one receipt with `company`, `customer.user` and `receipt_payments`. Not found → `"Receipt not found"`.
+
+## POST /api/v1/receipt/create-receipt
+
+Records money received from a customer, against invoices or as a general receipt.
+
+**Used by:** Receipt List > **Create Receipt**.
+
+| Field | Required | Notes |
+|---|---|---|
+| `customer_id` | yes | Customer |
+| `store_id` | no | The app always sends the active store |
+| `receipt_status` | yes | `paid`, `pending` or `cancelled` |
+| `payment_reference` | no | Bank/card reference |
+| `receipt_items` | yes | At least one |
+| `receipt_items.*.item_type` | yes | `invoice` (needs `invoice_id`) or `general` (needs `description`) |
+| `receipt_items.*.invoice_id` | for invoice | Invoice |
+| `receipt_items.*.paid_amount` | yes | ≥ 0 |
+| `receipt_items.*.status` | yes | `paid`, `refunded` or `waive` |
+| `receipt_items.*.payment_date` | yes | Date |
+| `receipt_items.*.payment_method` | no | `PAYMENT_METHOD` id |
+| `receipt_items.*.description` | for general | Text |
+
+```json
+{
+  "customer_id": "2767",
+  "store_id": 2,
+  "receipt_status": "paid",
+  "payment_reference": "TXN-55120",
+  "receipt_items": [
+    { "item_type": "invoice", "invoice_id": 6830, "paid_amount": 236, "status": "paid", "payment_date": "2026-10-27", "payment_method": "<card-id>" }
+  ]
+}
+```
+
+Rules:
+
+- **409** `"A paid receipt already exists for Invoice #… Cannot create another."` when the invoice is fully paid.
+- **409** `"The entered amount is greater than the balance amount"` when paying more than is due.
+- **422** with the first validation error in `message`.
+- Invoices are locked while the receipt is created, so two counters cannot over-pay the same invoice.
+
+## GET /api/v1/voucher/vouchers-list
+
+Customer vouchers: refunds and credit notes paid back to customers (sales-return refunds appear here as type `sales_return`).
+
+| Name | Type | Notes |
+|---|---|---|
+| `customer_id` | integer | Customer |
+| `voucher_number` | string | Voucher number |
+| `type` | string | `order`, `discount`, `sales_return`, `other` |
+| `status` | string | `paid`, `pending`, `overdue` |
+| `date_from`, `date_to` | date | Voucher date |
+| `page`, `per_page` | integer | The app sends `page=1&per_page=1000` |
+| `store_id` | integer | Active store |
+
+This endpoint uses `status: true` (boolean) and a flat `data` array.
+
+```json
+{
+  "status": true,
+  "message": "List Purchase Voucher successfully",
+  "data": [
+    {
+      "id": 655,
+      "voucher_number": "1000662",
+      "voucher_date": "2026-10-27",
+      "due_date": "2026-10-27",
+      "invoice_id": 6816,
+      "transaction_id": 20060,
+      "type": "sales_return",
+      "amount": "220.000",
+      "status": "paid",
+      "payment_method": "CASH",
+      "customer_id": 2767,
+      "store_id": 2,
+      "order_id": 7037,
+      "created_by": { "id": 516, "name": "salesexecutiv2" },
+      "customer": { "id": 2767, "customer_type": "B2C", "user": { "name": "Layla Al-Harbi" } }
+    }
+  ]
+}
+```
+
+*Shape from a captured response; values are the demo refund (illustrative ids).*
+
+## POST /api/v1/voucher/vouchers-create
+
+| Field | Required | Notes |
+|---|---|---|
+| `customer_id` | yes | Customer |
+| `type` | yes | `order`, `discount`, `sales_return` or `other` (UI: Order, Discount, Sales Return, Other) |
+| `amount` | yes | ≥ 0 |
+| `voucher_date`, `due_date` | yes | Dates |
+| `status` | yes | `paid`, `pending` or `overdue` |
+| `payment_method` | no | `PAYMENT_METHOD` id |
+| `voucher_items` | yes | `[{item_name, unit_amount, tax, quantity, total_amount}]` (quantity ≥ 0.001) |
+
+```json
+{
+  "type": "discount",
+  "amount": 50.0,
+  "voucher_date": "2026-10-27",
+  "due_date": "2026-10-27",
+  "status": "paid",
+  "payment_method": "<cash-id>",
+  "customer_id": 2767,
+  "voucher_items": [
+    { "item_name": "Goodwill discount", "unit_amount": 50, "tax": 0, "quantity": 1, "total_amount": 50 }
+  ]
+}
+```
+
+Errors → `{"status":false,"message":"<first error>","errors":{...}}`. With ZATCA Phase 2 on, vouchers are printed and resynced through the ZATCA voucher endpoints.
+
+## GET /api/v1/transaction/list-transactions
+
+Ledger grouped by customer, with total debit, total credit and balance.
+
+**Used by:** Reports > **Customer Transaction Reports** (and its **View** ledger).
+
+| Name | Type | Notes |
+|---|---|---|
+| `customer_id` | integer | One customer |
+| `customer_name` | string | Partial name |
+| `transaction_type` | string | `Invoice`, `Receipt`, `Voucher`, `COGS`… |
+| `type` | string | `Debit` or `Credit` |
+| `date_from`, `date_to` | date | Inclusive |
+| `page` | integer | Page |
+| `store_id` | integer | Active store |
+
+```json
+{
+  "status": "success",
+  "message": "Transaction listed successfully",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "customer_id": 2527,
+        "customer_name": "Test Default",
+        "total_debit": 159845.64,
+        "total_credit": 111719.84,
+        "balance": -1887.04,
+        "transactions": [
+          {
+            "id": 20039,
+            "order_id": 7036,
+            "order_number": "ORD-004850",
+            "payment_method": "CARD",
+            "date": "2026-10-27",
+            "type": "Credit",
+            "reference_id": "RCP1001952",
+            "transaction_type": "Receipt",
+            "amount": 200,
+            "currency": "SAR",
+            "transaction_comment": "Receipt #RCP1001952",
+            "tax_amount": 30.51,
+            "balance": -1887.04,
+            "store_id": 2
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+*Trimmed from a captured response (walk-in customer).* In the report, a positive balance (shown red) means the customer owes the store.
+
+## GET `/api/v1/transaction/transaction-details/{id}`
+
+One ledger line, with `order_number`, `customer_name` and the payment method converted from id to name. Not found → `"Transaction not found"`.
+
+## GET /api/v1/accounts/company-accounts
+
+Company cash and bank accounts with money received and sent in a period.
+
+| Name | Type | Notes |
+|---|---|---|
+| `dateRange` | string | `today` (default), `this_week`, `this_month`, `all` |
+| `startDate`, `endDate` | date | Custom range |
+| `accountId` | integer | One account |
+| `filter_name`, `filter_type`, `filter_payment_method`, `filter_status` | string | Sent by the app's account list |
+| `page`, `per_page`, `sort_asc` | — | Sent by the app |
+| `store_id` | integer | Active store |
+
+```json
+{
+  "status": "success",
+  "message": "data found",
+  "data": [
+    { "id": 11, "name": "Cash Account", "payment_method": ["CASH", "COD"], "type": "CASH", "received": 0, "sent": 0, "store_name": null, "status": "Active", "account_transaction": [] },
+    { "id": 12, "name": "Bank Account", "payment_method": ["BANK", "CARD", "…"], "type": "BANK", "received": 410, "sent": 0, "store_name": "متجر النجمة Store ", "status": "Active", "account_transaction": [] }
+  ]
+}
+```
+
+*Trimmed from a captured response (today's figures: 410 received in the bank account).*
+
+## GET /api/v1/general-payment/list-general-payments
+
+**Used by:** Transactions > **Expense** (filters: category, reference number, debit account, status).
+
+| Name | Type | Notes |
+|---|---|---|
+| `type` (or `entry_type`) | string | The app sends `EXPENSE` |
+| `status` | string | For example `SUCC` |
+| `from_date`, `to_date` | date | Payment date |
+| `id` | integer | Return one entry (as `data` object) |
+| `per_page` | integer | Default 10, max 100 |
+| `page` | integer | Page |
+| `store_id` | integer | Active store |
+
+This endpoint uses `success: true` and a separate `pagination` block.
+
+```json
+{
+  "success": true,
+  "message": "General payments fetched successfully",
+  "data": [
+    {
+      "id": 120,
+      "reference_number": "EXP00120",
+      "entry_type": "EXPENSE",
+      "entry_type_label": "Expense",
+      "payment_date": "2026-10-27",
+      "category": "<category-id>",
+      "category_label": "Utilities",
+      "description": "Electricity bill",
+      "amount": 350.0,
+      "payment_method": "<cash-id>",
+      "payment_method_label": "CASH",
+      "expense_account_id": 31,
+      "expense_account_name": "Utilities Expense",
+      "payment_account_id": 11,
+      "payment_account_name": "Cash Account",
+      "status": "SUCC",
+      "notes": "",
+      "created_by_name": "salesexecutiv2",
+      "created_at": "2026-10-27 16:05:00"
+    }
+  ],
+  "pagination": { "current_page": 1, "last_page": 1, "per_page": 10, "total": 1, "from": 1, "to": 1, "has_more_pages": false }
+}
+```
+
+*Illustrative row built from the server's field list.*
+
+## GET /api/v1/general-payment/account-options
+
+Returns the accounts allowed for an entry type.
+
+| Name | Notes |
+|---|---|
+| `type` (or `entry_type`) | `EXPENSE` (default), `ASSET`, `INCOME`, `LOAN`, `OWNERS_CAPITAL` |
+| `loan_type` | `LOAN_IN` or `LOAN_REPAY` (for `LOAN`) |
+
+```json
+{
+  "success": true,
+  "message": "General payment account options fetched successfully",
+  "data": {
+    "entry_type": "EXPENSE",
+    "loan_type": null,
+    "expense_accounts": [ { "id": 31, "name": "Utilities Expense" } ],
+    "payment_accounts": [ { "id": 11, "name": "Cash Account" }, { "id": 12, "name": "Bank Account" } ]
+  }
+}
+```
+
+*Illustrative accounts.* In **Create Expense**, `expense_accounts` fill **Expense Account (Debit)** and `payment_accounts` fill **Paid From Account (Credit)**.
+
+## POST /api/v1/general-payment/create-general-payment
+
+**Used by:** **Create Expense** (**Create** or **Create & create another**). The reference number (for example `EXP00120`) is generated by the server.
+
+| Field | Required | Notes |
+|---|---|---|
+| `entry_type` | yes | `EXPENSE` from the expense screen |
+| `payment_date` | yes | `yyyy-MM-dd` |
+| `category` | yes | Master-data id from `EXPENSE_CATEGORY` |
+| `description` | no | Description / vendor, up to 255 characters |
+| `amount` | yes | ≥ 0.01 |
+| `payment_method` | yes | `PAYMENT_METHOD` id |
+| `expense_account_id` | no | Debit account (active company account) |
+| `payment_account_id` | no | Credit account |
+| `status` | no | App sends `SUCC` |
+| `notes` | no | Up to 500 characters |
+| `store_id` | no | The app adds the active store |
+
+```json
+{
+  "entry_type": "EXPENSE",
+  "payment_date": "2026-10-27",
+  "category": "<category-id>",
+  "description": "Electricity bill",
+  "amount": 350.0,
+  "payment_method": "<cash-id>",
+  "expense_account_id": 31,
+  "payment_account_id": 11,
+  "status": "SUCC",
+  "notes": "",
+  "store_id": 2
+}
+```
+
+Returns **201** `{"success":true,"message":"General payment created successfully","data":{...}}`. Validation errors → **422** `{"success":false,"message":"Validation failed","errors":{...}}`. Expenses are included in the day-close summary.
+
+## Related
+
+- [Transactions and accounts (POS app)](/docs/pos-app/transactions-and-accounts)
+- [ZATCA](/docs/pos-app/zatca)
+- [Sales returns](/docs/pos-app/sales-returns)
+- [Reports](/docs/pos-app/reports)
+- [ZATCA API](/docs/api/zatca)
+- [Customers API](/docs/api/customers)
+- [Quotations and proforma API](/docs/api/quotations-and-proforma)
+- [Reports and day close API](/docs/api/reports-and-day-close)

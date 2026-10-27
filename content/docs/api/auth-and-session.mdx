@@ -1,0 +1,315 @@
+---
+title: Authentication and Session API
+description: Tenant discovery, sign-in, sign-out, forgot and reset password, subscription status, roles and the user switcher - every request, response and error the POS app handles.
+---
+
+# Authentication and Session API
+
+These endpoints take a staff member from a fresh install to a signed-in session on the right store. They feed the **API Key**, **Login**, **Forgot Password** and **Select Store** screens, the **user switcher** in the sidebar header, and **Logout**.
+
+All paths are on `{{server}}` (your tenant domain) except `find-domain`, which is on the central `cloudposai.com` service.
+
+## POST https://cloudposai.com/api/v1/find-domain
+
+**Purpose:** turn the company API key into the tenant domain (`{{server}}`).
+
+**Used by:** the **API Key** screen on first start, and again after **Reset API Key** on the Login screen.
+
+**Headers**
+
+| Header | Value |
+|---|---|
+| `X-Tenant-Key` | `<your-tenant-key>` |
+| `Accept` | `application/json` |
+
+**Request body:** none.
+
+**Response (200)**
+
+```json
+{
+  "status": 200,
+  "message": "Instance found",
+  "data": {
+    "domain": "https://<your-company>.cloudposai.com"
+  }
+}
+```
+
+**Notes**
+
+- The app accepts the answer only when the HTTP status is 200 and `status` is `200`.
+- `domain` may come with or without `https://`. The app adds `https://` when missing and strips trailing slashes.
+- The key is saved as `api_key` and the domain as `app_url` on the device. Both survive restarts and are kept by **Clear Local Storage**.
+- An empty key is rejected before any call is made.
+
+## POST /api/v1/user/signin
+
+**Purpose:** sign a staff member in and return the access token, role, company and store list.
+
+**Used by:** the **Login** screen (email, password, **Remember Me**), and the **user switcher** (switching executive re-runs sign-in with the other user's credentials).
+
+**Headers**
+
+| Header | Value |
+|---|---|
+| `X-Tenant` | `<your-tenant-key>` |
+| `Content-Type` | `application/json` |
+| `Accept` | `application/json` |
+
+**Request body**
+
+```json
+{
+  "email": "<user email>",
+  "password": "<password>"
+}
+```
+
+The app trims spaces around the email before sending.
+
+**Response (200)**
+
+```json
+{
+  "status": "success",
+  "message": "Hi salesexecutiv2, welcome to home",
+  "data": {
+    "access_token": "<access-token>",
+    "token_type": "Bearer",
+    "name": "salesexecutiv2",
+    "user_id": 516,
+    "company_id": 2,
+    "company_name": "FUNZCART",
+    "user_role": "sales_executive",
+    "stores": [
+      { "store_id": 2, "store_name": "متجر النجمة Store", "location": "Al Hamra", "email": null, "phone": "<phone>" },
+      { "store_id": 32, "store_name": "funzcart2", "location": "Al mithnab central", "email": null, "phone": "<phone>" },
+      { "store_id": 35, "store_name": "Funzcart Al Zahara", "location": "...", "email": null, "phone": "<phone>" }
+    ],
+    "time_zone": "Asia/Riyadh",
+    "country": { "id": "<country id>", "name": "<country name>", "iso_code": "<ISO code>" },
+    "vat_number": "<company VAT number or null>",
+    "cr_number": "<company CR number or null>",
+    "zatca_company_name": "<ZATCA legal name or null>"
+  }
+}
+```
+
+Example values follow the demo story; ids and store locations are from the demo company. `country` is `null` when the company has no country set. `vat_number`, `cr_number` and `zatca_company_name` come from the company's ZATCA settings and are `null` when ZATCA is not configured.
+
+**What the app does with the response**
+
+| Field | Saved as / used for |
+|---|---|
+| `access_token`, `token_type` | Preferences `access_token`, `token_type`; sent as `Authorization: Bearer ...` on every later call |
+| `user_role` | Preference `userRole`; matched against `roles/list` for permissions; decides the landing screen |
+| `user_id`, `name` | Preferences `customerId`, `customerName`; shown in the sidebar profile card and **Settings > Company Info** |
+| `company_id`, `company_name` | Shown in **Company Info**; used for realtime sync channel |
+| `stores[]` | Shown on **Select Store** and in the **Active Store** switcher |
+| `time_zone` | Business dates and receipt dates (demo: Asia/Riyadh) |
+| `country.name` | Preference `country_name` |
+| `vat_number`, `cr_number`, `zatca_company_name` | Preferences `zatca_vat_number`, `zatca_cr_number`, `zatca_company_name`; printed in the ZATCA QR and invoice header |
+
+The server `Date` response header is also read to store the difference between device time and server time (`server_time_offset`).
+
+**Landing screen by role** (after store selection)
+
+| `user_role` | Lands on |
+|---|---|
+| `attender` | Attender (restaurant waiter screen) |
+| `kitchen_master` | Kitchen Master |
+| `company_admin` | Dashboard |
+| `restaurant_sales` | Restaurant |
+| `sales_executive` and any other role | Billing |
+
+**Errors (checked in this order)**
+
+| Situation | HTTP | Body |
+|---|---|---|
+| `X-Tenant` header missing | 400 | `{"status":"failed","message":"X-Tenant header is required","data":[]}` |
+| Unknown tenant key | 404 | `{"status":"failed","message":"Invalid tenant API key","data":[]}` |
+| Wrong email or password | 401 | `{"message":"Unauthorized"}` |
+| User record not found after check | 401 | `{"status":"failed","message":"Invalid Credentials","data":[]}` |
+| User is not linked to this company | 403 | `{"status":"failed","message":"Access denied. You do not belong to this tenant.","data":[]}` |
+| User has no POS role in this company | 403 | `{"status":"failed","message":"Forbidden. You do not have the required role for this tenant.","data":[]}` |
+
+Roles allowed to sign in to the POS: `sales_executive`, `kitchen_master`, `delivery_executive`, `attender`, `company_admin`, `purchase_manager`, `restaurant_sales`. Roles such as `customer`, `supplier` and `super_admin` cannot sign in to the POS.
+
+The app treats 2xx-4xx responses as answers and shows `message`. A 5xx answer shows "Login failed (HTTP 5xx). Please try again." If no API key is saved, the app asks for one before calling sign-in.
+
+## POST /api/v1/user/signout
+
+**Purpose:** revoke the current access token.
+
+**Used by:** **Logout** at the bottom of the side menu (always visible).
+
+**Headers:** `X-Tenant`, `Authorization: Bearer <access-token>`, `Content-Type: application/json`.
+
+**Request body:** none.
+
+**Response (200)**
+
+```json
+{
+  "status": "success",
+  "message": "You have successfully logged out and the token was successfully deleted"
+}
+```
+
+If no user is attached to the token the body is `{"status":"error","message":"No authenticated user found"}`.
+
+**Notes**
+
+- Logout is best effort: the app clears the local session even when the call fails (for example offline).
+- After logout the app resets session data (token, role, active store) but keeps the API key and domain, so the next login goes straight to the Login screen.
+
+## POST /api/v1/user/forgot
+
+**Purpose:** send a password reset code to the user's email.
+
+**Used by:** **Forgot Password** on the Login screen.
+
+**Headers:** `Content-Type: application/json`, `api_key: <your-tenant-key>`.
+
+**Request body**
+
+```json
+{
+  "email": "<user email>"
+}
+```
+
+**Response:** the app shows the returned `message` for status 200, 400 and 401. Other errors show a generic "try again" message.
+
+## POST /api/v1/user/reset
+
+**Purpose:** set a new password with the code from the email.
+
+**Used by:** the reset step of **Forgot Password**.
+
+**Headers:** `Content-Type: application/json`, `api_key: <your-tenant-key>`.
+
+**Request body**
+
+```json
+{
+  "code": "<code from email>",
+  "password": "<new password>",
+  "password_confirmation": "<new password>"
+}
+```
+
+**Response:** the app shows the returned `message` for status 200, 400 and 401.
+
+## GET /api/v1/company/subscription-status
+
+**Purpose:** confirm that the company subscription allows selling.
+
+**Used by:** start-up and before order actions. The app first tries the subscription data inside the sign-in payload. If none is present it calls this endpoint. It re-checks when the last check is older than 2 minutes.
+
+**Headers:** `X-Tenant`, `Authorization`, `Accept: application/json`.
+
+**Query parameters:** none.
+
+**Response (200)** - illustrative shape; the app accepts either a flat or a nested block:
+
+```json
+{
+  "status": "success",
+  "data": {
+    "company_id": 2,
+    "subscription": {
+      "subscription_status": "active",
+      "message": "",
+      "valid_until": "2027-01-31",
+      "manage_subscription_url": "https://..."
+    }
+  }
+}
+```
+
+Accepted field names: `subscription_status` or `status`; `message` or `subscription_message`; `valid_until` or `end_date`; `manage_subscription_url` or `management_url`. The block can sit at `data.subscription`, `data.company_subscription`, `subscription` or `company_subscription`.
+
+**Statuses:** `active`, `warning`, `blocked`, `expired`, `suspended`, `inactive`. Blocked, expired, suspended and inactive stop order actions (confirm, save) and show the subscription dialog with the message and a manage link.
+
+**Fallback:** when the endpoint cannot be reached or is not offered by your server, the app uses the website settings `COMPANY_SUBSCRIPTION_STATUS`, `COMPANY_SUBSCRIPTION_MESSAGE`, `COMPANY_SUBSCRIPTION_VALID_UNTIL` and `COMPANY_SUBSCRIPTION_MANAGE_URL`. If neither source answers, the app shows "Unable to verify the company subscription. Check your connection and try again."
+
+## GET /api/v1/roles/list
+
+**Purpose:** return every role of the company with its permission strings. The sign-in response does **not** include permissions; the app gets them here.
+
+**Used by:** start-up sync step "permissions", the side menu, dashboard widgets and in-screen permission checks.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `store_id` | integer | no | Active store id (the app always sends it) |
+| `page` | integer | no | Page number (default 1) |
+
+**Response (200)** (trimmed: permission lists cut, 11 more roles)
+
+```json
+{
+  "status": "success",
+  "message": "Roles retrieved successfully",
+  "data": {
+    "roles": [
+      {
+        "id": 20,
+        "name": "Attender",
+        "original_name": "attender",
+        "guard_name": "web",
+        "permissions_count": 51,
+        "permissions": ["view_order", "view_any_order", "..."],
+        "company_id": 2,
+        "company_name": "FUNZCART",
+        "created_at": "2025-12-09T23:40:24.000000Z",
+        "updated_at": "2025-12-09T23:40:24.000000Z"
+      },
+      {
+        "id": 12,
+        "name": "Company Admin",
+        "original_name": "company_admin",
+        "guard_name": "web",
+        "permissions_count": 544,
+        "permissions": ["view_bank", "view_any_bank", "..."],
+        "company_id": 2,
+        "company_name": "FUNZCART"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "last_page": 1,
+      "per_page": 15,
+      "total": 13,
+      "from": 1,
+      "to": 13
+    }
+  }
+}
+```
+
+**How the app uses it**
+
+- It finds the role whose `original_name` matches the signed-in `user_role`.
+- A permission is granted only if that role's `permissions[]` contains the exact string, for example `menu.sales.orders.access` or `dashboard.widgets.zatca_overview.access`.
+- Nothing permission-gated appears until this list has loaded. The list is cached on the device for offline use (**Offline Data > Roles and permissions**).
+- Roles and their permissions are edited in the admin panel, not in the POS.
+
+Full permission catalogue and the role matrix: [Navigation and roles](/docs/pos-app/navigation-and-roles).
+
+## User switcher and store switcher
+
+- **User switcher** (sidebar header, permission `menu.utility.user_switcher.access`): lets you sign in as another staff member without logging out, by entering that user's credentials. It calls `POST /api/v1/user/signin` again. The new token and role replace the old ones; the menu reloads for the new role.
+- **Store switcher** (profile card **Active Store**, permission `menu.utility.store_switcher.access`): no API call of its own. It changes `active_store_id`, re-syncs printer defaults and reloads store-scoped data with the new `store_id`.
+
+## Related
+
+- [API overview](/docs/api) - headers, envelopes and error codes
+- [Settings and master data API](/docs/api/settings-and-master-data)
+- [Reports and day close API](/docs/api/reports-and-day-close) - pending day close check after store selection
+- [Getting started](/docs/pos-app/getting-started)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles)
+- [Troubleshooting FAQ](/docs/pos-app/troubleshooting-faq)

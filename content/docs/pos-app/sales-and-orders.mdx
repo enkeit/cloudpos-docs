@@ -1,0 +1,278 @@
+---
+title: Sales and Orders
+description: Find any order, read its details, print or share it, change its order or payment status, cancel it with a refund, create a delivery, record packing, and fix orders that did not sync.
+---
+
+# Sales and Orders
+
+Every confirmed sale becomes an order. You manage orders from the **Sales** menu:
+
+| Menu item | What it shows | Permission |
+|---|---|---|
+| **Sales** | The **Orders List** for your store | `menu.sales.orders.access` |
+| **Confirmed Orders** | **Sync attention**: sales on this device that have not reached the server | `menu.sales.confirmed_orders.access` |
+| **Sales Return** | Returns. See [Sales returns](/docs/pos-app/sales-returns). | `menu.sales.returns.access` |
+| **Day Sale Closing** | Shifts and day closes. See [Day close and shifts](/docs/pos-app/day-close-and-shifts). | `menu.sales.day_closing.access` |
+| **Admin Day Sale Records** | Day closes of all executives (company admin only) | `company_admin` + day closing |
+| **Online Orders** | The **Online Orders List**: orders that came from the online store | `menu.sales.online_sales.access` or `company_admin` |
+
+## Order number and receipt number
+
+Each sale has two numbers. Both work in search.
+
+| Number | Example | Who makes it | Format |
+|---|---|---|---|
+| Receipt number (offline receipt / bill number) | **2-11-261027-0003** | This counter, at the moment of sale | store id – counter number – date YYMMDD – daily sequence |
+| Order number | **ORD-004851** | The server, when the sale arrives | `ORD-` + running number |
+
+So `2-11-261027-0003` means store 2, counter 11, 27 October 2026, the third bill of the day on that counter. The receipt number is printed on the bill straight away, even when the device is offline. The order number appears once the server has the sale.
+
+## The Orders List
+
+![Sales Orders List](media:sales-list)
+*Sales > Orders List: filters (order, customer, phone, email, price, amount range, dates, status, payment status, business date), the new order ORD-004851 with receipt number 2-11-261027-0003, and view / print / more actions*
+
+The list shows the newest orders first, one page at a time. Each row shows the order and receipt number, date, customer, items, amount, order status and payment status.
+
+### Filters
+
+Tap **Filters** to open the panel: "Filter by order, customer, phone, price, status and dates."
+
+| Filter | What to enter |
+|---|---|
+| **Order #** | Order or receipt number, for example ORD-004851 or 2-11-261027-0003 |
+| **Customer** | Customer name |
+| **Phone** | Customer phone |
+| **Email** | Customer email |
+| **Price** | Exact order amount |
+| **Min Amount** / **Max Amount** | Amount range |
+| **From Date** / **To Date** | Order date and time range |
+| **Status** | All, NEW, PENDING, CONFIRMED, DELIVERED, CANCELLED |
+| **Payment Status** | All, Pending, Paid, Refunded |
+| **Business Date** | The day-close business date the sale belongs to |
+
+Tap **Reset** to clear the filters. **Export** saves the filtered list to Excel, page by page. **Refresh** reloads. Tap an order number to copy it.
+
+### Row actions
+
+| Action | What it does |
+|---|---|
+| View (eye icon) | Opens **Order Details** |
+| Print | Opens the printer picker and prints the bill |
+| More (⋮) → **Share** | Share the invoice (see below) |
+| More → **Return** | Starts a sales return for this order |
+| More → **Cancel Order** | Cancels the order with a refund |
+| More → **Change Order Status** | Opens **Update Order Status** |
+| More → **Change Payment Status** | Opens **Update Payment Status** |
+
+## Order Details
+
+![Order Details](media:order-details)
+*Order Details for receipt 2-11-261027-0003 (backend ORD-004851): Print, Share, Return, Order Status and Payment Status actions, lines with MRP vs rate, tax and totals*
+
+The top bar has **Print**, **Share**, **Return**, **Order Status** and **Payment Status**. **All Orders** takes you back to the list.
+
+### Lines and totals
+
+The item table has the columns **Sl#**, **DESCRIPTION**, **MRP**, **QTY**, **UNIT**, **RATE**, **TAX** and **AMOUNT**.
+
+For the demo order ORD-004851:
+
+| Item | Qty | MRP | Rate | Tax | Amount |
+|---|---|---|---|---|---|
+| classic chicken bucket | 2 | 250.00 | 220.00 | 67.12 | 440.00 |
+| crispy chicken bucket | 1 | 230.00 | 218.00 | 33.25 | 218.00 |
+
+| Total line | Amount |
+|---|---|
+| **Net Total (Inc Tax)** | 658.00 |
+| **Tax Amount** | 100.37 |
+| **Net Total (Without Tax)** | 557.63 |
+| **Payable** | 658.00 |
+
+Prices include tax at 18%. When a discount was given, you also see **Discount** and **Tax Amount After Discount**.
+
+### Sections
+
+![Order details: payment and customer](media:order-details-payment)
+*Order Details: status chips, store & delivery, payment breakdown (cash is stored net of change: 258 + card 400 = 658), customer information and Create Delivery*
+
+| Section | What it shows |
+|---|---|
+| **Order Status** | Status chips: order status, payment status, delivery status |
+| **Store & Delivery** | **Store**, **Delivery Method**, **Delivery Date**, **Delivery Time**, **Delivery Charge** |
+| **Payment Details** | **Payment Method**, **Transaction ID**, **Payment ID**, **Payment Breakdown**, **Total Paid** |
+| **Customer Information** | Name, phone, **Email**, **Alternate Phone**, **Address**, and for B2B customers **CR Number** and **VAT Number** |
+| **KYC Information** | Customer KYC values, when captured |
+| **Order Metadata** / **Order Properties** | **Token Number**, **Invoice Hash** and other order properties |
+| **Packing** | Packing status, time, staff, photos and video |
+| **Shipping Details** | Shipping address and **Create Delivery** |
+| **Order Documents** | **Delivery Note** and **Delivery Invoice** PDFs |
+
+In the demo, Layla paid card 400 + cash 300 = 700 for a 658.00 bill. The 42.00 excess went back as change. So the **Payment Breakdown** stores cash **258** + card **400** = **658**. Cash is always stored net of the change given.
+
+## Print and share
+
+**Print** opens **Select Printer**:
+
+![Select Printer](media:print-select-printer)
+*Select Printer: paper size, printers found on this PC, and Print Receipt*
+
+1. Pick a paper size (thermal 112 / 80 / 58 mm, or A4 / A5).
+2. Pick a printer from the list.
+3. Tap **Print Receipt**.
+
+The default printer, paper size and template come from [Printing](/docs/pos-app/printing). If the order has returns, the bill can print as a sales-and-return bill.
+
+**Share** opens **Share Invoice** with three options:
+
+| Option | What happens |
+|---|---|
+| **Share as PDF** | Builds the PDF bill. On Windows it is saved in Documents/epos; use **Open PDF**, **Open File Location** or **Copy Path**. |
+| **Share to Email** | Opens your email app with the invoice link. Subject "Invoice #ORD-004851". |
+| **Share via WhatsApp** | Sends through the company WhatsApp bot: **Send Invoice Link** or **Send with PDF**. If the bot is offline you see **WhatsApp Not Connected** and **Connect WhatsApp**. |
+
+The invoice link has the form `https://{{server}}/invoice/ORD-004851`. The customer needs a phone number for WhatsApp.
+
+## Change the order status
+
+1. Open the order, tap **Order Status** (or **Change Order Status** in the list).
+2. Pick a new **Status** in **Update Order Status**.
+3. For **shipped** or **delivered**, you can enter **Delivery Logistics**.
+4. For **cancelled**, pick a **Refund Payment Method**, enter a **Refund Amount** and set **Delivery Charge Refundable**.
+5. Tap **Update Status**.
+
+The list offers new, confirmed, processing, shipped, delivered and cancelled. The server only allows these moves:
+
+| From | Allowed next status |
+|---|---|
+| init | new, confirmed, cancelled |
+| new | confirmed, cancelled |
+| confirmed | processing, shipped, cancelled |
+| processing | shipped, delivered, cancelled |
+| shipped | delivered |
+| delivered | none (final) |
+| cancelled | none (final) |
+
+Other rules:
+
+- **shipped** needs packing to be complete first.
+- A shipped or delivered order cannot be cancelled. Use a [sales return](/docs/pos-app/sales-returns).
+- An order with a processed sales return cannot be cancelled.
+- The refund amount cannot exceed the order total.
+
+## Change the payment status
+
+1. Tap **Payment Status** (or **Change Payment Status**).
+2. In **Update Payment Status**, pick **Status**: pending, paid or failed.
+3. Pick the **Payment Method**. It is needed for every status.
+4. Enter the **Amount**. The order total is shown for reference. **Failed** records no money, so no amount is sent.
+5. Tap **Update Payment**.
+
+A paid amount must be above zero. If the order is already paid, the app says "This order is already paid". Payment statuses on the server are pending, paid, failed and refunded.
+
+## Cancel an order
+
+1. In the list, open More → **Cancel Order**.
+2. **Cancel Order** asks you to "Select a payment method and refund amount for this order."
+3. Pick the refund payment method and enter the **Refund Amount**. The original total is shown.
+4. Turn **Delivery Charge Refundable** off to keep the delivery charge out of the refund.
+5. Tap **Confirm**.
+
+The refund must be more than 0 and not more than the original total. An unpaid Cash on Delivery order can be cancelled without refund details.
+
+## Create a delivery and record packing
+
+![Shipping and packing sections](media:order-details-shipping)
+*Order Details: shipping details with Create Delivery, and packing (status, packed at/by, packing photos and video)*
+
+These actions are for the `sales_executive` and `restaurant_sales` roles.
+
+**Packing.** Packing is available only for confirmed, processing or shipped orders.
+
+1. Tap **Packing**.
+2. Choose the staff member (**Packed By (staff)**) or type a **Packer Name**.
+3. Set **Packed Date & Time**.
+4. Add photos with **Choose Photos** (each up to 20 MB) and a video with **Choose Video** (up to 100 MB).
+5. Tap **Save Packing**.
+
+The **Packing** section then shows **Packed**, **Packed At**, the packer, **Packing Photos** and **Packing Video**.
+
+**Create Delivery** books an external courier:
+
+| Field | Notes |
+|---|---|
+| **Shipping Partner** | Required. Your configured logistics partners. |
+| **Pickup Location (Warehouse)** | The partner's warehouse for pickup |
+| **Shipping Method** | From master data `SHIPPING_METHOD`: parcel, speed_post, registered_parcel, express |
+| **Transport Mode** | From `TRANSPORT_MODE`: surface, air, ship |
+| **Payment Mode** | From `DELIVERY_PAYMENT_MODE`: Prepaid, COD, Open Box Delivery |
+| **COD Amount** | Required for Cash On Delivery |
+| **Package Count**, **Weight (kg)**, **Length (cm)**, **Width (cm)**, **Height (cm)** | Parcel size |
+| **Shipping Charge**, **Dispatch Date**, **Expected Delivery** | |
+| **Tracking / AWB No.**, **Tracking URL**, **Remarks** | |
+
+After saving you see "External delivery created successfully." and the **Delivery Status**.
+
+**Order Documents.** Tap **Delivery Note** or **Delivery Invoice** to download that PDF for the order.
+
+## Online Orders
+
+**Online Orders** is the same list filtered to orders placed on your online store. It has the same filters and actions. Its export file is named "online-orders".
+
+## Confirmed Orders (Sync attention)
+
+![Sync attention](media:sync-attention)
+*Sales > Confirmed Orders (Sync attention): offline orders that have not reached the server yet; empty when everything is synced*
+
+When you confirm a sale, it is saved on the device first. It is then sent to the server once in the background. If that send fails or the result is unclear, the sale waits here. The page title is **Sync attention**.
+
+When all is well it says "Every order on this device has reached the server."
+
+### Fix unsynced orders
+
+1. Open **Sales → Confirmed Orders**.
+2. Use **Show filters** to search by receipt number or customer, or pick a **Status**:
+   - **Needs review**: the result was unclear (for example the network dropped mid-send).
+   - **Rejected**: the server refused the sale.
+   - **Not sent**: the sale never left the device.
+3. Tap **Sync all (n)** to send everything, or tick orders and tap **Sync selected (n)**.
+4. On a single order, use **Sync order** or **Retry sync**.
+
+The More actions menu (⋮) on each order has:
+
+| Action | What it does |
+|---|---|
+| **View details** | Order information, items, payment, discounts, delivery |
+| **Print receipt** | Reprints the bill |
+| Sale details (edit) | Fix the receipt number, date or time before resending |
+| **Edit request JSON** | Advanced: edit the saved request body (support use) |
+| **Log (n)** | Each send attempt with its request and response |
+| **Delete** / **Remove from list** | Removes the sale from this device. This cannot be undone. |
+| **Dismiss** | Hides it from the attention list |
+
+There is no automatic retry. Check this page before every day close. Day Close warns you when orders are still waiting here.
+
+## How it works
+
+- **List:** `GET /api/v1/order/executive/list-orders` with `store_id`, `number`, `filter_name`, `filter_phone`, `filter_email`, `filter_price`, `filter_status`, `filter_payment_status`, `filter_min_amount`, `filter_max_amount`, `filter_datetime[from]`, `filter_datetime[until]`, `business_date`, `page`. Online Orders adds `filter_online_sales=true`.
+- **Details:** `GET /api/v1/order/executive/order-details/{order_number}`.
+- **Status:** `POST /api/v1/order/order-change-status` with `order_id`, `status`, and optional `refund_amount`, `payment_method`, `delivery_charge_refundable`, `delivery_logistics`.
+- **Payment status:** `POST /api/v1/order/order-change-payment-status` with `order_id`, `status`, `amount`, `payment_method` (the master-data id).
+- **Cancel:** `POST /api/v1/order/cancel-order` with `order_id`, `refund_method`, `refund_amount`, `delivery_charge_refundable`.
+- **Documents:** `order/documents/delivery-note/{no}` and `order/documents/delivery-invoice/{no}`.
+- **Delivery and packing:** `order/external-logistics`, `order/order-details/{no}/external-delivery`, `order/packing/{no}`, `order/packing-staff`.
+- **Sync:** offline sales are resent with `order/add-to-order` or `order/update-order`. Each carries a unique `client_sale_id`, so a resend does not create a duplicate.
+- Order status is stored as text (new, confirmed, …). Payment method is stored as the `PAYMENT_METHOD` master-data id.
+
+## Related
+
+- [Billing](/docs/pos-app/billing)
+- [Sales returns](/docs/pos-app/sales-returns)
+- [Day close and shifts](/docs/pos-app/day-close-and-shifts)
+- [Printing](/docs/pos-app/printing)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Troubleshooting FAQ](/docs/pos-app/troubleshooting-faq)
+- [API: Cart and orders](/docs/api/cart-and-orders)
+- [API: Payments, delivery and discounts](/docs/api/payments-delivery-discounts)
+- [API: Sync and realtime](/docs/api/sync-and-realtime)

@@ -33,7 +33,8 @@ test("sessions round-trip and reject tampering, wrong keys and expiry", async ()
   const at = token.length - 5;
   const tampered = token.slice(0, at) + (token[at] === "A" ? "B" : "A") + token.slice(at + 1);
   assert.equal(await openSession(tampered, SECRET, 2_000), null);
-  assert.equal(await openSession(token, SECRET, 1_000 + 13 * 3600 * 1000), null);
+  assert.deepEqual(await openSession(token, SECRET, 1_000 + 29 * 24 * 3600 * 1000), session);
+  assert.equal(await openSession(token, SECRET, 1_000 + 31 * 24 * 3600 * 1000), null);
   assert.equal(await openSession("garbage", SECRET), null);
   await assert.rejects(sealSession(session, "short"));
 });

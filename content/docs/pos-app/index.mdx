@@ -1,31 +1,114 @@
 ---
 title: POS App Overview
-description: Introduction to the Enke POS mobile and desktop application
+description: What the CloudPOS POS app does, who uses it, how these docs are organised, and the demo story used as the worked example on every page.
 ---
 
 # POS App Overview
 
-The **Enke POS App** is a Flutter-based point-of-sale application that runs on Android, iOS, and Windows. It is designed for retail and restaurant businesses.
+CloudPOS POS is the point-of-sale app that store staff use every day. It runs on Windows desktops, Android and iOS tablets, and phones. One app covers supermarket billing, restaurant counters, waiters, the kitchen, stock, purchases, accounts and reports.
 
-## Key Features
+The app is built for shops and restaurants in Saudi Arabia and India. It handles tax-inclusive prices, ZATCA e-invoicing (Saudi Arabia), Arabic and English receipts, and works offline when the internet drops.
 
-- **Billing & Checkout** — Fast order entry, cart management, and payment processing
-- **Customer Management** — Customer profiles, loyalty points, purchase history
-- **Product Catalog** — Categories, variants, stock tracking
-- **Kitchen Display (KOT)** — Live kitchen order tickets for restaurants
-- **Kiosk Mode** — Self-service ordering for customers
-- **Reports** — Sales, stock, and supplier reports
-- **Receipt Printing** — Thermal and standard printer support with multiple layouts
-- **Offline Support** — Core billing works without internet
+![Billing screen ready to confirm](media:billing-ready)
+*Ready to confirm: customer Layla Al-Harbi, Multi payment, paid 700.00 against 658.00 with 42.00 change shown in red; history icon shows the customer's last purchase price*
 
-## Supported Platforms
+## What you can do with the app
 
-| Platform | Status |
-|----------|--------|
-| Android  | ✅ Supported |
-| iOS      | ✅ Supported |
-| Windows  | ✅ Supported |
+| Area | What staff do there | Page |
+|---|---|---|
+| Billing | Scan or search products, pick a customer, take payment, print the receipt | [Billing](/docs/pos-app/billing) |
+| Payments and tax | Split payments, credit sales, change, tax-inclusive totals, offers and coupons | [Payments and tax](/docs/pos-app/payments-and-tax) |
+| Customers | Add customers, see balances, ledger and order history | [Customers](/docs/pos-app/customers) |
+| Restaurant | Tables, waiter (Attender) orders, kitchen tickets (KOT), Kitchen Master board | [Restaurant and kitchen](/docs/pos-app/restaurant-and-kitchen) |
+| Sales | Orders list, order details, statuses, sharing, delivery and packing | [Sales and orders](/docs/pos-app/sales-and-orders) |
+| Returns | Return items from a sale and refund the customer | [Sales returns](/docs/pos-app/sales-returns) |
+| Shifts | Open a shift with opening cash, close the day | [Day close and shifts](/docs/pos-app/day-close-and-shifts) |
+| Quotations | Price quotes, convert to order, proforma invoices | [Quotations and proforma](/docs/pos-app/quotations-and-proforma) |
+| Products and stock | Categories, products, units, stock moves, barcodes, weighing scales | [Products and stock](/docs/pos-app/products-and-stock) |
+| Purchases | Purchase orders, receiving, purchase returns, suppliers | [Purchases](/docs/pos-app/purchases) |
+| Accounts | Invoices, receipts, vouchers, expenses, party ledgers | [Transactions and accounts](/docs/pos-app/transactions-and-accounts) |
+| Reports | Sales, discount, product, customer, supplier and stock reports | [Reports](/docs/pos-app/reports) |
+| Dashboard | Today's sales, ZATCA status, customers, products, graphs | [Dashboard](/docs/pos-app/dashboard) |
+| Printing | Printers, paper sizes, receipt templates, KOT and barcode printers | [Printing](/docs/pos-app/printing) |
+| ZATCA | Phase 1 QR codes, Phase 2 reporting and clearance | [ZATCA](/docs/pos-app/zatca) |
+| Settings and sync | Counter number, offline data, resync, language | [Settings and sync](/docs/pos-app/settings-and-sync) |
 
-## Getting Started
+## Platforms and screen layouts
 
-To begin using the app, see the [Getting Started](/docs/pos-app/getting-started) guide.
+- **Windows desktop and large tablets.** A sidebar menu on the left. Billing shows the product grid and the cart side by side.
+- **Phones.** A slide-out drawer menu grouped into sections (Main, Sales, Inventory, Reports, Accounts, Directory, Settings). Billing uses a bottom bar with **Market**, **Billing**, **Order** and **Cart**.
+- **Languages.** English, Arabic (العربية, right-to-left) and Malayalam. Change it in **Settings → Language**.
+
+The app also has a floating **AI** assistant button. Staff can ask it how to do something in the app.
+
+## Who uses the app (roles)
+
+Every user signs in with their own email and password. Their **role** decides which menu items they see and which screen opens after login.
+
+| Role | Typical person | Opens on |
+|---|---|---|
+| `sales_executive` | Cashier / counter staff | Billing |
+| `restaurant_sales` | Restaurant counter cashier | Restaurant |
+| `attender` | Waiter taking table orders | Attender |
+| `kitchen_master` | Kitchen staff | Kitchen Master |
+| `company_admin` | Owner or manager | Dashboard |
+| `purchase_manager` | Buyer / storekeeper | Billing |
+| `delivery_executive` | Delivery staff (no POS permissions by default) | Billing |
+
+There is no separate "cashier" role. A cashier is a `sales_executive`. The full menu-by-role table is in [Navigation and roles](/docs/pos-app/navigation-and-roles).
+
+## How these docs are organised
+
+Each page starts with what staff see and do, in numbered steps. A **How it works** part follows for owners, managers and the AI assistant. It explains rules, settings and numbers. Each page ends with links to the matching [API reference](/docs/api) pages.
+
+Start here:
+
+1. [Getting started](/docs/pos-app/getting-started) — install, API key, login, choose a store, first sync.
+2. [Navigation and roles](/docs/pos-app/navigation-and-roles) — every menu item and who sees it.
+3. [Billing](/docs/pos-app/billing) — make your first sale.
+
+Owner and setup pages:
+
+- [Settings reference](/docs/pos-app/settings-reference) — every server setting code, its default and its effect in the app.
+- [Settings and sync](/docs/pos-app/settings-and-sync) — the Settings screen on the device.
+- [Printing](/docs/pos-app/printing) — printers and receipt templates.
+- [Kiosk](/docs/pos-app/kiosk) — self-service kiosk screens.
+- [Troubleshooting and FAQ](/docs/pos-app/troubleshooting-faq) — quick answers to common staff questions.
+
+Developers and integrators: see the [API reference](/docs/api). It lists every endpoint the app calls, with request and response examples.
+
+## The demo story
+
+All pages use one real demo session as the worked example. The numbers you see in screenshots and steps come from this session.
+
+**Company and store**
+
+- Company **FUNZCART**. Time zone Asia/Riyadh. Currency SAR.
+- Store **متجر النجمة Store** (store id 2, Al Hamra). Other stores: **funzcart2** (Al mithnab central, id 32) and **Funzcart Al Zahara** (id 35).
+- The signed-in user is a `sales_executive`. The device is **Counter 11**.
+
+**The sale**
+
+1. Billing: **classic chicken bucket** × 2 at 220.00 and **crispy chicken bucket** × 1 at 218.00. MRPs are 250 and 230.
+2. Prices include 18% tax. Line tax is 67.12 and 33.25. Net total is **658.00**, tax **100.37**, net without tax **557.63**.
+3. A new customer is added: **Layla Al-Harbi**, phone 0551234567, Jeddah, Makkah, B2C. Customer ID 2767.
+4. Split payment: card 400 + cash 300 = 700. The 42.00 excess is returned as change. The stored breakdown is cash 258 + card 400 = 658.
+5. Confirm in **Finalize Order** with delivery **Store Takeaway**.
+6. Result: order **ORD-004851**, receipt number **2-11-261027-0003**, status CONFIRMED, payment Paid. Invoice **INV-OR1002060** is created automatically (ZATCA status NOT SENT). Receipt **RCP1001953**.
+
+**After the sale**
+
+- **Sales return:** 1 × classic chicken bucket returned, 220.00 refunded in cash, reason "Customer changed mind".
+- **Quotation QTN-00133** for Layla: 5 × family chicken bucket at 210 = 1050.00, valid for 30 days.
+- **Restaurant:** Table 3 orders 1 classic + 1 crispy bucket (438.00). **Send Kitchen** creates **ORD-004852**. The kitchen marks both items Ready, then Served.
+- **Day close:** 1 order, total sales 658, expected closing cash 258.
+- **Dashboard (today):** 2 sales, SAR 410 revenue, 4874 products, 3 ZATCA invoices not sent.
+
+## Related
+
+- [Getting started](/docs/pos-app/getting-started)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles)
+- [Billing](/docs/pos-app/billing)
+- [Troubleshooting and FAQ](/docs/pos-app/troubleshooting-faq)
+- [API reference overview](/docs/api)
+- [Auth and session API](/docs/api/auth-and-session)

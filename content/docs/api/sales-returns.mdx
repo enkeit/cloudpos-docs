@@ -1,0 +1,281 @@
+---
+title: Sales Returns API
+description: Create a sales return line by line, complete it with or without a refund, and list returns. Includes the refund breakdown, limits and side effects.
+---
+
+# Sales Returns API
+
+A sales return is built in two steps, matching the two steps of the **Sales Return** screen in the app:
+
+1. **Step 1 – add lines.** Each **Return** action on a line calls `POST /order/sales-return`. The server keeps one **draft** return per order and adds the line to it.
+2. **Step 2 – complete.** **Complete Sales Return** calls `POST /order/complete-return-order` with the refund choice (Has Payment, method, amount, Delivery Charge Refundable).
+
+All paths are relative to `{{server}}`. Send `X-Tenant: <your-tenant-key>`, `Authorization: Bearer <access-token>` and `Content-Type: application/json`.
+
+## Endpoint summary
+
+| Method | Path | Used by |
+|---|---|---|
+| GET | `/api/v1/order/list-return-order-items` | Sales Return step 1 (items with returned qty so far) |
+| POST | `/api/v1/order/sales-return` | **Return** on one line (return dialog) |
+| POST | `/api/v1/order/complete-return-order` | **Complete Sales Return** (step 2) |
+| GET | `/api/v1/order/list-return-orders` | Sales > **Sales Return** list (Sales Return Orders) |
+| POST | `/api/v1/order/cancel-order` | Cancel Order with refund (Sales list) |
+
+## The demo return
+
+Order **ORD-004851** (receipt `2-11-261027-0003`, total 658.00) had 2 × classic chicken bucket at 220.00 and 1 × crispy chicken bucket at 218.00. The customer returned **1 × classic chicken bucket** with reason "Customer changed mind", **Delivery Charge Refundable** off, **Has Payment** on, **CASH** refund **220.00**. The return then showed in Sales Return Orders as **220.00 Completed**.
+
+## GET /api/v1/order/list-return-order-items
+
+Lists every line of an order with what has already been returned.
+
+| Name | Required | Notes |
+|---|---|---|
+| `order_number` | yes | Server order number (`ORD-004851`), offline receipt number (`2-11-261027-0003`) or client sale id — all are matched |
+| `store_id` | no | Limit to the active store |
+| `page` | no | Sent by the app |
+
+```json
+{
+  "status": "success",
+  "message": "Return Order Items",
+  "data": [
+    {
+      "order_id": 7037,
+      "order_number": "ORD-004851",
+      "receipt_number": "2-11-261027-0003",
+      "client_sale_id": "<uuid-v7>",
+      "cart_item_id": 15120,
+      "product_id": 15490,
+      "product_variant_id": null,
+      "product_name": "classic chicken bucket",
+      "quantity": 2,
+      "unit_price": 220,
+      "total_price": 440,
+      "returned_quantity": 0,
+      "remaining_quantity": 2,
+      "returned_total": 0,
+      "is_returned": false,
+      "return_order_id": null,
+      "variant_attributes": null
+    }
+  ]
+}
+```
+
+*Illustrative ids; field list from the server code.* Use the returned `order_id` and `cart_item_id` (not the receipt number) when you create the return. Unknown order → **422** `"Order or Cart not found"`.
+
+## POST /api/v1/order/sales-return
+
+Adds one line to the order's draft return.
+
+| Field | Required | Notes |
+|---|---|---|
+| `order_id` | yes | Server order id |
+| `cart_item_id` | yes | Line id from `list-return-order-items` |
+| `quantity` | yes | ≥ 0.01, not more than sold − already returned |
+| `price` | yes | Unit return price, ≥ 0.01, not more than the original unit price |
+| `reason` | no | Free text (the dialog's **Reason**) |
+| `is_delivery_refundable` | no | Used only to compute the preview breakdown |
+
+```json
+{
+  "order_id": 7037,
+  "price": 220.0,
+  "quantity": 1,
+  "cart_item_id": 15120,
+  "reason": "Customer changed mind",
+  "is_delivery_refundable": false
+}
+```
+
+### Response
+
+`data` is the draft return (`status: false`) plus a `refund_breakdown`. The app needs `data.id` — it is the `return_order_id` for step 2.
+
+```json
+{
+  "status": "success",
+  "message": "Item Returned Successfully",
+  "data": {
+    "id": 512,
+    "order_id": 7037,
+    "user_id": 1497,
+    "total_amount": 220,
+    "status": false,
+    "refund_breakdown": {
+      "order_items_total": 658.0,
+      "returned_items_total": 220.0,
+      "pro_rata_discount": 0.0,
+      "delivery_refund": 0.0,
+      "net_refund": 220.0,
+      "maximum_cash_refund": 220.0,
+      "refund_available": true
+    }
+  }
+}
+```
+
+*Illustrative ids; amounts follow the demo return.*
+
+### Rules
+
+- The line must belong to the order (`"The cart item does not belong to this order."`).
+- Quantity above what is left → `"Return quantity exceeds available quantity."`
+- Price above the sold unit price → `"Return price cannot exceed the original unit price."`
+- Returning the same line again in the same draft adds to its quantity and total.
+- **Stock is not changed here.** Stock is restored only when the return is completed.
+- Errors come back as **422** `{"status":"failed","message":"Error Returning Item","data":"<reason>"}`.
+
+## POST /api/v1/order/complete-return-order
+
+Finalises the draft return.
+
+| Field | Required | Notes |
+|---|---|---|
+| `return_order_id` | yes | `data.id` from `sales-return` |
+| `has_payment` | yes | `true` = refund money now; `false` = no voucher or payment record is created for the refund |
+| `payment_method` | if `has_payment` | `PAYMENT_METHOD` id or value, for example `"CASH"` |
+| `paid_amount` | if `has_payment` | Refund amount |
+| `is_delivery_refundable` | no | Add the order's delivery charge to the refund |
+
+```json
+{
+  "return_order_id": 512,
+  "is_delivery_refundable": false,
+  "payment_method": "CASH",
+  "paid_amount": 220.0,
+  "has_payment": true
+}
+```
+
+Without a refund:
+
+```json
+{ "return_order_id": 512, "is_delivery_refundable": false, "has_payment": false }
+```
+
+### Response
+
+```json
+{
+  "status": "success",
+  "message": "Return Order Completed",
+  "data": {
+    "id": 512,
+    "order_id": 7037,
+    "total_amount": 220,
+    "status": true,
+    "refund_breakdown": {
+      "order_items_total": 658.0,
+      "returned_items_total": 220.0,
+      "pro_rata_discount": 0.0,
+      "delivery_refund": 0.0,
+      "net_refund": 220.0,
+      "maximum_cash_refund": 220.0,
+      "refund_available": true
+    }
+  }
+}
+```
+
+*Illustrative ids.*
+
+### How the refund is calculated
+
+| Field | Meaning |
+|---|---|
+| `order_items_total` | Sum of all line totals of the order (tax-inclusive) |
+| `returned_items_total` | Sum of returned quantity × return price |
+| `pro_rata_discount` | Share of the order discount: returned total ÷ order items total × order discount |
+| `delivery_refund` | The order's delivery charge when `is_delivery_refundable` is true, else 0 |
+| `net_refund` | returned total − pro-rata discount + delivery refund (never below 0) |
+| `maximum_cash_refund` | `net_refund`, reduced by any amount the customer still owes the store |
+| `refund_available` | `false` when the customer's debt absorbs the whole return |
+
+`PRICE_ROUND_OFF` is not applied to refunds.
+
+### Rules and side effects
+
+- A return can be completed once (`"Return Order already completed"`) and must have items (`"No items found in this return order."`).
+- **Customer debt first.** If the customer owes the store, the return is first set off against that balance. If nothing is left: **422** "No refund is available: the customer has an outstanding balance that exceeds this return, so the return is adjusted against that balance." with `data.maximum_cash_refund = 0`.
+- A refund larger than the customer's credit → **422** "Refund cannot exceed the customer credit balance." with the allowed `maximum_cash_refund`.
+- A refund above the maximum → **422** "Paid amount cannot exceed the maximum cash refund (…)."
+- On success the server:
+  - restores stock in base units to the right store and variant,
+  - reverses the cost of goods sold (a `COGS` credit line "Reverse COGS for Sales Return #…"),
+  - writes the sales-return ledger lines for the customer,
+  - when `has_payment` is true, creates a **customer voucher** of type `sales_return` (status `paid`) linked to the original invoice, with one line per returned item and a "Delivery Charge" line when refundable,
+  - updates the order status after the return.
+- The app then prints a **Return Bill**, **Credit Note** or **Sales and Return Bill**, depending on Printer Settings.
+- `RETURN_WINDOW_DAYS` (company prop, default 7) sets how long packing photos and video are kept after delivery. The return endpoints do not reject returns by age.
+
+## GET /api/v1/order/list-return-orders
+
+**Used by:** Sales > **Sales Return** (Sales Return Orders list). 10 per page, newest first.
+
+| Name | Type | Notes |
+|---|---|---|
+| `customer_id` | integer | One customer |
+| `order_number` | string | Order number or offline receipt number |
+| `store_id` | integer | Active store |
+| `page` | integer | Page |
+
+```json
+{
+  "status": "success",
+  "message": "Order Returns Listed Successfully",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 512,
+        "order_id": 7037,
+        "total_amount": "220.000",
+        "status": true,
+        "items": [
+          { "cart_item_id": 15120, "quantity": "1.000", "price": "220.000", "reason": "Customer changed mind", "cart_item": { "product": { "name": "classic chicken bucket" } } }
+        ],
+        "order": {
+          "order_number": "ORD-004851",
+          "payment_method": ["CASH", "CARD"],
+          "payment_id": ["<cash-id>", "<card-id>"],
+          "customer": { "id": 2767, "user": { "name": "Layla Al-Harbi" } }
+        }
+      }
+    ],
+    "per_page": 10,
+    "total": 1
+  }
+}
+```
+
+*Illustrative row (the captured response for the test filter was empty). `status: true` shows as **Completed**, `false` as **Pending**. Payment method ids are converted to names, and the original ids are kept in `payment_id`.*
+
+## POST /api/v1/order/cancel-order
+
+Cancels a whole order, optionally with a refund. Use it instead of a return when nothing has shipped.
+
+| Field | Required | Notes |
+|---|---|---|
+| `order_id` | yes | Server order id |
+| `reason` | no | Up to 500 characters |
+| `refund_method` | no | `PAYMENT_METHOD` id |
+| `refund_amount` | no | ≥ 0 |
+| `delivery_charge_refundable` | no | Refund the delivery charge too |
+
+```json
+{ "order_id": 7037, "refund_method": "<cash-id>", "refund_amount": 658.0, "delivery_charge_refundable": false }
+```
+
+Shipped or delivered orders, and orders that already have a processed sales return, cannot be cancelled — create a sales return instead. See [Cart and orders API](/docs/api/cart-and-orders) for order statuses.
+
+## Related
+
+- [Sales returns (POS app)](/docs/pos-app/sales-returns)
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Printing](/docs/pos-app/printing)
+- [Cart and orders API](/docs/api/cart-and-orders)
+- [Transactions, invoices and receipts API](/docs/api/transactions-invoices-receipts)
+- [Customers API](/docs/api/customers)

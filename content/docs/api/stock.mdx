@@ -1,0 +1,327 @@
+---
+title: Stock API
+description: Endpoints behind the Product Stock List, Add Stock, Edit stock, Adjust Stock, Move Stock and Withdraw Stock actions, plus the RACKS and STOCK_GROUPING_FIELDS master data.
+---
+
+# Stock API
+
+Stock in CloudPOS is kept as **stock rows (batches)**. Each row belongs to one product (or variant), one store and one supplier, and has its own quantity, retail price, MRP, purchase price, tax rate, rack and expiry. The **Product Stock List** shows one line per row; Billing groups rows that look the same.
+
+All paths are relative to `{{server}}`. Every call sends `X-Tenant: <your-tenant-key>` and `Authorization: Bearer <access-token>`; write calls also send `Content-Type: application/json`.
+
+## Quick reference
+
+| Method | Path | Screen / action |
+|---|---|---|
+| GET | `/api/v1/product/list-stocks` | **Product Stock List**, Offline Data "Stock" |
+| POST | `/api/v1/product/add-stock` | **Add Stock** (single item or a batch of items) |
+| POST | `/api/v1/product/update-stock/{id}` | **Edit stock** on a stock row |
+| POST | `/api/v1/stocks/adjust/{id}` | **Adjust Stock** (increase / decrease with reason) |
+| POST | `/api/v1/stocks/move/{id}` | **Move Stock** to another store |
+| POST | `/api/v1/stocks/withdraw/{id}` | **Withdraw Stock** (feeds the Consumed Stocks Report) |
+| GET | `/api/v1/master-data-values?code=RACKS` | Rack picker |
+| GET | `/api/v1/master-data-values?code=STOCK_GROUPING_FIELDS` | How Billing groups stock rows |
+| GET | `/api/v1/calculate-tax` | Tax preview on Add Stock (see [Products and Categories API](/docs/api/products-and-categories)) |
+
+Stock quantities inside the product feed (`product/executive/list-products`, field `stock[]`) are described on the [Products and Categories API](/docs/api/products-and-categories) page.
+
+## GET /api/v1/product/list-stocks
+
+**Purpose:** every stock row of the store, newest first, with a computed stock status.
+
+**Screens:** Product > **Stock** (Product Stock List), Settings > Offline Data "Stock".
+
+### Query parameters
+
+| Param | Example | Effect |
+|---|---|---|
+| `store_id` | `2` | Only rows of this store. The app always sends the active store. |
+| `stock_status` | `low_stock` | `out_of_stock` (qty ≤ 0), `low_stock` (qty above 0, up to the reorder level), `at_reorder_level` (qty above the reorder level, up to 1.2 × reorder level). |
+| `page` | `1` | Kept for compatibility. All rows come back on one page. |
+| `per_page` | `1000` | Sent by the app when it loads everything; the server returns all rows anyway. |
+| `filter_name` | `bucket` | Sent by the app from the search box. |
+
+### Response
+
+Captured from the demo for a store with no stock (store 7):
+
+```json
+{
+  "status": "success",
+  "message": "List of all stocks",
+  "data": { "data": [], "current_page": 1, "per_page": 1, "total": 0 }
+}
+```
+
+A non-empty row looks like this (field list from the server, values from the demo "milibar" batch in store 2):
+
+```json
+{
+  "id": 13283,
+  "product_name": "milibar",
+  "product_variant_id": null,
+  "variant_name": null,
+  "category_name": "snacks",
+  "supplier_name": "Supplier 1FUNZCART",
+  "barcode": "11100051",
+  "reorder_level": 5,
+  "stock_status": "",
+  "order_date": "2026-06-03",
+  "qty": "20.000",
+  "retail_price": "4.000",
+  "wholesale_price": "0.000",
+  "purchase_rate": "4.000",
+  "mrp": 0,
+  "unit": "PC",
+  "store_name": "متجر النجمة Store ",
+  "rack": "",
+  "tax_include": true,
+  "tax_amount_retail": 0,
+  "tax_amount_wholesale": 0,
+  "wholesale_min_unit": 0,
+  "expiry_date": "",
+  "purchase_unit_id": null,
+  "purchase_qty": "20.000"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `stock_status` | `Out of Stock`, `Low Stock`, `At Reorder Level`, or empty when stock is healthy. The list shows the quantity badge red at 0 and amber when low. |
+| `qty` | Quantity on hand. |
+| `retail_price`, `wholesale_price`, `purchase_rate`, `mrp` | Prices of this batch. |
+| `wholesale_min_unit` | Minimum line quantity for the wholesale price. |
+| `tax_include` | Selling price includes tax. |
+| `rack`, `expiry_date`, `order_date` | Rack, expiry and stock date. |
+| `purchase_unit_id`, `purchase_qty` | Sale unit and quantity the batch was bought in. |
+
+## POST /api/v1/product/add-stock
+
+**Purpose:** adds a stock batch for an existing product, or creates the product and its stock in one call. It also records the purchase (supplier voucher) behind it.
+
+**Screen:** Product Stock List > **Add Stock** (supplier, items, payment summary). Items waiting to be sent are kept on the device until they succeed.
+
+### Single item body
+
+```json
+{
+  "product_id": 15489,
+  "category_id": 182,
+  "quantity": 20,
+  "retail_price": 4,
+  "purchase_rate": 4,
+  "mrp": 4,
+  "wholesale_price": 0,
+  "wholesale_min_unit": 0,
+  "unit": "PC",
+  "supplier_id": 1,
+  "store_id": 2,
+  "expiry_date": "2027-06-03",
+  "date": "2026-06-03",
+  "purchase_date": "2026-06-03",
+  "rack": "RACK 1",
+  "barcode": "11100051",
+  "batch_number": "",
+  "tax_include": true,
+  "tax_include_purchase": true,
+  "tax_amount_retail": 0.61,
+  "tax_amount_wholesale": 0,
+  "tax_amount_purchase": 0.61,
+  "initial_retail_price": 4,
+  "retail_price_tax": 0.61
+}
+```
+
+| Field | Rule |
+|---|---|
+| `product_id` | Existing product. Leave out and send `product_name` to create a new product. |
+| `product_variant_id` | Optional variant. |
+| `category_id` | Required. |
+| `retail_price`, `purchase_rate` | Required, ≥ 0. |
+| `unit` | Required. |
+| `supplier_id`, `store_id` | Required, must exist. |
+| `expiry_date`, `date` | Required dates. |
+| `quantity` | ≥ 0.01. |
+| `mrp`, `wholesale_price`, `wholesale_min_unit` | Optional. |
+| `tax_include`, `tax_include_purchase` | "Selling prices include tax" / "Purchase price includes tax". |
+| `tax_amount_*`, `retail_price_tax`, `wholesale_price_tax`, `initial_*_price` | Tax figures the app calculated (with `calculate-tax`). |
+| `purchase_unit_id`, `purchase_qty` | Optional: bought in a sale unit (for example BOX); the server converts to base units. |
+| `purchase_voucher_id`, `purchase_id`, `purchase_number` | Optional links to an existing purchase. |
+
+Response: `200` `{ "status": "success", "message": "Stock added successfully", "data": { "stock": { … }, "purchase_voucher_id": …, "calculated_retail_price": …, "calculated_purchase_rate": …, "tax_amount_retail": …, "tax_amount_purchase": … } }`.
+
+### Many items in one call
+
+Send `products[]` instead of the single-item fields. The supplier and store apply to the whole batch:
+
+```json
+{
+  "products": [
+    {
+      "product_id": 15489,
+      "category_id": 182,
+      "quantity": 20,
+      "retail_price": 4,
+      "purchase_rate": 4,
+      "unit": "PC",
+      "expiry_date": "2027-06-03",
+      "date": "2026-06-03",
+      "wholesale_min_unit": 0
+    }
+  ],
+  "supplier_id": 1,
+  "store_id": 2,
+  "purchase_date": "2026-06-03"
+}
+```
+
+In the batch form `wholesale_min_unit` is required on every item. Errors: `422` "Validation failed" with field errors; `500` "Error adding multiple stocks: …".
+
+## POST `/api/v1/product/update-stock/{id}`
+
+**Purpose:** edits the prices, rack and tax flags of one stock row.
+
+**Screen:** **Edit stock** on a row of the Product Stock List.
+
+```json
+{
+  "retail_price": 220,
+  "mrp": 250,
+  "purchase_price": 150,
+  "rack": "RACK 2"
+}
+```
+
+Accepted fields: `mrp`, `retail_price`, `purchase_price`, `wholesale_price`, `rack`, `tax_include`, `tax_amount_retail`, `tax_amount_wholesale`, `purchase_unit_id`, `purchase_qty`, and `quantity`.
+
+**Quantity is not edited here.** A `quantity` equal to the current quantity is accepted (older builds always send it); a different value is rejected with `422` "Stock quantity cannot be edited. Use a stock adjustment or purchase return instead." Use **Adjust Stock** so the stock log and the inventory ledger stay in step.
+
+Unknown id: `404` "Stock item not found".
+
+## POST `/api/v1/stocks/adjust/{id}`
+
+**Purpose:** increases or decreases the quantity of a stock row and records the reason.
+
+**Screen:** **Adjust Stock** row action.
+
+```json
+{ "type": "decrease", "quantity": 2, "reason": "Damaged in storage" }
+```
+
+| Field | Rule |
+|---|---|
+| `type` | Required: `increase` or `decrease`. |
+| `quantity` | Required, numeric, at least 1. |
+| `reason` | Optional, up to 500 characters. |
+
+**Side effects:** writes a stock-adjustment log and an inventory journal entry ("Stock adjustment: [reason]").
+
+| Result | Response |
+|---|---|
+| OK | `200` `{ "status": "success", "message": "Stock adjusted successfully", "data": { …stock row… } }` |
+| Validation | `422` `{ "success": false, "message": "Validation failed", "errors": { … } }` |
+| Unknown row | `404` "Stock record not found" |
+
+## POST `/api/v1/stocks/move/{id}`
+
+**Purpose:** moves part of a stock row to another store of the company.
+
+**Screen:** **Move Stock** row action (destination store picker).
+
+```json
+{ "dest_store_id": 32, "quantity": 5 }
+```
+
+Example: move 5 units from "متجر النجمة Store" (id 2) to "Al mithnab central" (id 32).
+
+| Result | Response |
+|---|---|
+| OK | `200` "Stock moved successfully" |
+| More than available | `400` `{ "success": false, "message": "Insufficient stock quantity", "available": "3.000", "requested": 5 }` |
+| Validation (`dest_store_id` missing or unknown, quantity below 1) | `422` |
+| Unknown row | `404` |
+
+## POST `/api/v1/stocks/withdraw/{id}`
+
+**Purpose:** takes stock out for internal use (consumables). Every withdrawal appears in the **Consumed Stocks Report** with quantity withdrawn, new quantity, who withdrew it and when.
+
+**Screen:** **Withdraw Stock** row action.
+
+```json
+{ "quantity": 1 }
+```
+
+| Result | Response |
+|---|---|
+| OK | `200` "Stock withdrawn successfully" |
+| Category is not purchasable | `403` "Cannot withdraw stock from non-purchaseable categories" |
+| More than available | `400` "Insufficient stock quantity" with `available` and `requested` |
+| Validation | `422` |
+
+Note the shape: adjust, move and withdraw errors use `{ "success": false, "message", "errors" }` instead of the usual `status: "failed"` envelope.
+
+## GET /api/v1/master-data-values?code=RACKS
+
+**Purpose:** rack names for the rack picker on Add Stock, Edit stock and Create New Purchase Order. Seeded values are `RACK 1` to `RACK 10`; each company can edit them in the admin panel.
+
+Response shape (standard master data):
+
+```json
+{
+  "status": "success",
+  "message": "Filtered Master Data Values",
+  "data": [
+    { "id": 101, "value": "RACK 1", "description": "Rack 1", "code": "RACK 1", "label": "Rack 1", "translations": [] }
+  ]
+}
+```
+
+Ids are per company (example id shown).
+
+## GET /api/v1/master-data-values?code=STOCK_GROUPING_FIELDS
+
+**Purpose:** tells Billing which stock fields must match for two stock rows to be shown and sold as one line. Only the POS reads this list.
+
+Captured from the demo (`store_id=2`, trimmed):
+
+```json
+{
+  "status": "success",
+  "message": "Filtered Master Data Values",
+  "data": [
+    { "value": "PRICE", "description": "Selling Price" },
+    { "value": "MRP", "description": "Maximum Retail Price" }
+  ]
+}
+```
+
+| Value | Groups by |
+|---|---|
+| `PRICE` | Selling price (seeded on) |
+| `MRP` | MRP |
+| `PURCHASE_PRICE` | Purchase price |
+| `UNIT` | Unit |
+| `HSN_CODE` | HSN code |
+| `TAX_RATE` | Tax rate |
+| `WHOLESALE_PRICE` | Wholesale price |
+| `WHOLESALE_MIN_UNIT` | Wholesale minimum units |
+
+When the list cannot be loaded the app groups by **price and unit**. Example: two batches of milibar at 4.000 / PC are one line in the cart; a third batch at 4.500 is a separate line.
+
+## Stock rules that affect selling
+
+- **ALLOW_OVERSELL** (default on): when off, the cart cannot go above the available quantity without the oversell approval dialog.
+- **POS_HIDE_NONSTOCK_PRODUCT**: hides products, batches and variants with zero stock, but only when general setting `stock_enabled` is also on (`GET /api/v1/general`).
+- Sales returns put stock back in base units to the original variant or store row.
+- A product with stock on hand cannot be deleted.
+
+## Related
+
+- [Products and stock (POS app)](/docs/pos-app/products-and-stock)
+- [Purchases](/docs/pos-app/purchases)
+- [Reports](/docs/pos-app/reports)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Products and Categories API](/docs/api/products-and-categories)
+- [Suppliers and purchases API](/docs/api/suppliers-and-purchases)
+- [Reports and day close API](/docs/api/reports-and-day-close)
+- [Settings and master data API](/docs/api/settings-and-master-data)

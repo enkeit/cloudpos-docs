@@ -3,12 +3,25 @@
   "pages": [
     "index",
     "getting-started",
+    "navigation-and-roles",
     "billing",
+    "payments-and-tax",
     "customers",
-    "products",
+    "restaurant-and-kitchen",
+    "sales-and-orders",
+    "sales-returns",
+    "day-close-and-shifts",
+    "quotations-and-proforma",
+    "products-and-stock",
+    "purchases",
+    "transactions-and-accounts",
     "reports",
-    "kiosk",
+    "dashboard",
     "printing",
-    "dashboard"
+    "zatca",
+    "settings-and-sync",
+    "settings-reference",
+    "kiosk",
+    "troubleshooting-faq"
   ]
 }

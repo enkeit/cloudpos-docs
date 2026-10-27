@@ -1,41 +1,252 @@
 ---
 title: Printing
-description: Receipt, KOT, and barcode printing setup
+description: Set up billing, quotation, kitchen and barcode printers, choose paper sizes and receipt templates, share PDFs, and control what prints through document configurations.
 ---
 
 # Printing
 
-Enke POS supports both **Bluetooth thermal printers** and **standard network/USB printers**.
+CloudPOS prints bills, return bills, quotations, kitchen order tickets (KOT), day-close reports and barcode stickers. It prints to thermal receipt printers (112 mm, 80 mm, 58 mm) and to normal page printers or PDF files (A4, A5).
 
-## Connecting a Printer
+You set printers once per device in **Printer Settings**. What appears on each printout (logo, title, columns, totals, QR code) is set by the admin in **Document Configuration** on the Admin Panel.
 
-1. Go to **Settings → Printers**.
-2. For Bluetooth printers, tap **Scan** to discover nearby devices and pair.
-3. For network printers, enter the IP address and port.
+## Open Printer Settings
 
-## Receipt Layouts
+1. Open the side menu.
+2. Under **Other**, tap **Printer**. You need the permission `menu.settings.printer.access`.
+3. The **Printer Settings** screen opens with the subtitle "Configure printers, paper sizes and receipt themes".
 
-Multiple receipt layouts are available:
+![Printer Settings](media:printer-settings)
+*Printer Settings: tabs Billing / Quotation / Kitchen / Barcode printer and PDF Sharing; B2C and B2B billing profiles; paper size and theme (e.g. Bilingual Centered Tax Invoice); Open PDF or a physical printer; Scan for Printers; Resync Doc and Clear Default Printer*
 
-| Layout | Description |
-|--------|-------------|
-| Classic | Simple, minimal receipt |
-| Standard | Full receipt with logo |
-| Premium | Rich design with itemised tax |
-| Bilingual | English + Arabic |
-| Arabic + English 3 | Compact bilingual |
-| Multi-Store | For chains with multiple outlets |
+## The tabs
 
-Select a layout in **Settings → Receipt Layout**.
+| Tab | Used for | Saved printer | Saved paper size |
+|---|---|---|---|
+| **Billing Printer** | bills, return bills, order prints from Sales | `default_printer` (B2C), `default_printer_b2b` (B2B) | `default_paper_size`, `default_paper_size_b2b` |
+| **Quotation Printer** | quotations | `quotation_printer` | quotation paper size |
+| **Kitchen Printer** | kitchen order tickets (KOT) | `kot_printer` | `kot_paper_size` |
+| **Barcode Printer** | barcode stickers | `barcode_printer` | sticker layout |
+| **PDF Sharing** | PDFs sent by Share or WhatsApp | none (no physical printer) | `share_pdf_paper_size`, `share_pdf_paper_size_b2b` |
 
-## KOT Printing (Restaurant)
+Each tab is saved on this device only. Two counters in the same store can use different printers.
 
-Kitchen Order Tickets (KOT) are sent to the kitchen printer when a table order is confirmed. The KOT shows item names, quantities, and table number.
+## Set up the billing printer
 
-## Barcode Printing
+1. Open the **Billing Printer** tab.
+2. Choose the segment: **B2C (Retail)** or **B2B (Business)**. B2B uses the B2C settings when you leave it unconfigured.
+3. Under **Paper Size Settings**, pick a **Paper Size**: **112mm**, **80mm**, **58mm**, **A5** or **A4**. The app shows "Default paper size saved".
+4. Under **Receipt Theme**, pick a **Theme**. Thermal sizes list thermal themes. A4 and A5 list PDF templates. The app shows "Receipt theme saved".
+5. Pick the font style: **Font A (Small & Sharp)** (default) or **Font B (Default)**.
+6. Under **Available Printers**, tap **Scan for Printers**. The app shows "Scanning for printers..." and then "@count devices found".
+7. Tap **Select** next to your printer. The app shows "@device Printer Selected".
+8. Tap **Test Print** to print a sample. The app shows "Sample receipt sent to printer".
 
-Go to **Settings → Barcode Printer** to configure barcode label printing. Supports custom label sizes and layouts.
+Where printers come from:
 
-## WhatsApp Receipt
+- **Windows:** printers installed in Windows (the print spooler), including USB and network printers.
+- **Android and iOS:** Bluetooth printers found nearby. The app asks for **Bluetooth** and **Location** permission first ("Permissions Required").
 
-To send a receipt via WhatsApp, tap the **WhatsApp** button on the payment success screen. The customer's number is auto-filled if they are registered.
+### Open PDF instead of a printer
+
+When the paper size is **A4** or **A5**, the list also offers **Open PDF**: "Generate and open the @paperSize PDF in your default viewer". Choose it if you do not have a page printer. The app shows "Open PDF selected. A4/A5 documents will open in your PDF viewer." You can print from the PDF viewer.
+
+### Development Printer
+
+When **Developer Mode** is on in Settings, the list also shows **Development Printer**. It saves each printout as an image in a folder instead of printing ("Development Printer selected. Prints will be saved to a folder."). The output folder is shown on screen. Use it for testing layouts without paper.
+
+### Clear Default Printer
+
+**Clear Default Printer** (shown as **Clear** on the PDF Sharing tab) resets this tab's printer, paper size, font and theme to the defaults. The app shows "@type printer settings reset to default".
+
+### Resync Doc
+
+**Resync Doc** downloads the latest document configurations from the server. Use it after the admin changes a template, logo or label in the Admin Panel. The app shows "Document configuration resynced successfully".
+
+## Thermal receipt templates (112 mm, 80 mm, 58 mm)
+
+| Code | Name in app | What it looks like |
+|---|---|---|
+| `classic` | **Classic** | Traditional receipt layout with standard formatting |
+| `premium` | **Premium** | Premium design with enhanced visual styling and layout |
+| `premium1` | **Premium 1** | Premium design with enhanced visual styling |
+| `premium2` | **Premium 2** | Premium design with the invoice number in a box |
+| `premium2_bilingual` | **Premium 2 Bilingual** | Premium 2 with language-driven bilingual text and direction |
+| `supermarket_en` | **Supermarket En** | Supermarket layout in English |
+| `standard` | **Standard** | Clean and minimal receipt layout |
+| `arabic_and_english` | **Arabic & English** | Bilingual layout for Arabic and English |
+| `arabic_english_table_headers` | **Arabic & English 2** | Arabic and English with bilingual table headers only |
+| `arabic_and_english_3` | **Arabic & English 3** | Bilingual layout with the English item name only |
+| `supermarket` | **Supermarket** | Modern and clean design with enhanced spacing |
+| `supermarket2` | **Supermarket 2** | Modern, with a delivery icon |
+| `supermarket2_bilingual` | **Supermarket 2 Bilingual** | Supermarket 2 in two languages |
+| `supermarkerrecpt3` | **Supermarket Receipt 3** | Supermarket-style receipt, version 3 |
+| `bilingual` | **Bilingual** | English and Arabic |
+| `multi_store` | **Multi Store** | Layout for companies with several stores |
+| `mobile_shop_tax_invoice` | **Mobile Shop Tax Invoice** | Bilingual ZATCA tax invoice for mobile shops with SN, VAT, QTY, PRICE and AMOUNT columns |
+
+An unknown theme falls back to **Classic**.
+
+## A4 and A5 templates
+
+| Code | Name in app | What it looks like |
+|---|---|---|
+| `classic` | **Classic** | Traditional A4/A5 layout |
+| `simplified_tax_invoice` | **Simplified Tax Invoice** | ZATCA simplified tax invoice with teal header and footer, bilingual columns and totals |
+| `centered_simplified_tax_invoice` | **Centered Simplified Tax Invoice** | Arabic details left, centered logo, English details right |
+| `bilingual_centered_tax_invoice` | **Bilingual Centered Tax Invoice** | Bilingual centered tax invoice, Arabic left, logo centre, English right |
+| `boxed_bilingual_tax_invoice` | **Boxed Bilingual Tax Invoice** | Boxed sections: seller, buyer, invoice, items, bank and totals |
+| `boxed_header_tax_invoice` | **Boxed Header Tax Invoice** | Boxed header tax invoice with seller, buyer, invoice, items, bank and totals |
+
+On the **Quotation Printer** tab the same A4/A5 templates are named as quotations, for example **Simplified Quotation**, **Bilingual Centered Quotation**, **Boxed Header Quotation** and **Mobile Shop Quotation**.
+
+In the demo the server defaults are B2C on **A4** with **Bilingual Centered Tax Invoice**, and B2B on **A5** with **Boxed Header Tax Invoice**.
+
+## Kitchen printer (KOT)
+
+![Kitchen Printer tab](media:printer-kitchen)
+*Printer Settings > Kitchen Printer: KOT paper size (80 mm) and printer, plus Advanced print options (PDF margins, driver behaviour) that apply to all tabs*
+
+1. Open **Kitchen Printer**.
+2. Pick the KOT paper size (80 mm in the demo).
+3. Scan and **Select** the kitchen printer.
+
+When a restaurant order is sent to the kitchen (**Send Kitchen** or **KOT + BILL**) and no kitchen printer is saved, the app asks you to pick one in a **Print KOT** printer picker. KOT printing must be on (`ENABLE_KOT_PRINT`). The KOT layout uses the **Kitchen Order** document configuration. See [Restaurant and kitchen](/docs/pos-app/restaurant-and-kitchen).
+
+## Barcode printer
+
+1. Open **Barcode Printer** and select the label printer.
+2. Adjust the **Barcode Sticker Layout**:
+   - **Sticker Size** and **Stickers Per Row**
+   - **Gap Between Stickers (mm)** and **Page Margin (mm)**
+   - **Barcode Height (pt)**, **Barcode Width (% of sticker)**, **Element Spacing (pt)**
+   - **Printer Resolution**, **Print Rotation Correction** (leave at **Printer default** for normal printers)
+   - **Invert Print Colors**: use only when the printer prints white on black
+   - **Font Sizes** for **Store Name**, **Product Name**, **Price**, **Date**, **Barcode Number**
+3. Check the **Sticker Preview**. It is approximate. **Reset** restores defaults.
+
+You print stickers from **Product → Product Barcode**. See [Products and stock](/docs/pos-app/products-and-stock).
+
+## PDF Sharing
+
+**PDF Sharing Settings** — "Configure invoice PDFs independently from physical printers". This tab controls the PDF that is attached when you **Share** an order or confirm with WhatsApp.
+
+- Paper size: **A4** (default) or **A5**.
+- Template: any A4/A5 template. Default **Classic**.
+- Separate **B2C** and **B2B** profiles. B2B uses the B2C sharing profile when left unconfigured.
+
+## Advanced print options
+
+**Advanced print options** — "Applies to all tabs".
+
+- **Print Margins:** a safe area added to every edge of A4/A5 pages. "Only affects A4 and A5 print jobs." Barcode stickers keep their own **Page Margin**.
+- **Printer Driver Settings** (Windows, A4/A5): choose **Use the PDF's selected A4/A5 page size** (recommended for normal invoices, prevents cropping) or **Use the selected printer's saved media settings** (only when the driver is set up for the exact document size).
+
+## Receipt layout and preview
+
+The billing tab has a **Receipt layout & preview** panel: "Check synced labels and preview the printed receipt".
+
+- Sections **Store**, **Invoice**, **Customer**, **Items**, **Totals & bank** and **Footer** list which fields are visible ("@visible/@total visible").
+- **Field reference** shows every synced label in **English** and **Arabic** and its **Source**.
+- **Live preview** renders a sample receipt with the current settings.
+- If nothing shows, the message is "No Bill document configuration is currently synced". Configure the Bill template in the Admin Panel, then tap **Resync**.
+
+## Printing at the counter
+
+- **Confirm and Print (F6)** in billing confirms the sale and prints the bill on the billing printer.
+- With `POS_PRINT_DOUBLE_BILL` on, every bill prints twice.
+- **Open cash drawer** in billing sends a kick command through the thermal billing printer. If it fails you see "Unable to open cash drawer".
+- B2B customers print with the B2B profile (when the `B2B` setting is on).
+
+### Reprint from Sales
+
+![Select Printer](media:print-select-printer)
+*Select Printer: paper size, printers found on this PC, and Print Receipt*
+
+1. Open **Sales**, find the order (for example receipt 2-11-261027-0003, backend ORD-004851).
+2. Tap **Print** on the row or on the order details page.
+3. The **Select Printer** dialog opens. Pick the **Paper Size** and a printer.
+4. Tap **Print Receipt**.
+
+If you tap print without a printer, the app asks you to select a printer first.
+
+## Document configurations
+
+The admin controls what each printout contains in **Admin Panel → Document Configuration**. The app downloads them with `GET /api/v1/document/document-configs?store_id=&language=` at startup and on **Resync Doc**, and keeps them on the device for offline printing.
+
+### Document types
+
+| Type | Printed for |
+|---|---|
+| **Bill** | the sales receipt (thermal) |
+| **Bill A4** | the sales bill on A4/A5 |
+| **Return Bill** | a sales return |
+| **Sales and Return Bill** / **Sales and Return Bill A4** | the sale and its return on one print |
+| **Credit Note** | credit note after a return |
+| **Invoice** | invoice print and share |
+| **Receipt** | payment receipt |
+| **Voucher** | customer voucher |
+| **Supplier Voucher** | supplier voucher |
+| **Quotation** | quotation print |
+| **Kitchen Order** | KOT |
+| **Barcode** | barcode stickers |
+| **Customer Statement** / **Supplier Statement** | ledger statements |
+
+The server also has Delivery Note, Purchase Order, Supplier Invoice, General Payment Voucher, Payslip, Email and ZATCA types used outside the POS screens.
+
+### Fields of a document configuration
+
+| Field | Effect |
+|---|---|
+| `logo`, `show_logo` | logo image and whether it prints |
+| `icon`, `show_icon` | small icon and whether it prints |
+| `number_prefix` | prefix of the document number (for example `ORD-` on Bill) |
+| `header`, `subheader` | heading lines |
+| `terms` | terms printed at the bottom (also used for quotations) |
+| `footer` | footer text |
+| `template`, `theme` / `active_theme` | template family and default theme |
+| `language` | `en`, `ar` or `en_ar` (bilingual). In the demo, Bill is `en_ar`. |
+| `item_name`, `unit_name`, `price_name`, `tax_name`, `amount_name` | column titles, chosen from options such as Items/Products/Services, Quantity/Hours, Price/Rate, Tax/GST/VAT/Tax (%), Amount/Total |
+| `item_tax_display_mode` | `unit` = tax per unit; `row_total` (default) = tax for the whole line |
+| `accent_color`, `font` | styling |
+| `is_active` | whether the configuration is used |
+| `display_configuration` | the display flags below; each has `visible` and an optional label `value` |
+
+### Display flags
+
+Each flag turns one part of the printout on or off. A flag can also carry its own label text (for example the Arabic column title).
+
+| Area | Flags |
+|---|---|
+| Store heading | `showStoreName`, `showDescription`, `showTel`, `showEmail`, `showStoreAddress`, `showFssaiInfo`, `showVatNumber`, `showCRNumber`, `showExtraHeading1`, `showExtraHeading2` |
+| Invoice | `showInvoiceTitle`, `showInvoiceTitleB2b`, `showInvoiceNumber`, `showDate`, `showTokenNumber` |
+| Customer | `showCustomerNameAndPhone`, `showCustomerName`, `showCustomerPhone`, `showCustomerPhoneMasked`, `showCustomerAddress`, `showCustomerVatNumber`, `showCustomerCrNumber`, `showDeliveryMethod`, `showDeliveryPhone`, `showPayment`, `showPaymentBreaked`, `showComment` |
+| Item columns | `showSLNumber`, `showParticulars`, `showMRP`, `showQty`, `showRate`, `showRateExcTax`, `showUnit`, `showTaxHeader`, `showRowTotalTaxHeader`, `showDiscountColumn`, `showTotal`, `showWarranty` |
+| Totals | `showSubTotal`, `showDiscount`, `showTax`, `showNetAmount`, `showMRPTotal`, `showSaved`, `showAmountInWords`, `showItemsCount`, `showQuantityCount` |
+| Customer balance | `showCustomerBalance`, `showCustomerPrevBalance`, `showCustomerPaidAmount`, `showCustomerCurrentBalance` |
+| Bank | `showBankInfo`, `showBankName`, `showAccountName`, `showAccountNumber`, `showIBAN`, `showSwiftCode` |
+| Footer | `showQRCode`, `showVATFooter`, `showThankYouMessage`, `showTermsConditions`, `showOrderNumberInFooter` |
+
+`showPaymentBreaked` prints the payment breakdown. For the demo sale it shows cash 258.00 and card 400.00 (cash is stored net of the 42.00 change). `showCustomerPhoneMasked` hides part of the phone. `showQRCode` prints the ZATCA QR.
+
+## How it works
+
+- **Server defaults vs your choice.** `GET /api/v1/document/printer-settings` returns the company defaults: `b2c_paper_size`, `b2c_template`, `b2b_paper_size`, `b2b_template`. The app checks them against the allowed `paper_sizes`, `thermal_templates` and `paper_templates`. It applies them only where you have not picked a value yourself on this device (each choice is remembered with a `<key>_user_selected` flag). After **Select Store** at login the defaults are force-applied once.
+- **Language.** The document `language` decides English, Arabic or bilingual output. Labels come from the document configuration, not from the app language.
+- **Offline.** Document configurations, logos and printer choices are cached, so printing works without internet.
+- **Default customer phone.** With `HIDE_DEFAULT_PHONE` on (default), the walk-in customer's phone from `AUTO_ASSIGN_DEFAULT_CUSTOMER` is hidden on prints and PDFs.
+- **Title.** `PRINT_TITLE` is the fallback receipt title when the document configuration has none.
+- **Customer care.** `COMPANY_CUSTOMER_CARE_PHONE` and `COMPANY_CUSTOMER_CARE_EMAIL` print on some templates and shared PDFs.
+- **Public invoice link.** Sharing can send the link `{{server}}/invoice/{orderNumber}` instead of a file.
+
+## Related
+
+- [API: Settings and master data](/docs/api/settings-and-master-data)
+- [API: Cart and orders](/docs/api/cart-and-orders)
+- [API: Quotations and proforma](/docs/api/quotations-and-proforma)
+- [API: Overview](/docs/api)
+- [Billing](/docs/pos-app/billing)
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Restaurant and kitchen](/docs/pos-app/restaurant-and-kitchen)
+- [Settings and sync](/docs/pos-app/settings-and-sync)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Troubleshooting and FAQ](/docs/pos-app/troubleshooting-faq)

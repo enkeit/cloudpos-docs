@@ -1,0 +1,21 @@
+{
+  "title": "API Reference",
+  "pages": [
+    "index",
+    "auth-and-session",
+    "products-and-categories",
+    "stock",
+    "cart-and-orders",
+    "payments-delivery-discounts",
+    "customers",
+    "suppliers-and-purchases",
+    "sales-returns",
+    "quotations-and-proforma",
+    "transactions-invoices-receipts",
+    "reports-and-day-close",
+    "dashboard",
+    "settings-and-master-data",
+    "zatca",
+    "sync-and-realtime"
+  ]
+}

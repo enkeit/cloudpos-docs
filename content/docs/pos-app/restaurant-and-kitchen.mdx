@@ -1,0 +1,290 @@
+---
+title: Restaurant and Kitchen
+description: Take table, takeaway and delivery orders on the Restaurant, Store and Attender screens, send them to the kitchen with a KOT, and run the Kitchen Master board.
+---
+
+# Restaurant and Kitchen
+
+CloudPOS has a full restaurant flow. Waiters take orders at the table. The kitchen sees every item on the Kitchen Master board. The counter bills the order when the guest leaves.
+
+This page covers four screens:
+
+| Menu item | Who uses it | What it is for |
+|---|---|---|
+| **Restaurant** | Counter staff (`restaurant_sales` lands here) | Full restaurant POS: tables, menu, cart, billing |
+| **Store** | Counter staff with `billing.store.access` | Same screen with a summary-only order panel and no tables |
+| **Attender** | Waiters (`attender` lands here) | Pick a table, add items, send them to the kitchen |
+| **Kitchen Master** | Kitchen staff (`kitchen_master` lands here) | See kitchen orders and mark items ready and served |
+
+Each screen needs its own permission. See [Navigation and roles](/docs/pos-app/navigation-and-roles).
+
+## The Restaurant screen
+
+![Restaurant POS screen](media:restaurant-empty)
+*Restaurant POS: order panel (dining, customer, payment, delivery), menu grid with category chips, and cart / saved / ongoing tabs*
+
+The screen has three parts:
+
+- **Order panel** (left). Four selectors at the top: **Dining**, **Customer**, **Payment** and **Delivery**. Below them are the tabs **Cart**, **Saved** and **Ongoing**.
+- **Menu grid** (middle). Products as tiles. Category chips sit above the grid. **All** shows every product. **Fav** shows your favourite items. Use **Search items** to find a product by name.
+- **Tables** (on wide screens). You can hide or show this panel with **Hide Tables Panel** / **Show Tables Panel**.
+
+On a phone the same screen uses three tabs: **Tables**, **Menu** and **Order**.
+
+Food products can carry a veg or non-veg mark. This comes from the product property `FOOD_TYPE` (`VEG` or `NON_VEG`).
+
+### Start an order
+
+1. Tap **Dining** (or **Select table**) to open the **Table List**.
+2. Tap a free table. The order panel now shows **Selected table**.
+3. For a takeaway or delivery order, pick a **Delivery** method instead of a table.
+4. Tap menu tiles to add items. A message such as "Added classic chicken bucket to Table 3" confirms each one.
+5. Use the quantity steppers in the cart to change quantities.
+
+If you try to add items before choosing, the app says **Select a table or delivery method first**.
+
+### The Table List
+
+![Table List dialog](media:restaurant-tables)
+*Table List dialog: tables grouped by dining area with Available, Reserved, Filled and Available soon colours*
+
+The **Table List** dialog groups tables into **Indoor** and **Outdoor** sections. The legend at the top explains the colours:
+
+| Legend | Colour | Meaning |
+|---|---|---|
+| **Available** | Dark (almost black) | Free. You can seat guests here. |
+| **Reserved** | Blue | Reserved for a booking. |
+| **Filled** | Light grey | A running order is on this table. |
+| **Available soon** | Yellow | Being cleaned or under maintenance. |
+
+The table you have selected is always drawn in blue. Tables with 6 or more seats are drawn wider.
+
+### Table tiles and status codes
+
+The tables panel and the Attender screen show each table as a tile with a short status word:
+
+| Tile text | Status | Tile tint |
+|---|---|---|
+| **FREE** | Available | White |
+| **BUSY** | Occupied (has an order) | Red tint |
+| **RSVD** | Reserved | Purple tint |
+| **CLEAN** | Being cleaned | Blue tint |
+| **MAINT** | Under maintenance | Orange tint |
+
+A table turns **BUSY** as soon as an order is saved on it.
+
+### Cart, item notes and order comment
+
+![Restaurant cart for Table 2](media:restaurant-cart)
+*Restaurant order for Table 2: items in the cart with quantity steppers, item notes, Send Kitchen and KOT + BILL*
+
+Each cart line has a quantity stepper, a remove button and a note button.
+
+**To add an item note:**
+
+1. Tap the note icon on the line. The **Item Note** dialog opens: "Add kitchen instructions for this item".
+2. Tap one or more **Quick notes**, for example **NO ICE**, **EXTRA SPICY** or **LESS SUGAR**.
+3. Or type your own note in the text box.
+4. Save. The note shows under the item and prints on the KOT.
+
+Quick notes come from the master-data list `KOT_ITEM_NOTE_OPTIONS`. Your admin creates this list in the admin panel. If it is empty, you can still type a custom note.
+
+**Order comment.** Use the comment box under the cart for a note about the whole order, for example "Birthday table, bring candles". It prints on the KOT and shows in Kitchen Master as **Order Notes**.
+
+### Buttons on the order panel
+
+| Button | What it does |
+|---|---|
+| **Send Kitchen** | Saves the order on the server and prints a KOT for the kitchen. |
+| **KOT + BILL** | Prints the KOT and the bill in one step (counter billing only, see below). |
+| **Pre-Bill** | Prints a bill for the guest to check before paying. The order stays open. |
+| **Mark Served** | Marks the order's items as served. |
+| **Save Order** | Saves the order without sending it to the kitchen. |
+| **Save & Print** | Saves and prints the order summary. |
+| **Confirm Order** | Takes payment and closes the order. |
+| **Confirm and Print** | Takes payment, closes the order and prints the receipt. |
+| **Clear Cart** | Empties the current cart. |
+
+**Saved** lists orders that were saved but not sent. **Ongoing** lists orders that were sent to the kitchen and are still open. Tap an order in either tab to load it back into the cart.
+
+## Store mode
+
+**Store** opens the same Restaurant screen in store mode. It is meant for quick counter sales:
+
+- The **Tables** panel is hidden. The middle tab is called **Products** instead of **Menu**.
+- The order panel shows only the order summary. The footer action buttons and the **Ongoing** tab are hidden.
+- A counter action bar at the bottom holds the confirm buttons.
+
+Only roles with `billing.store.access` see **Store**. In the seeded roles that is `restaurant_sales`.
+
+## Attender (waiter) screen
+
+![Attender table tiles](media:attender-tables)
+*Attender (waiter) screen: table tiles with status (FREE / BUSY / reserved), menu grid, and the order panel that opens once a table is selected*
+
+The Attender screen is the waiter's view. It shows table tiles first. The order panel opens once you pick a table.
+
+### Take a table order (demo)
+
+In the demo, the waiter took this order for Table 3:
+
+1. Tap the **TABLE 3** tile.
+2. Add **1 × classic chicken bucket** and **1 × crispy chicken bucket**.
+3. Add a note to an item if needed, for example **NO ICE** or **EXTRA SPICY**.
+4. Check **Total Payable**: SAR 438.00.
+5. Tap **Send Kitchen**.
+
+![Attender order for Table 3](media:attender-order)
+*Attender order for Table 3: cart with quantities and notes, Total Payable, Cancel / Save / Send Kitchen, order comment and Ongoing Orders*
+
+The app saves the order and shows "Order for TABLE 3 sent to kitchen successfully!" with the order ID. In the demo this created **ORD-004852**.
+
+### Printing the KOT
+
+![Print KOT printer picker](media:kot-print)
+*Send Kitchen saved order ORD-004852 and opened Print KOT: pick the kitchen printer (asked when no default kitchen printer is set)*
+
+After **Send Kitchen** the app prints the KOT:
+
+1. It first tries the default kitchen printer silently.
+2. If no kitchen printer is set, or printing fails, the **Print KOT** page opens.
+3. Pick the kitchen printer and print. You can also open or share the KOT as a PDF.
+
+To stop the picker from opening every time, set a printer in **Printer Settings → Kitchen Printer**. See [Printing](/docs/pos-app/printing).
+
+### After Send Kitchen
+
+![Saved and ongoing orders for the table](media:attender-ongoing)
+*After Send Kitchen: Saved Orders and Ongoing Orders for the table (ORD-004852, items served 0/2) with a reprint KOT button*
+
+The table now has a running order. **Ongoing Orders** shows ORD-004852 with **0/2** items served. Use the printer button on the order to reprint the KOT.
+
+### Adding or removing items later
+
+Open the ongoing order and change it, then send it again:
+
+- New items print on an **add-on KOT**, so the kitchen only sees what is new.
+- Removed items print on a **cancel KOT**, so the kitchen stops cooking them.
+
+## Kitchen Master
+
+![Kitchen Master board](media:kitchen-master)
+*Kitchen Master: kitchen orders with tabs All / Pending / Preparing / Ready / Served, item statuses, kitchen notes (NO ICE, EXTRA SPICY), Mark As Served, reprint KOT, and Kitchen Stats (pending, preparing, ready, completed, average prep time)*
+
+Kitchen Master shows every saved restaurant order as a card. Each card shows the order number, the table, the time, the items with their notes, and the status of each item.
+
+### Tabs
+
+| Tab | Shows orders where |
+|---|---|
+| **All** | Every order |
+| **Pending** | No item has been started yet |
+| **Preparing** | Items are in mixed states (some started or ready) |
+| **Ready** | Every item is ready |
+| **Served** | Every item is served |
+
+Orders are sorted newest first. Tap **Refresh Orders** to reload.
+
+### Work an order
+
+1. Tap an order card. **Order Details** opens on the right. Until you pick one, the panel says "Click on an order from the Kitchen Orders panel to view details and manage item status".
+2. For each item, tap the next status button:
+   - **Start Cooking** when you begin (item goes to preparing).
+   - **Mark Ready** when it is done.
+   - **✓ Mark Served** when it leaves the kitchen.
+3. When every item is ready, the card turns **READY**. Tap **Mark As Served** to serve all items at once.
+
+Only the next logical button is active. You cannot mark an item ready before it is started, or served before it is ready.
+
+![Kitchen order details for ORD-004852](media:kitchen-order-details)
+*Kitchen Master > Order Details for ORD-004852 - TABLE 3: Mark Ready per item; when all items are ready the order can be marked served*
+
+In the demo, both buckets on ORD-004852 were marked ready:
+
+![Both items ready](media:kitchen-ready)
+*Both items marked Ready: the order card turns READY, Kitchen Stats move it to Ready to Serve; next step is Mark As Served*
+
+Use the printer icon on a card (**Print KOT**) to reprint its KOT.
+
+### Kitchen Stats
+
+**Kitchen Stats** counts orders by state:
+
+| Card | Counts orders where |
+|---|---|
+| **Pending Orders** | All items are still new |
+| **Preparing** | Items are in mixed states |
+| **Ready to Serve** | All items are ready |
+| **Completed** | All items are served |
+
+The **Performance** part shows **Avg. Prep Time** (in minutes, from start to ready, averaged over items that have both times) and **Total Items**.
+
+## How it works
+
+### Tables
+
+- Tables come from the master-data list `TABLE_LIST` for the active store (`GET /api/v1/master-data-values?code=TABLE_LIST&store_id=`).
+- Each value's code is the table ID and its text is the name. For example code `TABLE_ONE`, name `TABLE 1`.
+- Tables start as available. A table becomes occupied when an order is saved on it.
+- Dining areas (rooms, tables and chairs) are managed in the admin panel as restaurant dinings.
+
+### Item statuses
+
+Kitchen statuses come from the master-data list `CART_ITEM_STATUS`, read through `GET /api/v1/cart/cart-item-statuses`. The seeded values are `START`, `READY` and `SERVED`. An item with no status is pending (new).
+
+| Item state | Status value | Button that moves it on |
+|---|---|---|
+| New / pending | none | **Start Cooking** |
+| Preparing | `START` | **Mark Ready** |
+| Ready | `READY` | **✓ Mark Served** |
+| Served | `SERVED` | none |
+
+The server stores the status as the master-data value **id**, which is different for each company. The app looks up the id by its value.
+
+- One item: `POST /api/v1/cart/update-cart-item-status`.
+- Whole order (**Mark As Served**, **Mark Served**): `POST /api/v1/order/update-order-items-status`.
+
+### Send Kitchen and KOT
+
+1. **Send Kitchen** saves the order with `POST /api/v1/order/add-to-order` (new) or `POST /api/v1/order/update-order` (existing).
+2. If KOT printing is on, the app prints the KOT using the **Kitchen Order** document configuration and the kitchen printer.
+3. Removed items are queued in the order property `KOT_CANCEL_QUEUE`. After a cancel KOT prints, the app calls `POST /api/v1/order/acknowledge-kot-print` so the same cancellation does not print twice.
+4. The KOT shows the token number from the order property `ORDER_TOKEN_NUMBER`. The company prop `ORDER_TOKEN_NUM` (default 100) is the token number setting in the admin panel.
+
+If the **Kitchen Order** document configuration is inactive, the app says "KOT printing is disabled in document configuration."
+
+### KOT + BILL rules
+
+**KOT + BILL** shows only when all of these hold:
+
+- The screen is in counter billing mode.
+- `ENABLE_KOT_BILL_BUTTON` is on.
+- For a table or Dine In order, `KOT_BILL_ALLOWED_FOR_DINE_IN` must also be on. Otherwise the app says "KOT + Bill is not allowed for dine-in/table orders".
+
+When `KOT_BILL_AUTO_MARK_SERVED` is on, KOT + BILL also marks the items **SERVED**.
+
+### Restaurant settings
+
+These company settings change the restaurant screens. They are set in the admin panel.
+
+| Setting | Default | Effect |
+|---|---|---|
+| `ENABLE_KOT_PRINT` | off (seeded); the app treats a missing setting as on | Prints a KOT after Send Kitchen. When off, the app says "KOT printing is disabled in settings". |
+| `ENABLE_SEND_TO_KITCHEN_BUTTON` | on | Shows **Send Kitchen**. |
+| `ENABLE_KOT_BILL_BUTTON` | off | Shows **KOT + BILL**. |
+| `KOT_BILL_AUTO_MARK_SERVED` | off | KOT + BILL marks items served. |
+| `KOT_BILL_ALLOWED_FOR_DINE_IN` | off | Allows KOT + BILL on table and Dine In orders. |
+| `ORDER_TOKEN_NUM` | 100 | Token number counter printed on KOTs. |
+| `KOT_ITEM_NOTE_OPTIONS` (master data) | not seeded | Quick notes in the **Item Note** dialog. |
+| `TABLE_LIST` (master data) | `TABLE_ONE` | The tables shown. |
+
+## Related
+
+- [Billing](/docs/pos-app/billing)
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Printing](/docs/pos-app/printing)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [API: Cart and orders](/docs/api/cart-and-orders)
+- [API: Settings and master data](/docs/api/settings-and-master-data)
+- [API: Sync and realtime](/docs/api/sync-and-realtime)

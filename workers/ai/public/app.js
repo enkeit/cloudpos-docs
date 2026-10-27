@@ -45,9 +45,10 @@ els.themeBtn.addEventListener("click", () => {
 applyTheme(savedTheme());
 
 const TOKEN_KEY = "cloudpos-ai-session";
+// Remembered across reloads and browser restarts until sign-out or the session expires.
 const store = {
-  get() { try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; } },
-  set(v) { try { v ? sessionStorage.setItem(TOKEN_KEY, v) : sessionStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ } },
+  get() { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },
+  set(v) { try { v ? localStorage.setItem(TOKEN_KEY, v) : localStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ } },
 };
 
 let token = store.get();

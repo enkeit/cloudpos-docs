@@ -1,0 +1,317 @@
+---
+title: Troubleshooting and FAQ
+description: Quick answers to the questions store staff ask most about CloudPOS — missing buttons and menus, delivery charges, counter numbers, unsynced orders, shifts, day close, ZATCA, printers, returns and quotations.
+---
+
+# Troubleshooting and FAQ
+
+Short answers to common questions. Each answer says what to check and who can fix it. Many buttons and rules are switched on or off by company settings. Only an administrator can change those, in the admin panel. The full list is in [Settings reference](/docs/pos-app/settings-reference).
+
+## Login and setup
+
+### I don't have an API key. Where do I get it?
+
+Ask your administrator or the CloudPOS account owner. The key belongs to your company. It is entered once per device on the **API Key Required** screen. See [Getting started](/docs/pos-app/getting-started).
+
+### The app says "API key saved. Domain verification failed, so default server URL is being used."
+
+The key was saved, but the app could not look up your company's server. It is using the default server. If login then fails, check the internet, then tap **Reset API Key** on the login screen and enter the key again.
+
+### Login says "Forbidden. You do not have the required role for this tenant."
+
+Your user exists but has no POS role in this company. An admin must give you a role such as `sales_executive`. Roles that can sign in: `sales_executive`, `restaurant_sales`, `attender`, `kitchen_master`, `company_admin`, `purchase_manager`, `delivery_executive`.
+
+### Login says "You have no permission to any store."
+
+Your user is not linked to any store. Ask an admin to assign you to the store.
+
+### I forgot my password.
+
+Tap **Forgot Password?** on the login screen. Enter your email and tap **Continue**. Enter the code you receive, your new password and **Repeat Password**, then tap **Verify**.
+
+### How do I move this device to another company?
+
+Tap **Reset API Key** on the login screen. This removes the key and all saved data from the device. Enter the new company's key. The counter number and bill sequence are kept.
+
+### The first sync is stuck on "Fetching product catalog".
+
+Large catalogs load in batches. Wait until you see "Products ready: N loaded." If it stops for several minutes, check the internet, close and reopen the app, and pick the store again.
+
+## Menus and permissions
+
+### A menu item my colleague has is missing for me.
+
+Your role does not have that item's permission. Example: **Sales Return** needs `menu.sales.returns.access`. An admin can add it to your role. The full list is in [Navigation and roles](/docs/pos-app/navigation-and-roles). After the admin changes it, open **Settings → Offline Data** and tap **Sync** on **Roles & permissions**, or log out and in.
+
+### Why don't I see purchase prices?
+
+Purchase prices are shown only to roles with `menu.purchase.orders.access`.
+
+### Why can't I switch to another cashier?
+
+The colleague must have access to the current store. Otherwise you see "[name] doesn't have access to current store. Please logout and try." Also, your role needs `menu.utility.user_switcher.access`.
+
+### Why can't I open the Kiosk?
+
+Kiosk screens are not on the menu in the current app. See [Kiosk](/docs/pos-app/kiosk).
+
+## Billing buttons and fields
+
+### Why is there no Confirm & Print button?
+
+The setting `SHOW_CONFIRM_ORDER_AND_PRINT_BUTTON` is off. The **Confirm Order** button is controlled by `SHOW_CONFIRM_ORDER_BUTTON`. Both are on by default. An admin can turn them back on.
+
+### Why is there no Confirm & Whatsapp button?
+
+`SHOW_CONFIRM_WHATSAPP_BUTTON` is off. It is off by default.
+
+### Confirm skips the Finalize Order dialog. Why?
+
+`SKIP_CHECKOUT_ON_CONFIRM` (for **Confirm Order**) or `SKIP_CHECKOUT_ON_CONFIRM_AND_PRINT` (for **Confirm and Print**) is on. The sale is confirmed with the default customer, delivery and payment.
+
+### The customer step is skipped.
+
+`SKIP_CUSTOMER_SELECTION` is on. With `AUTO_ASSIGN_DEFAULT_CUSTOMER` on, a walk-in customer is selected automatically. That phone number is hidden on prints when `HIDE_DEFAULT_PHONE` is on (default).
+
+### Why is there no discount or coupon option?
+
+`DISCOUNT_AND_COUPON` is off. Turn it on to show **Discount** (F10) with flat, percentage and coupon.
+
+### Why don't I see MRP, tax or tax % columns in the cart?
+
+`SHOW_MRP_POS`, `SHOW_TAX_POS` and `SHOW_TAXRATE_POS` are off. Each shows one column.
+
+### The history icon with the customer's last price is missing.
+
+`SHOW_CUSTOMER_LAST_BUYED_PRICE_LIST` is off. When on, a history icon in each cart line shows what this customer paid last time.
+
+### I can't add more than the stock quantity.
+
+`ALLOW_OVERSELL` is off. The app stops at the available stock and shows **Oversell approval required**. The dialog asks "Do you want to approve this oversell?". Tap **Approve & Add to Cart** only if your manager allows selling beyond stock.
+
+### Some products don't appear in billing.
+
+Either the product is not sellable, or `POS_HIDE_NONSTOCK_PRODUCT` is on and the product has zero stock. That setting works only when stock tracking (`stock_enabled`) is on. Also try **Settings → Resync Products**.
+
+### Clearing the cart asks for a security key.
+
+`POS_AUTHENTICATE_CLEARCART` is on. Enter the 4-digit security key from your manager in **Security Key Required**. The key protects clear, remove and delete actions on the cart.
+
+### Billing says "Shift Not Opened".
+
+`COMPULSORY_SHIFT_OPEN` is on. You must open a shift before selling. Tap **Open Shift**, enter the opening cash, and save. See [Day close and shifts](/docs/pos-app/day-close-and-shifts).
+
+### A price on the shelf is different from the price in billing.
+
+Product changes wait while the cart has items. Finish or clear the sale and the new price arrives. If not, run **Settings → Resync Products**.
+
+## Totals, tax and payment
+
+### Why is the delivery charge 0?
+
+Delivery charges apply only when `FREE_DELIVERY_MINIMUM_AMOUNT` is switched on. If it is off, every delivery is free. If it is on, the charge is 0 once the order net total reaches the minimum amount. Below the minimum, the delivery method's price applies.
+
+### Why is tax shown inside the price?
+
+Selling prices include tax. Line tax = total × rate ÷ (100 + rate). Example: 2 × 220.00 = 440.00 at 18% gives tax 67.12. See [Payments and tax](/docs/pos-app/payments-and-tax).
+
+### The total is rounded to a whole number.
+
+`PRICE_ROUND_OFF` is on. The net total is rounded to the nearest whole number before the delivery charge is added.
+
+### The customer paid too much. What happens to the excess?
+
+The app shows the **Excess Amount**. Choose **Return As Change** to give it back, or **Add To Customer Account** to keep it as customer credit. In the demo, 700 was paid for 658.00, and 42.00 was returned as change. The stored payment was cash 258 + card 400.
+
+### The customer wants to pay later.
+
+Use **Sell on Credit**. The unpaid amount is added to the customer's account. You cannot use a credit sale and **Add To Customer Account** on the same bill: you see "Credit sale and customer credit cannot be used together".
+
+### Payment says "Payment amount is less than the amount due".
+
+The amounts entered do not cover the total. Add another method, or put the rest on credit.
+
+### Why does the header say "Multi"?
+
+More than one payment method was used (split payment).
+
+### The address delivery asks for a pincode.
+
+`ECOMMERCE_ENABLED` is on. Address deliveries then need a pincode.
+
+### Car Delivery asks for a car number.
+
+Car Delivery needs the car number. Enter it, or you see **Please enter Car Number**.
+
+### Why are the VAT and CR fields missing on the customer form?
+
+Business fields (B2B, VAT number, CR number) appear only when `ZATCA_PHASE_1` is on. The B2B / B2C selector also needs `B2B` on.
+
+## Orders and sync
+
+### What is the difference between the receipt number and the order number?
+
+The receipt number (for example **2-11-261027-0003**) is made on the device when you confirm: store 2, counter 11, date 26-10-27, bill 0003. The order number (**ORD-004851**) is given by the server when the sale arrives. Both are shown in **Sales** and on order details.
+
+### My order is not in the Sales list.
+
+It has not reached the server yet. Open **Sales → Confirmed Orders**.
+
+![Sync attention page](media:sync-attention)
+*Sales > Confirmed Orders (Sync attention): offline orders that have not reached the server yet; empty when everything is synced*
+
+1. The header says how many orders on this device have not reached the server.
+2. Use the status filter: **All**, **Needs review**, **Rejected** or **Not sent**.
+3. Tap **Sync all** (or tick orders and **Sync selected**).
+4. Open **Log** on an order to see the server's answer if it fails again.
+
+When the page says **No sales need sync attention.**, every order has reached the server.
+
+### Does the app retry failed orders by itself?
+
+No. Sales that failed or got an unclear answer wait on the **Sync attention** page until someone syncs them. Normal offline sales are sent once in the background as soon as possible.
+
+### What does "Needs review" mean?
+
+The server's answer was unclear, for example the connection dropped during sending. The sale may or may not be on the server. Check **Sales** for the receipt number before syncing again.
+
+### What does "Rejected" mean?
+
+The server refused the sale, for example because of a validation error. Read the **Log**, fix the cause, then sync again or remove it after the manager agrees.
+
+### I see "Offline order saved". Is it safe?
+
+Yes. The sale is saved on the device with its receipt number. It will be sent when the connection returns. Do not use **Clear Local Storage** before it is synced.
+
+### Offline Mode is on and I can't sync.
+
+Turn off **Settings → Offline Mode**. While it is on, all online actions are blocked.
+
+## Counter and receipt numbers
+
+### How do I fix the counter number after a reinstall?
+
+![POS Counter Identity card](media:settings-counter)
+*POS Counter Identity: counter number 1-999 (unique per store) becomes part of every offline receipt number; last bill today, optional last-bill override after a reinstall, next bill number and device ID*
+
+1. Open **Settings → POS Counter Identity**.
+2. Enter the same **Counter number** this till used before (for example 11).
+3. In the admin panel, find this counter's last bill today, for example 2-11-261027-0010.
+4. Enter its last digits (10) in **Last bill sold today (optional)** and save.
+5. Check **Next bill No.** shows 0011.
+
+**Clear Local Storage** and **Reset API Key** keep the counter and the sequence. Only a full reinstall loses them.
+
+### Two tills print the same receipt numbers.
+
+They use the same counter number. Give each till in the store a different number (1–999).
+
+### The app says "Using default counter 1 • Tap to confirm".
+
+No counter number was set on this device. Set the real one before selling.
+
+## Day close and shifts
+
+### At login I'm asked "Day Close Pending".
+
+Your company uses a compulsory day close and a past business day is still open. Tap **Yes** to close it now, or **No** to continue.
+
+### "Sync orders before Day Close?" appears.
+
+Some sales on this device have not reached the server. Choose **Go to Confirmed Orders** and sync them first. **Close anyway** closes the day without them.
+
+### I can't open a second shift.
+
+Only one open draft is allowed per user per store. Close or use the open one.
+
+### Old sales are missing from my day close.
+
+A day close covers sales since the previous close, but only the last 7 days. Older unclosed sales are skipped and a notice is shown.
+
+## Returns and cancellations
+
+### Why is the refund less than the return value?
+
+The refund is limited by the maximum cash refund the server calculates. If the customer owes the store money, the return value is first offset against that balance. The app shows the maximum allowed.
+
+### Why can't I cancel this order?
+
+Shipped or delivered orders cannot be cancelled. Orders with a completed sales return cannot be cancelled either. Use a sales return instead.
+
+### Can I return more than was sold?
+
+No. The return quantity cannot be more than sold minus already returned. The return price cannot be more than the original price.
+
+## Quotations
+
+### Why can't I convert this quotation to an order?
+
+Conversion fails when the quotation is **Cancelled**, already converted (**Order created**) or has no items.
+
+### Why can't I delete a quotation?
+
+Deleting needs the `quotation.delete` permission. No role has it by default.
+
+### Why do quick product tiles ask for a price?
+
+The tile is a quick-pick product with price options. The **Select Price** dialog lets you choose a fixed quick price.
+
+## ZATCA
+
+### The invoice ZATCA status is "NOT SENT".
+
+The invoice was created but not yet sent to ZATCA. Automatic sending happens only when the company is onboarded and the B2C or B2B queue setting is on. Otherwise open **Transactions → Invoice** and use **Sync Not Send**, **Sync Selected** or **Sync ALL**.
+
+### The dashboard shows failed ZATCA invoices.
+
+Open **Transactions → Invoice**, filter by ZATCA status, and use **Sync Failed**. For B2B invoices, check the customer has a VAT number and CR number. See [ZATCA](/docs/pos-app/zatca).
+
+### There is no ZATCA print or resync option.
+
+Phase 1 options need `ZATCA_PHASE_1`. Phase 2 print, resync and bulk send need `ZATCA_PHASE_2`. Phase 2 can be turned on only after Phase 1.
+
+## Printing
+
+### No printer is found.
+
+Open **Printer → Printer Settings** and tap **Scan for printers**. Make sure the printer is on, connected and installed on this PC. If **No printers found** remains, choose **Open PDF** to print from the PDF viewer.
+
+### The kitchen ticket asks which printer to use.
+
+No default kitchen printer is set. Set one in **Printer Settings → Kitchen Printer**.
+
+### Two copies of every bill print.
+
+`POS_PRINT_DOUBLE_BILL` is on.
+
+### The receipt layout didn't change after the admin edited it.
+
+Tap **Resync Doc** in Printer Settings, or **Sync** on **Document configurations** in **Settings → Offline Data**.
+
+### The cash drawer doesn't open.
+
+The drawer opens through the receipt printer. Check the drawer cable is in the thermal printer and that printer is the default billing printer.
+
+## When all else fails
+
+1. Check the internet and turn off **Offline Mode**.
+2. Sync everything in **Sales → Confirmed Orders**.
+3. Use **Settings → Offline Data → Sync All**.
+4. Log out and log in again.
+5. As a last step, **Settings → Clear Local Storage**, then log in and let the sync finish.
+
+When you contact support, give the **Base URL** and **App Version** from **Settings → Company Info**, and the receipt number of the problem sale.
+
+## Related
+
+- [API overview and error codes](/docs/api)
+- [Cart and orders API](/docs/api/cart-and-orders)
+- [Sync and realtime API](/docs/api/sync-and-realtime)
+- [ZATCA API](/docs/api/zatca)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Settings and sync](/docs/pos-app/settings-and-sync)
+- [Billing](/docs/pos-app/billing)
+- [Payments and tax](/docs/pos-app/payments-and-tax)
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Day close and shifts](/docs/pos-app/day-close-and-shifts)
+- [Printing](/docs/pos-app/printing)

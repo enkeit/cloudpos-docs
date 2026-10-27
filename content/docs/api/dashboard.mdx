@@ -1,0 +1,377 @@
+---
+title: Dashboard API
+description: Every dashboard endpoint behind the CloudPOS Dashboard screen - sales overview, company and account overview, graphs, customer, product, ZATCA and supplier widgets - with parameters, sample responses and the widget permissions that show or hide each card.
+---
+
+# Dashboard API
+
+The **Dashboard** menu item (permission `menu.dashboard.main.access`) opens one of three dashboards, chosen by role:
+
+| Role | Dashboard shown |
+|---|---|
+| `sales_executive`, `restaurant_sales` | Sales Executive Dashboard |
+| `supplier` | Admin (supplier) dashboard - supplier widgets only |
+| every other role (for example `company_admin`) | Company Admin Dashboard |
+
+`company_admin` lands on the Dashboard after sign-in. All endpoints here are `GET`, need `X-Tenant` and `Authorization: Bearer <access-token>`, and return the standard `{status, message, data}` envelope. The app treats anything other than HTTP 200 with `status: "success"` as a failed card and keeps the rest of the dashboard working.
+
+## Period selector
+
+The dashboard has a period selector: **Today / Week / Month / Year**. Its default comes from the website setting **DASHBOARD_DEFAULT_PERIOD** (`today`, `week`, `month` or `year`; default `today`).
+
+How the period is sent differs per endpoint:
+
+| Endpoint group | Parameters sent |
+|---|---|
+| `company-overview`, `executives-overview` | `start_date`, `end_date` (`YYYY-MM-DD`) worked out from the period: today = today to today; week = the last 7 days; month = 1st of the month to today; year = 1 January to today |
+| `executive-sales-graph` | `period=today, week or month`; for Year: `start_date` and `end_date` as `DD-MM-YYYY` (1 Jan to today) without `period` |
+| `zatca-overview` | `period=today, week or month`; for Year: `period=custom` plus `start_date`, `end_date` as `DD-MM-YYYY` |
+| `customer-stats` | `period`, `start_date`, `end_date` |
+| `suppliers-*`, `supplier-transactions-graph` | `period`, `start_date`, `end_date` |
+| `supplier-credit-balance` | `start_date`, `end_date` |
+| `orders-graph`, `customers-graph` | `year` (for example `2026`) |
+| `dashboard` | none besides `store_id` |
+
+Most calls also send `store_id` (the active store).
+
+## Widget permissions
+
+Each card is shown only when the user's role has the permission. Permissions come from `roles/list`.
+
+- Whole widget: `dashboard.widgets.<widget>.access`, for example `dashboard.widgets.orders_graph.access`.
+- One field inside a widget: `dashboard.widgets.<widget>.<field>.access`, for example `dashboard.widgets.company_overview.bank_account.received_amount.access` or `dashboard.widgets.products_stats.low_stock.access`.
+- The section parent: `dashboard.widgets.section.access`.
+
+The 18 widget names: `company_overview`, `orders_graph`, `orders_widget`, `latest_orders`, `customers_graph`, `customer_transactions_summary`, `executives_overview`, `executive_sales_graph`, `suppliers_graph`, `suppliers_overview`, `suppliers_purchase_graph`, `supplier_transactions_graph`, `supplier_credit_balance`, `customer_stats`, `products_stats`, `revenue_stats`, `sales_stats`, `zatca_overview`.
+
+If a role has none of a card's field permissions, the whole card is hidden.
+
+## GET /api/v1/dashboard
+
+**Purpose:** headline numbers: profile, total products, and sales counts and amounts for today, week, month and year.
+
+**Used by:** the sales overview at the top of the Sales Executive and Company Admin dashboards (demo today: 2 sales, SAR 410 revenue, 4874 products).
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `store_id` | integer | no | Active store |
+
+**Response (200)** (contact fields masked)
+
+```json
+{
+  "status": "success",
+  "message": "data found",
+  "data": {
+    "profile_details": [
+      { "id": 516, "name": "salesexecutiv2", "email": "<email>", "phone": "<phone>" }
+    ],
+    "total_products": 4874,
+    "total_sales": {
+      "today": { "total_sales": 2, "total_customers": 1, "total_amount": 410 },
+      "week": { "total_sales": 64, "total_customers": 13, "total_amount": 14629 },
+      "month": { "total_sales": 144, "total_customers": 53, "total_amount": 19752.3 },
+      "year": { "total_sales": 4571, "total_customers": 1706, "total_amount": 1843416.252 },
+      "count": 4651,
+      "total": 1866557.252
+    }
+  }
+}
+```
+
+`total_sales` inside each period is the **number** of sales; `total_amount` is the money.
+
+## GET /api/v1/dashboard/company-overview
+
+**Purpose:** **Company account overview** card: money received and sent through bank and cash accounts, products added, revenue, customers and orders.
+
+**Permission:** `dashboard.widgets.company_overview.access` and its fields: `bank_account.received_amount`, `bank_account.sent_amount`, `cash_account.received_amount`, `cash_account.sent_amount`, `revenue.total_sales`, `customers.total_customers`, `orders.total_orders`, and the products fields.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `start_date` | date | yes | Period start `YYYY-MM-DD` |
+| `end_date` | date | yes | Period end `YYYY-MM-DD` |
+| `store_id` | integer | no | Active store |
+
+**Response (200)**
+
+```json
+{
+  "status": "success",
+  "message": "data found",
+  "data": {
+    "bank_account": { "received_amount": 887456.92, "sent_amount": 1122211.32 },
+    "cash_account": { "received_amount": 800097.956, "sent_amount": 6778635.659 },
+    "products": { "total": 4874, "added_today": 0, "added_week": 2, "added_month": 18 },
+    "revenue": { "total_sales": "4029465.069" },
+    "customers": { "new_customers": 0, "total_customers": 225 },
+    "orders": { "new_orders": 2, "total_orders": 4651 }
+  }
+}
+```
+
+The **your own cash/bank overview** card on the Sales Executive dashboard uses the same response.
+
+## GET /api/v1/dashboard/orders-graph
+
+**Purpose:** orders per month for the "Orders & customers" graph.
+
+**Permission:** `dashboard.widgets.orders_graph.access`.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `year` | integer | yes | Calendar year, for example 2026 |
+| `store_id` | integer | no | Active store |
+
+**Response (200)** (trimmed, 12 months)
+
+```json
+{
+  "status": "success",
+  "message": "data found",
+  "data": {
+    "orders_per_month": [
+      { "month": "Jan", "count": 0 },
+      { "month": "Feb", "count": 0 }
+    ]
+  }
+}
+```
+
+## GET /api/v1/dashboard/customers-graph
+
+**Purpose:** customers per month for the same graph.
+
+**Permission:** `dashboard.widgets.customers_graph.access`.
+
+**Query parameters:** `year` (required), `store_id`.
+
+**Response:** same shape as `orders-graph`; the app reads `customers_per_month` and falls back to `orders_per_month`, each item `{month, count}`.
+
+## GET /api/v1/dashboard/executives-overview
+
+**Purpose:** number of executives and each executive's sales over the period (the "Works team" card).
+
+**Permission:** `dashboard.widgets.executives_overview.access`, fields `total_executives` and the graph.
+
+**Query parameters:** `start_date`, `end_date` (`YYYY-MM-DD`, required), `store_id`.
+
+**Response (200)** (trimmed)
+
+```json
+{
+  "status": "success",
+  "message": "data found",
+  "data": {
+    "total_executives": 1,
+    "sales_executive_graph": [
+      {
+        "executive_id": 516,
+        "executive_name": "salesexecutiv2",
+        "sales": [
+          { "date": "2026-02-24", "amount": "12.000" },
+          { "date": "2026-02-24", "amount": "8.000" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## GET /api/v1/dashboard/executive-sales-graph
+
+**Purpose:** the **hourly / daily sales graph** of the signed-in executive.
+
+**Permission:** `dashboard.widgets.executive_sales_graph.access`.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `period` | string | for today/week/month | `today`, `week` or `month` |
+| `start_date`, `end_date` | date `DD-MM-YYYY` | for Year | 1 January to today |
+
+**Response (200)** (trimmed)
+
+```json
+{
+  "status": "success",
+  "message": "data found",
+  "data": {
+    "period": "week",
+    "sales_graph": [
+      { "day": "Mon", "amount": 0 },
+      { "day": "Tue", "amount": 0 }
+    ],
+    "total_sales": 0
+  }
+}
+```
+
+Each point carries `amount` and one of `time` (hourly), `day` or `date`, depending on the period.
+
+## GET /api/v1/dashboard/sales-stats
+
+**Purpose:** order counts per channel, delivery methods and payment methods.
+
+**Permission:** `dashboard.widgets.sales_stats.access`.
+
+**Query parameters:** none.
+
+**Response fields the app reads:** `data.pos_order`, `data.web_order`, `data.kiosk_order` (older builds send `"4"`, `"5"`, `"6"`), `data.delivery_method[]`, `data.payments[]`.
+
+## GET /api/v1/dashboard/customer-stats
+
+**Purpose:** **Your customers** card: total, debit (customers who owe), credit (customers with credit) and VVIP (crucial) customers.
+
+**Permission:** `dashboard.widgets.customer_stats.access`, fields `total_customers`, `debit_customers`, `credit_customers`, `crucial_customers`.
+
+**Query parameters:** `period`, `start_date`, `end_date`.
+
+**Response fields:** `data.period`, `data.total_customers`, `data.debit_customers`, `data.credit_customers`, `data.crucial_customers`.
+
+## GET /api/v1/dashboard/products-stats
+
+**Purpose:** **Product overview** and **product breakdown** (inactive, sellable, purchasable, taxable) and **category overview**.
+
+**Permission:** `dashboard.widgets.products_stats.access` plus one field permission per card, for example `dashboard.widgets.products_stats.low_stock.access`.
+
+**Query parameters:** none.
+
+**Response fields:** `total_products`, `active_products`, `inactive_products`, `sellable_products`, `purchasable_products`, `taxable_products`, `non_taxable_products`, `total_category`, `sellable_category`, `purchasable_category`, `taxable_category`, `non_taxable_category`, `products_in_stock`, `total_products_stock_qty`, `low_stock`.
+
+## GET /api/v1/dashboard/zatca-overview
+
+**Purpose:** **ZATCA overview** for invoices and vouchers: how many were accepted, not sent, failed or accepted with warnings. Also feeds the red failed-ZATCA banner (demo: 323 failed; 3 invoices not sent).
+
+**Permission:** `dashboard.widgets.zatca_overview.access`, with per-card children for invoice and voucher success / not_sent / failed / warning.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `period` | string | yes | `today`, `week`, `month`, or `custom` for Year |
+| `start_date`, `end_date` | date `DD-MM-YYYY` | with `custom` | 1 January to today |
+
+**Response fields:** `success_zatca`, `not_sent`, `failed`, `warning`, `voucher_success`, `voucher_not_sent`, `voucher_failed`, `voucher_warning`.
+
+```json
+{
+  "status": "success",
+  "data": {
+    "success_zatca": 0,
+    "not_sent": 3,
+    "failed": 323,
+    "warning": 0,
+    "voucher_success": 0,
+    "voucher_not_sent": 0,
+    "voucher_failed": 0,
+    "voucher_warning": 0
+  }
+}
+```
+
+Values above are illustrative, using the demo banner numbers.
+
+## Additional widgets
+
+These cards are loaded by the dashboard's additional widget area. Each needs its own widget permission. The calls send only the auth headers.
+
+| Endpoint | Widget permission | Response fields (`data`) |
+|---|---|---|
+| `GET dashboard/orders-widget` | `orders_widget` | `total_orders_today`, `average_order_amount` |
+| `GET dashboard/latest-orders` | `latest_orders` | `orders[]` with `id`, `order_date`, `customer_name`, `status`, `grand_total` |
+| `GET dashboard/customer-transactions-summary` | `customer_transactions_summary` | `total_customers`, `total_credit`, `total_debit`, `total_balance` |
+| `GET dashboard/suppliers-graph` | `suppliers_graph` | `labels[]`, `suppliers[]` |
+| `GET dashboard/revenue-stats` | `revenue_stats` | `total_on_order`, `credit_collected`, `credit_sales`, `total_in_bank`, `total_in_cash` |
+
+## Supplier widgets
+
+Shown on the supplier (Admin) dashboard. All take `period` (`today`, `week`, `month`, `year`), `start_date` and `end_date` (`YYYY-MM-DD`) and `store_id`.
+
+### GET /api/v1/dashboard/suppliers-overview
+
+**Permission:** `suppliers_overview`.
+
+```json
+{
+  "status": "success",
+  "message": "suppliers Over view successfully",
+  "data": {
+    "period": "month",
+    "suppliers": { "total_suppliers": 55, "new_suppliers": 2 },
+    "purchases": { "total_purchase_amount": 32260 }
+  }
+}
+```
+
+### GET /api/v1/dashboard/suppliers-purchase-graph
+
+**Permission:** `suppliers_purchase_graph`.
+
+```json
+{
+  "status": "success",
+  "message": "suppliers Purchase Graph successfully",
+  "data": {
+    "period": "month",
+    "purchase_graph": [
+      { "supplier_name": "Pizahutsupplier", "amount": 2085 },
+      { "supplier_name": "Supplier 1FUNZCART", "amount": 20175 }
+    ],
+    "total_purchase": 32260
+  }
+}
+```
+
+### GET /api/v1/dashboard/supplier-transactions-graph
+
+**Permission:** `supplier_transactions_graph`.
+
+```json
+{
+  "status": "success",
+  "message": "supplier Transactions Graph successfully",
+  "data": {
+    "period": "week",
+    "transactions_graph": [
+      { "day": "Mon", "received_amount": 0, "paid_amount": 0 }
+    ],
+    "total_received": 0,
+    "total_paid": 0
+  }
+}
+```
+
+### GET /api/v1/dashboard/supplier-credit-balance
+
+**Permission:** `supplier_credit_balance`. Takes `start_date` and `end_date` only.
+
+```json
+{
+  "status": "success",
+  "message": "supplier Credit Balance Graph successfully",
+  "data": {
+    "period": "today",
+    "credit_balance_graph": [
+      { "time": "00:00:00", "credit_amount": 0, "balance_amount": 0 }
+    ],
+    "total_credit": 0,
+    "total_balance": 0
+  }
+}
+```
+
+## Related
+
+- [Dashboard (what each card means)](/docs/pos-app/dashboard)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles) - widget permissions per role
+- [ZATCA API](/docs/api/zatca)
+- [Reports and day close API](/docs/api/reports-and-day-close)
+- [Settings and master data API](/docs/api/settings-and-master-data) - DASHBOARD_DEFAULT_PERIOD

@@ -1,0 +1,199 @@
+---
+title: Navigation and Roles
+description: Every menu item in the CloudPOS POS app, the permission that shows it, the screen each role opens on, the role-by-permission matrix, and how to switch user or store.
+---
+
+# Navigation and Roles
+
+The menu shows only the items your role allows. If a colleague sees a menu item that you do not, your role is missing that permission. Only an administrator can change roles, in the admin panel.
+
+## Moving around the app
+
+- **Desktop and tablet:** the sidebar on the left. Items with a ▸ open a sub-menu. You can collapse the sidebar to icons and expand it again.
+- **Phone:** tap the menu icon to open the drawer. Items are grouped under **Main**, **Sales**, **Inventory**, **Reports**, **Accounts**, **Directory** and **Settings**. The **AI** assistant button sits in the same row as **Logout**.
+- **Phone billing** has a bottom bar: **Market** (product grid), **Billing**, **Order** and **Cart**.
+- **Keyboard:** press **Ctrl+H** on billing to see all keyboard shortcuts. See [Billing](/docs/pos-app/billing).
+
+![Keyboard shortcuts dialog](media:keyboard-shortcuts)
+*Keyboard Shortcuts (Ctrl+H): global, billing, cart, add-product, shared navigation and checkout shortcuts, plus the keyboard focus outline switch*
+
+## The sidebar header and profile card
+
+At the top of the sidebar is the **user switcher**. At the bottom is the **profile card** with your name, role and the **Active Store**.
+
+![Sidebar with profile card and Active Store switcher](media:party-customer-transactions)
+*Party Accounts > Customer Transaction: every customer debit/credit with amount, customer, type, reference ID and date filters; sidebar shows the profile card with Active Store switcher*
+
+### Switch user
+
+Use this when two cashiers share one till.
+
+1. Tap your name at the top of the sidebar. The list of sales executives opens.
+2. Pick the colleague. The dialog **Enter password for [name]** opens.
+3. Your colleague types their password and taps **Switch**.
+4. You see **Successfully switched to [name]**. New bills are now made under their name.
+
+The switch is refused when the colleague has no access to the current store: "[name] doesn't have access to current store. Please logout and try." Permission: `menu.utility.user_switcher.access`.
+
+### Switch store
+
+1. Open the **Active Store** list on the profile card.
+2. Pick another store you have access to.
+3. The app clears the old store's cached products, categories and print layouts and runs the full store sync again. See [Getting started](/docs/pos-app/getting-started).
+
+Permission: `menu.utility.store_switcher.access`. If you see **No stores assigned**, ask an admin to link you to a store.
+
+## Every menu item
+
+The permission strings come from your role. Item labels are shown in English and Arabic.
+
+| Menu item | Arabic | Sub-items | Permission needed |
+|---|---|---|---|
+| **Home** | الرئيسية | Billing (standard) | `menu.home.main.access` |
+| **Billing** | الفواتير | Billing (supermarket) | `menu.supermarket.main.access` |
+| **Dashboard** | لوحة التحكم | Dashboard for your role | `menu.dashboard.main.access` |
+| **Restaurant** | المطعم | Restaurant counter | `menu.restaurant.main.access` |
+| **Store** | المتجر | Restaurant screen in store mode (summary-only order panel) | `billing.store.access` |
+| **Attender** | المساعد | Waiter screen with tables | `menu.restaurant.attender.access` |
+| **Kitchen Master** | المطبخ | Kitchen order board | `menu.restaurant.kitchen_master.access` |
+| **Sales** ▸ | المبيعات | **Sales** (orders list) | `menu.sales.orders.access` |
+| | | **Confirmed Orders** | `menu.sales.confirmed_orders.access` |
+| | | **Sales Return** | `menu.sales.returns.access` |
+| | | **Day Sale Closing** | `menu.sales.day_closing.access` |
+| | | **Admin Day Sale Records** | role `company_admin` **and** `menu.sales.day_closing.access` |
+| | | **Online Orders** | `menu.sales.online_sales.access`, or role `company_admin` |
+| **Quotations** ▸ | عروض الأسعار | **Quotations** (create), **Quotation List** | `menu.quotation.main.access` |
+| **Category** | الفئات | Category list | `menu.catalog.category.access` |
+| **Product** ▸ | المنتجات | **Product** | `menu.catalog.product.list.access` |
+| | | **Stock** | `menu.catalog.product.stock.access` |
+| | | **Product Barcode** | `menu.catalog.product.barcode.access` |
+| | | **Weigh machine download** | `menu.catalog.product.list.access` |
+| **Purchase** ▸ | المشتريات | **Purchase Orders**, **Purchase Returns** | `menu.purchase.orders.access` |
+| **Reports** ▸ | التقارير | **Sales Executive Reports** | `menu.reports.sales_executive.access` |
+| | | **Sales Report** | `menu.reports.sales_report.access` |
+| | | **Discount Sale Report** | `menu.reports.discount_sales.access` |
+| | | **Product Sales Report** | `menu.reports.product_sales.access` (or legacy `page_ProductSalesReport`) |
+| | | **Executive Reports** | role `company_admin`, or `menu.reports.executive_summary.access` for roles other than `sales_executive` |
+| | | **Customer Transaction Reports** | `menu.reports.customer_transactions.access` |
+| | | **Supplier Transaction Reports** | `menu.reports.supplier_transactions.access` |
+| | | **Stock Report** | `menu.reports.stock.access`, or role `company_admin` |
+| | | **Non-Stock Report** | `menu.reports.non_stock.access` |
+| | | **Consumed Stocks Report** | `menu.reports.consumed_stock.access` |
+| **Transactions** ▸ | المعاملات | **Invoice** | `menu.transactions.invoice.access` |
+| | | **Receipts** | `menu.transactions.receipts.access` |
+| | | **Customer Voucher** | `menu.transactions.customer_voucher.access` |
+| | | **Supplier Voucher (Purchase Entry)** | `menu.transactions.supplier_voucher_purchase.access` |
+| | | **Proforma Invoice** | `menu.transactions.proforma.access` |
+| | | **Expense** | always shown inside Transactions |
+| **Party Accounts** ▸ | حسابات الأطراف | **Customer Transactions** | `menu.party_accounts.customer_transactions.access` |
+| | | **Supplier Transactions** | `menu.party_accounts.supplier_transactions.access` |
+| **Customers** | العملاء | Customer list | `menu.customers.main.access` |
+| **Suppliers** ▸ | الموردون | **Suppliers** | `menu.suppliers.list.access` |
+| | | **Supplier Transactions** | `menu.suppliers.transactions.access` |
+| | | **Supplier Voucher** | `menu.suppliers.voucher.access` |
+| **Printer** (under **Other**) | الطابعة | Printer Settings | `menu.settings.printer.access` |
+| **Settings** | الإعدادات | Settings | `menu.settings.main.access` |
+| **Logout** | تسجيل الخروج | Signs you out | always shown |
+
+Notes:
+
+- Tapping the **Reports** header opens **Executive Reports** for a `company_admin`, **Sales Executive Reports** if you have that permission, otherwise the first report you may open.
+- **Home** and **Billing** open the same billing screen. **Billing** is the supermarket entry. A `restaurant_sales` user gets the restaurant layout on both.
+- On a phone-sized screen, billing switches to the mobile layout automatically.
+
+### Phone drawer sections
+
+| Section | Items |
+|---|---|
+| **Main** | Home, Billing, Dashboard, Restaurant, Store, Attender, Kitchen Master |
+| **Sales** | Sales (Sales, Confirmed Orders, Sales Return, Day Sale Closing, Admin Day Sale Records, Online Orders), Quotations (Quotations, Quotation List) |
+| **Inventory** | Category, Product (Product, Stock, Product Barcode, Weigh machine download), Purchase (Purchase Orders, Purchase Returns) |
+| **Reports** | Reports and all report sub-items |
+| **Accounts** | Transactions (Invoice, Receipts, Customer Voucher, Supplier Voucher (Purchase Entry), Proforma Invoice, Expense), Party Accounts |
+| **Directory** | Customers, Suppliers (Suppliers, Supplier Transactions, Supplier Voucher) |
+| **Settings** | Printer, Settings |
+
+## Which screen opens after login
+
+| Role | Opens on |
+|---|---|
+| `attender` | Attender (restaurant waiter screen) |
+| `kitchen_master` | Kitchen Master |
+| `company_admin` | Dashboard |
+| `restaurant_sales` | Restaurant |
+| `sales_executive` and every other role | Billing |
+
+## Which dashboard you see
+
+The **Dashboard** menu item opens a different dashboard by role:
+
+| Role | Dashboard |
+|---|---|
+| `sales_executive`, `restaurant_sales` | Sales Executive Dashboard (your own sales, your customers, ZATCA overview) |
+| `supplier` | Admin dashboard |
+| All other roles (including `company_admin`) | Company Admin Dashboard |
+
+Each card on the dashboard also needs its own widget permission. See [Dashboard](/docs/pos-app/dashboard).
+
+## Permissions inside screens
+
+Some buttons inside a screen have their own permission:
+
+| Permission | What it unlocks |
+|---|---|
+| `billing.product.view` | View product details from the billing screen |
+| `billing.product.edit` (or legacy `update_product`) | Edit a product from the billing screen |
+| `menu.purchase.orders.access` | See **purchase prices** anywhere in the app |
+| `dashboard.widgets.<widget>.access` | Show one dashboard card (for example `dashboard.widgets.zatca_overview.access`) |
+| `quotation.delete` | Delete a quotation (checked by the server) |
+| role `sales_executive` or `restaurant_sales` | Packing and **Create Delivery** on order details |
+
+## Seeded roles and permissions
+
+These are the permissions each role gets when a company is created. Your administrator may have changed them.
+
+| Area | company_admin | sales_executive | restaurant_sales | attender | kitchen_master | purchase_manager |
+|---|---|---|---|---|---|---|
+| Home (billing) | – | ✓ | – | – | – | ✓ |
+| Billing (supermarket) and Quotations | – | ✓ | ✓ | – | – | – |
+| Quotation delete | – | – | – | – | – | – |
+| Restaurant | – | ✓ | ✓ | – | – | ✓ |
+| Attender | – | ✓ | ✓ | ✓ | – | ✓ |
+| Kitchen Master | – | ✓ | ✓ | – | ✓ | ✓ |
+| Dining | – | ✓ | ✓ | ✓ | – | – |
+| Dashboard | ✓ | ✓ | ✓ | – | – | ✓ |
+| Sales orders and Day close | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Confirmed Orders | – | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Sales Return and Online Orders | – | ✓ | ✓ | – | – | returns only |
+| Category, Product, Stock | – | ✓ | ✓ | – | – | ✓ |
+| Purchase Orders | – | ✓ | ✓ | – | – | ✓ |
+| Reports | executive summary, customer and supplier transactions, stock, non-stock, consumed | all except product sales | all except product sales | – | – | all except product sales |
+| Transactions, Party Accounts, Suppliers | – | ✓ | ✓ | – | – | ✓ (no proforma or expense) |
+| Settings and Printer | – | ✓ | ✓ | ✓ | – | ✓ |
+| User and store switcher | – | ✓ | ✓ | – | – | ✓ |
+| `billing.product.view` / `.edit` | ✓ | ✓ | ✓ | ✓ | ✓ | – |
+| Store (`billing.store.access`) | – | – | ✓ | – | – | – |
+
+Other roles:
+
+- `delivery_executive` can sign in but has no POS permissions by default.
+- `super_admin`, `customer`, `supplier`, `fc_executive`, `company_partner` and `customer_support` cannot sign in to the POS.
+- There is no `cashier` or `admin` role. "Cashier" is only an employee designation.
+
+## How it works
+
+- After the store is chosen, the app downloads the company's roles (`GET /api/v1/roles/list`). It finds your role by name and reads its `permissions` list.
+- A menu item is shown only when that list contains the item's permission string. Until the roles finish loading, permission-based items are hidden.
+- Roles belong to one company. A company admin edits them in the admin panel under Roles. On free, trial, basic and demo packages, some permissions are locked.
+- Changes made in the admin panel reach the device on the next store sync, or in **Settings → Offline Data → Roles & permissions → Sync**.
+- **Logout** ends the session on the server and clears it on the device. If the server cannot be reached, you are still logged out on the device.
+
+## Related
+
+- [Auth and session API](/docs/api/auth-and-session)
+- [Settings and master data API (roles)](/docs/api/settings-and-master-data)
+- [Dashboard API](/docs/api/dashboard)
+- [Getting started](/docs/pos-app/getting-started)
+- [Dashboard](/docs/pos-app/dashboard)
+- [Settings and sync](/docs/pos-app/settings-and-sync)
+- [Troubleshooting and FAQ](/docs/pos-app/troubleshooting-faq)

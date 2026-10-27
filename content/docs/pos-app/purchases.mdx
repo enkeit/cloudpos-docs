@@ -1,0 +1,178 @@
+---
+title: Purchases and Suppliers
+description: Create and receive purchase orders, return goods to suppliers, manage the supplier directory, and record supplier transactions and vouchers.
+---
+
+# Purchases and Suppliers
+
+Purchases bring stock into your store. In CloudPOS a purchase order (PO) lists what you bought from a supplier, at what price. When you **receive** the PO, the stock is added to the store and the supplier's account is updated.
+
+Menu items:
+
+| Menu | Opens | Permission |
+|---|---|---|
+| **Purchase → Purchase Orders** | Purchase Order list, create and receive | `menu.purchase.orders.access` |
+| **Purchase → Purchase Returns** | Purchase Returns list and create | `menu.purchase.orders.access` |
+| **Suppliers → Suppliers** | Supplier list and profiles | `menu.suppliers.list.access` |
+| **Suppliers → Supplier Transactions** | Supplier ledger lines | `menu.suppliers.transactions.access` |
+| **Suppliers → Supplier Voucher** | Supplier vouchers | `menu.suppliers.voucher.access` |
+| **Transactions → Supplier Voucher (Purchase Entry)** | Same supplier voucher list | `menu.transactions.supplier_voucher_purchase.access` |
+| **Party Accounts → Supplier Transactions** | Same supplier ledger | `menu.party_accounts.supplier_transactions.access` |
+
+Seeded roles with purchase access: **sales_executive**, **restaurant_sales** and **purchase_manager**. Without `menu.purchase.orders.access` a user never sees purchase prices anywhere in the app (product list, stock list, product forms).
+
+## Purchase Orders
+
+### Purchase Order list
+
+Open **Purchase → Purchase Orders**. The title is **Purchase Order** ("View and manage purchase orders").
+
+- Filters ("Filter by supplier, store and purchase date."): **Supplier**, **Store**, **From Date**, **To Date**. **Reset** clears them.
+- Columns: **SL**, **Purchase Date**, **Store**, **Supplier**, **Total Price**, **Received Items** (for example 3 / 5) and **Action**.
+- Row actions: **View order** and **Receive items**.
+- The footer shows **Total price on this page**.
+- Header buttons: **Create Purchase Order** (**New** on phones) and Export.
+
+### Create a purchase order
+
+1. Tap **Create Purchase Order**. The **Create New Purchase Order** page opens.
+2. Fill the header:
+   - **Purchase Date** (yyyy-mm-dd).
+   - **Voucher Number**. Leave it empty to let the server number it.
+   - **Store**. Defaults to your active store.
+   - **Supplier**. Pick one, or tap **+** to add a new supplier.
+   - **Invoice Reference**: the supplier's own bill number.
+3. Add product lines. Scan or type a **Barcode**, or pick the product with **Select product**. Choose the variant (**Select Variant**) if the product has variants.
+4. For each line enter the **QTY** and **Purchase Rate**. Tap the expand arrow for price details:
+   - **Retail Price**, **MRP**, **Wholesale Price** and **Minimum Units for Wholesale**.
+   - **Select Purchase Unit** (for example buy in CASE, stock in PCS) and the purchase quantity (**P. Qty**).
+   - **Rack**, **Expiry Date** and **Manufacturing Date**.
+   - **Purchase price includes tax**: on when the supplier's rate already contains tax.
+   - **Selling prices include tax**: on when the retail price and MRP contain tax (the normal case in CloudPOS).
+   - Optional **Sale-unit price overrides** for pack units.
+5. The line goes into **Items Added** with **Product**, **Purchase Price**, **QTY**, **Total** and **Actions** (edit, delete).
+6. Enter an **Overall Discount** if the supplier gave one. The summary shows **Gross Total**, **Overall Discount** and **Net Payable**.
+7. Choose **Select Payment Method** and the amount paid now. The summary shows **Amount to Pay**, **Amount to Receive** or **No Balance**.
+8. Tick **Receive** on the lines if the goods have arrived now. On a new order it is all lines or none ("Mark all items as received, or none.").
+9. Tap **Finish**. You see **Purchase order created**.
+
+![Create New Purchase Order](media:purchase-create)
+*Create New Purchase Order: purchase date, voucher number, store, supplier (+ add), invoice reference, product lines by barcode or product picker with quantity and expandable price details, then payment method*
+
+Checks before saving:
+
+- A supplier and a store are required.
+- At least one item.
+- Quantity above 0; purchase rate not negative.
+- Expiry date not before the purchase date; manufacturing date not after the expiry date.
+- Overall discount not negative and not above the gross total.
+- Payment not negative and not above the net payable.
+
+If an exclusive purchase tax applies, the summary shows **Additional purchase tax** on top of the rate.
+
+### Receive a purchase order
+
+Goods often arrive later, or in parts.
+
+1. In the list, tap **Receive items** on the order. The **Receive Purchase Order** page opens.
+2. Already received lines are locked (**Already received item**).
+3. Tick **Receive** on the pending lines that arrived. Fill any missing retail price, MRP or wholesale price. The server needs them for lines that did not save them earlier.
+4. Check **Items to Receive - Preview** and the **Preview Total**.
+5. Add a payment if you pay now.
+6. Tap **Receive Items**. You see **Purchase order received**.
+
+Order status follows the lines: **Pending** (nothing received), **Partially Received**, **Fully Received**. A line that is already received cannot be received again. If someone else received it first you see "These items were already received. The order has been refreshed."
+
+### Purchase details
+
+**View order** opens the details: **Voucher Information** (**Purchase Voucher #**, supplier, store, date, **Status**) and **Purchase Items** with **PRODUCT**, **CATEGORY**, **QUANTITY**, **UNIT PRICE**, **TOTAL**, **BATCH NO.**, **EXPIRY DATE** and **STATUS**.
+
+## Purchase Returns
+
+Use a purchase return to send goods back to the supplier.
+
+1. Open **Purchase → Purchase Returns** (**Purchase Returns**, "View and manage purchase returns").
+2. Tap **Create Purchase Return**.
+3. **Select Purchase Voucher**: pick the purchase order you are returning from.
+4. The **Returnable Items** list shows **Purchased**, **Returned** and **Returnable** for each line.
+5. Tap **Return** on a line, enter the **Return Quantity** (not above the returnable quantity) and an optional **Reason**, then **Add to Return**.
+6. Check the **Return Summary**: **Total Return Quantity** and **Total Return Amount**.
+7. Under **Payment Details**, turn on **Has Payment** if the supplier refunds you now. Choose the **Payment Method** and **Return Amount** (up to the **Maximum returnable amount**).
+8. Tap **Create Purchase Return**. You see "Purchase return created successfully."
+
+The list shows **Reference**, **Voucher Number**, **Supplier**, **Return Date**, **Total Amount**, **Paid Amount**, **Status** (**Completed** or **Pending**) and **Created By**. Filter by supplier and return date (**From Date**, **To Date**).
+
+The returned quantity leaves your stock. Without **Has Payment** no refund payment is recorded with the return.
+
+## Suppliers
+
+Open **Suppliers → Suppliers**.
+
+![Suppliers](media:suppliers-list)
+*Suppliers: search by name, email or phone, filter by balance; Add New Supplier; sub-menus Supplier Transactions and Supplier Voucher*
+
+- Search by **Search by name**, **Search by email**, **Search by phone**. Results update as you type.
+- **Select Balance**: **All**, **Positive (+ve)**, **Negative (-ve)**, **Zero (0)**.
+- Columns: **No**, **Name**, **Email**, **Phone**, **Address**, **Balance**, **Action**.
+- **Export** shares the list as Excel.
+
+### Add a supplier
+
+Tap **Add New Supplier** ("Enter supplier details to add them to your system"):
+
+| Field | Notes |
+|---|---|
+| **Supplier Name** | Required. |
+| **Phone Number** | Required, validated. |
+| **Email Address** | Optional, validated. |
+| **Alternative Phone**, **Address**, **Tax Number** | Optional. |
+| **Opening Balance** with **Payment Type *** | **To Pay** (you owe the supplier) or **To Receive** (the supplier owes you). |
+| **KYC Information** | **CR Number** and **VAT Number** (Saudi commercial registration and VAT). |
+| **Select Categories** | Product categories this supplier provides. |
+
+Tap **Create Supplier**, or **Create & Another** to keep the form open.
+
+### Supplier profile
+
+Tap a supplier to open **Supplier Profile** with tabs **Information**, **Edit Details**, **Transactions**, **All Orders** and **Address**. Information shows **Contact Information**, **Account Information** (**Current Balance**, **Payment Type**, **Balance Status**, **Product Categories**) and **KYC Information**.
+
+## Supplier Transactions
+
+Open **Suppliers → Supplier Transactions** or **Party Accounts → Supplier Transactions** ("Manage supplier payments and transaction history.").
+
+- Filters: **Search** (name, reference), **Supplier**, **Trans. Type**, **Type**, **Status**, dates.
+- Columns: **SI No**, **Date**, supplier, **Transaction Type**, **Payment Mode**, **Amount**, **Reference**, **Action** (**View**).
+- **View** opens **Transaction Details** with **Supplier Name**, **Date**, **Transaction Type**, **Payment Mode**, **Amount**, **Tax Amount**, **Reference** and **Comment**.
+
+Every received purchase, purchase payment, purchase return and supplier voucher makes a line here.
+
+## Supplier Vouchers
+
+A supplier voucher records money or a credit with a supplier outside a purchase order, for example a discount the supplier gives you.
+
+1. Open **Suppliers → Supplier Voucher** and tap **Create Supplier Voucher**.
+2. Choose the **Supplier*** and the **Type**: **Order**, **Discount** or **Other**.
+3. Set the **Voucher date**, status and **Payment method**.
+4. Add **Voucher items**: **Item name***, **Unit amount***, **Tax %**, **Quantity**.
+5. Check **Net Total**, **Total Tax** and **Total Payable**, then **Submit**.
+
+The **Supplier Voucher List** shows **Voucher Number**, **Supplier Name**, **Type**, **Voucher Date**, **Due Date**, **Payment Method**, **Paid Amount**, **Status** and **Action** (**View**, **Share**). Filter by voucher number, supplier, type, status and dates. Supplier voucher numbers use the `SUPPLIER_VOUCHER_PREFIX` (default `SVCH`).
+
+## How it works
+
+- **Statuses on lines.** Each purchase line is `N` (pending) or `Y` (received). The order's received count is the number of `Y` lines.
+- **Stock in base units.** When you buy in a purchase unit (for example 2 CASE of 24), the server adds 48 base units.
+- **Prices per batch.** Each received line creates a stock batch with its own retail price, MRP, wholesale price, tax rate, rack and expiry. Billing picks batches using the stock grouping setting.
+- **Payments.** Payment methods come from the `PAYMENT_METHOD` master data. Paid amounts are sent per method.
+- **Safe retries.** The server locks the voucher while receiving, so pressing **Receive Items** again after a timeout cannot double the stock.
+- **Supplier accounts.** Purchases increase what you owe (**To Pay**). Payments, returns and discount vouchers reduce it.
+
+## Related
+
+- [Products and stock](/docs/pos-app/products-and-stock)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Reports](/docs/pos-app/reports)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles)
+- [API: Suppliers and purchases](/docs/api/suppliers-and-purchases)
+- [API: Stock](/docs/api/stock)
+- [API: Transactions, invoices and receipts](/docs/api/transactions-invoices-receipts)

@@ -1,0 +1,422 @@
+---
+title: Payments, Delivery and Discounts API
+description: Payment methods, payment gateways, banks, delivery methods and charges, discount coupons and POS offers, as the CloudPOS POS app loads and applies them.
+---
+
+# Payments, Delivery and Discounts API
+
+These endpoints fill the **Payment** (F5), **Delivery** (F4) and **Discount & Coupon** (F10) steps of Finalize Order, and the offer prices shown in Billing.
+
+All paths are relative to `{{server}}`. Send `X-Tenant: <your-tenant-key>` on every call, plus `Authorization: Bearer <access-token>` where marked. The app adds `store_id` and the locale (`?locale=` and `Accept-Language`).
+
+## Quick reference
+
+| Method | Path | Auth | Used for |
+|---|---|---|---|
+| GET | `/api/v1/master-data-values?code=PAYMENT_METHOD` | tenant | Payment methods in checkout and payment filters |
+| GET | `/api/v1/payment-gateway/list-payment-gateways` | bearer | Online gateways (shown on some receipt layouts) |
+| GET | `/api/v1/get-banks` | tenant | Company banks and accounts (bank info on prints) |
+| GET | `/api/v1/logistics/list-delivery-methods` | tenant | Delivery methods and their prices |
+| GET | `/api/v1/logistics/delivery-charge` | tenant | Weight-based charge (web storefront; the POS calculates its own charge) |
+| GET | `/api/v1/discount/list-discounts` | tenant | Coupons the POS can validate offline |
+| GET | `/api/v1/discount/apply-coupon` | tenant | Server check of a coupon code |
+| GET | `/api/v1/offers/pos-sync` | bearer | Product and category offers (when **POS_OFFERS** is on) |
+
+
+## GET /api/v1/master-data-values?code=PAYMENT_METHOD
+
+**Purpose:** the list of payment methods. The ids are what orders store.
+
+**Screens:** Payment dialog (Finalize Order F5, Multi-Payment), Payment Status action, Cancel / refund pickers, report and list filters, Offline Data "Payment methods".
+
+| Param | Example | Notes |
+|---|---|---|
+| `code` | `PAYMENT_METHOD` | Required. A missing code returns `400`; an unknown code returns `404`. |
+| `store_id` | `2` | Sent by the app. |
+| `locale` | `ar` | Translated `description` when available. |
+
+Captured response for store 2 (trimmed: translations shortened, 1 more method):
+
+```json
+{
+  "status": "success",
+  "message": "Filtered Master Data Values",
+  "meta": { "available_languages": ["ar", "en", "…"], "requested_language": "*" },
+  "data": [
+    {
+      "id": 7973,
+      "master_data_id": 16,
+      "value": "CARD",
+      "description": "card",
+      "code": "CARD",
+      "label": "card",
+      "translations": [
+        { "locale": "ar", "key": "description", "value": "بطاقة" },
+        { "locale": "ml", "key": "description", "value": "കാർഡ്" }
+      ]
+    },
+    {
+      "id": 7974,
+      "master_data_id": 16,
+      "value": "CASH",
+      "description": "cash",
+      "code": "CASH",
+      "label": "cash",
+      "translations": [
+        { "locale": "ar", "key": "description", "value": "نقدًا" },
+        { "locale": "ml", "key": "description", "value": "ക്യാഷ്" }
+      ]
+    }
+  ]
+}
+```
+
+So in the demo company CARD is id `7973` and CASH is id `7974`. Seeded values are COD, ONLINE, CHEQUE, UPI, CASH and CARD; each company can switch them off or add its own.
+
+### Fields the app reads
+
+| Field | Default | Effect |
+|---|---|---|
+| `id` | | Stored on the order (`payment_method`, `payment_id`). |
+| `value` / `code` | | Machine code: CASH, CARD, UPI, COD, ONLINE, DEBIT or any custom code. |
+| `description` / `label`, `translations` | | Button label in the user's language. |
+| `enabled` | true | Hidden when false. |
+| `sort_order` | 0 | Order of the buttons (then by label). |
+| `icon_key` | | Icon. |
+| `behavior` | `collected` | `collected` = the cashier types the amount collected (cash, card, UPI, COD, custom). `credit` = the unpaid remainder goes on the customer's account (**Sell on Credit**). `terminal` = paid on an external terminal such as Pine Labs (needs **PINELAB_PAYMENT**). |
+| `requires_reference` | false | Asks for a transaction / reference number. |
+
+**Credit is always offered.** If the list has no `credit` method, the app adds **Credit** (code `DEBIT`) at the end.
+
+### Payment rules in checkout
+
+- **Split payment (Multi):** each method gets an amount. The order is sent with `payment_method: [ids]` and `paid_methods: [{method, amount}]`.
+- **Change:** when more is paid than the bill, the change is taken off the first cash (or COD) entry before sending. Demo: card 400 + cash 300 for 658.00 → 42.00 change → stored as card 400 + cash 258.
+- **Excess Amount** switch: on = the extra is kept as customer credit (`to_customer_credit: true`); off = returned as change.
+- **Sell on Credit:** the unpaid part is posted to the customer's balance (company prop **CUSTOMER_MAX_CREDIT_LIMIT**, default 1000, is the credit limit).
+- **COD:** the order is confirmed and invoiced, payment stays pending until delivery; a COD allocation must cover the whole remaining total and cannot create customer credit.
+- **Default method:** company prop **DEFAULT_PAYMENT_METHOD** (seeded CASH) is preselected.
+
+## GET /api/v1/payment-gateway/list-payment-gateways
+
+**Purpose:** online payment gateways configured for the company. The app reads them for receipt layouts that print payment details.
+
+Captured response (no gateway configured in the demo):
+
+```json
+{ "status": "success", "message": "Payment Gateways listed successfully", "data": [] }
+```
+
+## GET /api/v1/get-banks
+
+**Purpose:** company banks with their accounts. Loaded during start-up sync ("banks" step) and used when a print template shows bank information (`showBankInfo`).
+
+Captured response (account details replaced with placeholders):
+
+```json
+{
+  "status": "success",
+  "message": "Bank List",
+  "data": [
+    {
+      "id": 2,
+      "bank_name": "Al Rajhi Bank",
+      "bank_code": "RJHI",
+      "head_office": "Riyadh",
+      "status": 1,
+      "company_id": 2,
+      "bank_accounts": [
+        {
+          "id": 2,
+          "account_number": "<account-number>",
+          "bank_id": 2,
+          "ifsc": "<ifsc>",
+          "swift_code": "<swift>",
+          "account_holder_name": "<holder-name>",
+          "iban": "<iban>",
+          "status": "active"
+        }
+      ]
+    },
+    { "id": 35, "bank_name": "HDFC Bank", "bank_code": "HDFC", "head_office": "Thiruvananthapuram", "…": "…" }
+  ]
+}
+```
+
+## GET /api/v1/logistics/list-delivery-methods
+
+**Purpose:** active delivery methods (`status = "Y"`) with translated names and their prices.
+
+**Screens:** **Delivery** step (F4) of Finalize Order, the delivery chip in Restaurant, sales filters, Offline Data "Delivery methods".
+
+Captured response (2 of 7 methods; translations shortened):
+
+```json
+{
+  "status": "success",
+  "message": "List of delivery methods",
+  "data": [
+    {
+      "id": 147,
+      "name": "Toyou",
+      "code": "toyou",
+      "status": "Y",
+      "company_id": 2,
+      "translations": [
+        { "locale": "ar", "key": "name", "value": "تويو" }
+      ],
+      "prices": [
+        { "id": 10, "delivery_method_id": 147, "price": "100.00" },
+        { "id": 11, "delivery_method_id": 147, "price": "200.00" }
+      ]
+    },
+    {
+      "id": 148,
+      "name": "Door Delivery",
+      "code": "door-delivery",
+      "status": "Y",
+      "translations": [
+        { "locale": "ar", "key": "name", "value": "التوصيل إلى الباب" }
+      ],
+      "prices": [
+        { "id": 1, "delivery_method_id": 148, "price": "50.00" },
+        { "id": 2, "delivery_method_id": 148, "price": "75.00" }
+      ]
+    }
+  ]
+}
+```
+
+The demo store shows seven methods: Toyou, Door Delivery, Store Takeaway, Car Delivery, Third Party logistics, Hungerstation and Dine In. A method with no prices shows as **Free**.
+
+### How the app reads the code
+
+The app turns `code` (or the name) into upper case with underscores, then recognises these kinds:
+
+| Kind | Codes recognised | Extra field asked |
+|---|---|---|
+| Store takeaway | STORE_TAKEAWAY, STORE_TAKE_AWAY, TAKEAWAY, TAKE_AWAY, PICKUP, STORE_PICKUP, SELF_PICKUP | none |
+| Car delivery | CAR_DELIVERY, CAR, CURBSIDE, CURBSIDE_PICKUP, DRIVE_THROUGH | car number (`car_number`) |
+| Door delivery | DOOR_DELIVERY, HOME_DELIVERY, DOOR, DELIVERY, STANDARD_DELIVERY | address (pincode too when **ECOMMERCE_ENABLED** is on) |
+| Third-party logistics | THIRD_PARTY_LOGISTICS, THIRD_PARTY, THIRDPARTY, 3PL, LOGISTICS | none |
+| Other | anything else (for example Toyou, Hungerstation, Dine In) | none |
+
+So `door-delivery` becomes `DOOR_DELIVERY` (door delivery). The default method comes from company prop **DEFAULT_DELIVERY_METHOD**.
+
+### Delivery charge rule (POS)
+
+The POS works out the charge itself:
+
+1. If **FREE_DELIVERY_MINIMUM_AMOUNT** is **not enabled**, the delivery charge is **0** for every method.
+2. If it is enabled with a value above 0 and the net total is at least that value, the charge is **0** (free delivery).
+3. Otherwise a manual override wins, if the cashier typed one.
+4. Otherwise the **first price** in the method's `prices` list (Door Delivery → 50.00, Toyou → 100.00).
+
+The charge is sent as `delivery_charge` on `add-to-order`. When **PRICE_ROUND_OFF** is on, the net total is rounded before the delivery charge is added.
+
+## GET /api/v1/logistics/delivery-charge
+
+**Purpose:** weight- and location-based delivery charge for a cart and address. The web storefront uses it; the POS uses the rule above instead.
+
+| Param | Rule |
+|---|---|
+| `address_id` | Required. |
+| `store_id` | Required. |
+| `cart_id` | Required. |
+
+When weight data, a location match or a rate is missing, the server falls back to a default charge of 5.00 with `eta_days` 3 and a `note` explaining the fallback. Missing address, store or cart returns "Required data not found".
+
+## GET /api/v1/discount/list-discounts
+
+**Purpose:** coupons valid today for this store. The app downloads them so it can check a coupon while offline.
+
+| Param | Example | Effect |
+|---|---|---|
+| `store_id` | `2` | Coupons for this store plus company-wide coupons. |
+
+When company setting **DISCOUNT_AND_COUPON** is off, the list is empty. Captured response:
+
+```json
+{
+  "status": "success",
+  "message": "Discounts retrieved successfully",
+  "data": {
+    "data": [
+      {
+        "id": 19,
+        "coupon_code": "CLAUDETEST10",
+        "coupon_name": "CLAUDETEST10",
+        "store_id": 2,
+        "category_id": null,
+        "product_id": null,
+        "discount_type": "percent",
+        "discount_value": 10,
+        "valid_from_date": "2026-10-24",
+        "valid_to_date": "2026-10-31",
+        "discount_coupon_limit_count": 10,
+        "discount_coupon_limit_amount": "50.000",
+        "discount_coupon_min_amount": "50.000",
+        "discount_coupon_max_amount": null
+      },
+      {
+        "id": 20,
+        "coupon_code": "SPECIAL-OFFER",
+        "coupon_name": "SPECIAL OFFER",
+        "store_id": 2,
+        "discount_type": "fixed",
+        "discount_value": 20,
+        "valid_from_date": "2026-10-24",
+        "valid_to_date": "2026-10-31",
+        "discount_coupon_limit_count": 100,
+        "discount_coupon_limit_amount": "20.000",
+        "discount_coupon_min_amount": "100.000",
+        "discount_coupon_max_amount": "1000.000"
+      }
+    ]
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `discount_type` | `percent` or `fixed`. |
+| `discount_value` | Percent (max 100) or amount. |
+| `discount_coupon_limit_amount` | Cap on the discount amount. CLAUDETEST10 gives 10% but never more than 50.00. |
+| `discount_coupon_min_amount` / `_max_amount` | Order total must be within these. |
+| `discount_coupon_limit_count` | How many times the coupon can be used. |
+| `product_id` / `category_id` | Limits the coupon to one product, or a category and its sub-categories. |
+| `store_id` | `null` = all stores. |
+
+### Coupon rules (app and server agree)
+
+1. The cart must have items.
+2. A store coupon only works in its store.
+3. Today must be within the validity dates.
+4. The order total must be within min and max amounts (message: "Coupon minimum order amount is 100.000.").
+5. The usage limit must not be reached.
+6. Only eligible lines count: lines that already have an **offer are excluded**; a product coupon counts only that product; otherwise a category coupon counts that category and its sub-categories. Product selection beats category.
+7. Percent: eligible total × value / 100. Fixed: the value. Then the cap (`limit_amount`) applies, and the discount never exceeds the eligible total or the cart total.
+
+Example with SPECIAL-OFFER on Layla's 658.00 order: 658.00 is between 100 and 1000, fixed 20, cap 20 → discount 20.00, total 638.00.
+
+## GET /api/v1/discount/apply-coupon
+
+**Purpose:** server check of a coupon code. Used by **Apply** in the Discount & Coupon panel when online. (POST is also accepted.)
+
+| Param | Example | Rule |
+|---|---|---|
+| `coupon_code` | `SPECIAL-OFFER` | Required. |
+| `price` | `658` | Order total. Required without `cart_id`. |
+| `product_id` | | Required without `cart_id`. |
+| `category_id` | | Optional. |
+| `cart_id` | | Server cart, instead of price/product. |
+| `store_id` | `2` | The app sends the active store. |
+
+Success:
+
+```json
+{
+  "status": "success",
+  "message": "Coupon applied successfully",
+  "data": {
+    "data": {
+      "original_price": "658.00",
+      "discounted_price": "638.00",
+      "discount_amount": "20.00",
+      "coupon_code": "SPECIAL-OFFER",
+      "coupon_id": 20
+    }
+  }
+}
+```
+
+Failures use the error envelope with the reason (for example "Discounts and coupons are disabled", "Cart not found", or the coupon rule that failed). The order then carries `coupon_id` / `coupon_code`.
+
+## GET /api/v1/offers/pos-sync
+
+**Purpose:** downloads product and category offers (automatic promotions) for the store, including future scheduled ones, so offer prices work offline. Called only when company prop **POS_OFFERS** is on.
+
+| Param | Example | Rule |
+|---|---|---|
+| `store_id` | `2` | Required; must belong to the company (else `403`). |
+| `since` | `2026-10-27T10:00:00Z` | Optional. Only changes since the last sync. The server may still send a full snapshot. |
+
+Response shape:
+
+```json
+{
+  "success": true,
+  "server_time": "2026-10-27T12:00:00+00:00",
+  "synced_at": "2026-10-27T15:00:00+03:00",
+  "company_timezone": "Asia/Riyadh",
+  "full_snapshot": true,
+  "selection": [
+    "product_before_category",
+    "store_specific_first",
+    "stock_specific_first",
+    "nearest_category_first",
+    "newest_line_first"
+  ],
+  "offers": [
+    {
+      "id": 5,
+      "name": "Bucket Week",
+      "store_id": 2,
+      "target_type": "products",
+      "category_id": null,
+      "valid_from": "2026-10-27T00:00:00+03:00",
+      "valid_until": "2026-11-01T00:00:00+03:00",
+      "enabled": true,
+      "source_types": ["executive"],
+      "base_unit_only": true,
+      "version": 1,
+      "lines": [
+        {
+          "line_id": 9,
+          "product_id": 12445,
+          "stock_id": null,
+          "type": "percentage",
+          "value": 10,
+          "min_margin_price": 0,
+          "min_margin_percentage": 0
+        }
+      ]
+    }
+  ],
+  "removed_offer_ids": []
+}
+```
+
+The offer object above is an illustration of the shape; the demo had no active offers. When POS offers are off, `offers` is empty and `full_snapshot` is true.
+
+| Field | Meaning |
+|---|---|
+| `target_type` | `products` (listed lines) or `category` (expanded to every product in the category tree, each line with `category_distance`). |
+| `lines[].type` | `percentage` or `flat_amount`. |
+| `lines[].stock_id` | Offer limited to one stock batch, or `null` for the whole product. |
+| `min_margin_*` | The product's max-discount floor; an offer never takes the price below it, or below zero. |
+| `base_unit_only` | Offers apply to base-unit lines only (not pack/box sale units). |
+| `removed_offer_ids` | Offers to delete from the device cache. |
+
+### Offer precedence
+
+Exactly one offer applies to a line; offers never stack. The winner is chosen in this order (the `selection` list):
+
+1. A product offer beats a category offer.
+2. A store-specific offer beats a company-wide offer.
+3. A batch (stock) offer beats a product-wide offer.
+4. The nearest category in the product's category tree wins.
+5. Then the newest line.
+
+Also: a percentage is capped at 100%; the **wholesale price beats the offer** when the line qualifies for wholesale; coupons skip lines that already have an offer. An offer line is sent on the order with `offer_id`, `offer_version` and `discount_origin: "offer"`, and the printed price is kept (`pricing_mode: completed_sale`).
+
+## Related
+
+- [Billing](/docs/pos-app/billing)
+- [Payments and tax](/docs/pos-app/payments-and-tax)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Troubleshooting FAQ](/docs/pos-app/troubleshooting-faq)
+- [Cart and orders API](/docs/api/cart-and-orders)
+- [Products and Categories API](/docs/api/products-and-categories)
+- [Settings and master data API](/docs/api/settings-and-master-data)
+- [Customers API](/docs/api/customers)

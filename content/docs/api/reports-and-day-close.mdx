@@ -1,0 +1,730 @@
+---
+title: Reports and Day Close API
+description: Every report endpoint the POS app calls (my sales, admin executive, sales, discount, product sales, stock, non-stock, consumed stocks, customer and supplier transactions) and the daily sales close / shift endpoints with their rules.
+---
+
+# Reports and Day Close API
+
+This page covers the endpoints behind the **Reports** menu and **Sales > Day Sale Closing** (Open Shift, Day Close, Daily Sales Closes list and detail). All calls need `X-Tenant` and `Authorization: Bearer <access-token>` (see [API overview](/docs/api)). All report routes require a signed-in user.
+
+Dates are sent as `YYYY-MM-DD` unless stated otherwise. The company time zone (demo: Asia/Riyadh) decides what "today" means.
+
+## Report endpoints at a glance
+
+| Report (menu label) | Endpoint | Permission to see the menu item |
+|---|---|---|
+| Sales Executive Reports (My Sales) | `GET sales-executive-report` | `menu.reports.sales_executive.access` |
+| Executive Reports (admin) | `GET sales-executive-report-admin` | `company_admin`, or `menu.reports.executive_summary.access` for roles other than sales_executive |
+| Sales Report | `GET sales-report` | `menu.reports.sales_report.access` |
+| Discount Sale Report | `GET discount-sales-report` | `menu.reports.discount_sales.access` |
+| Product Sales Report | `GET product-sales-report` | `menu.reports.product_sales.access` (or legacy `page_ProductSalesReport`) |
+| Customer Transaction Reports | `GET transaction/customer-transactions` | `menu.reports.customer_transactions.access` |
+| Supplier Transaction Reports | `GET suppliers/list-transactions` | `menu.reports.supplier_transactions.access` |
+| Stock Report | `GET stock-report` | `menu.reports.stock.access` or `company_admin` |
+| Non-Stock Report | `GET non-stock-report` | `menu.reports.non_stock.access` |
+| Consumed Stocks Report | `GET consumed-stocks-report` | `menu.reports.consumed_stock.access` |
+
+## GET /api/v1/sales-executive-report
+
+**Purpose:** totals for the signed-in executive: orders, total, online (card/UPI), cash and credit sales, and money collected.
+
+**Used by:** **Reports > Sales Executive Reports** (My Sales Report). With no dates it shows today.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `dateFilter` | string | yes | `today` (default when no dates are picked) or `custom` |
+| `dateFrom` | date-time | with `custom` | Start, for example `2026-10-01 00:00:00` |
+| `dateTo` | date-time | with `custom` | End, for example `2026-10-27 23:59:59` |
+| `store_id` | integer | no | Active store (always sent by the app) |
+
+**Response (200)** (one row per executive; phone masked)
+
+```json
+{
+  "status": "success",
+  "message": "data found",
+  "data": [
+    {
+      "name": "salesexecutiv2",
+      "phone": "<phone>",
+      "order_count": 1301,
+      "total_sales": 321739.5,
+      "upi_sales": 1127,
+      "card_sales": 237735.5,
+      "upi_on_sale": 1127,
+      "card_on_sale": 232919.5,
+      "other_on_sale": 2214,
+      "online_sales": 236260.5,
+      "cash_sales": 48816.8,
+      "credit_sales": 36662.2,
+      "collected_sales": 9215,
+      "total_payment": 294292.3,
+      "total_payment_received": 294292.3,
+      "total_collected_on_sale": 285077.3,
+      "payment_breakdown": { "UPI": 1127, "CARD": 232919.5, "Other": 2214 }
+    }
+  ]
+}
+```
+
+Field meaning: `*_on_sale` is money taken at the moment of sale; `collected_sales` is credit collected later; `credit_sales` is the amount sold on credit; `total_payment_received` is all money received in the period.
+
+## GET /api/v1/sales-executive-report-admin
+
+**Purpose:** the same totals for **all** executives, for owners.
+
+**Used by:** **Reports > Executive Reports** (opens first for company_admin when tapping the Reports header). Has an executive search box.
+
+**Query parameters:** same as `sales-executive-report` (`dateFilter`, `dateFrom`, `dateTo`, `store_id`).
+
+**Response:** same row shape as above, one row per executive.
+
+**Permission error (403)**
+
+```json
+{
+  "status": "error",
+  "message": "Unauthorized: You don't have access to this report.",
+  "data": []
+}
+```
+
+## GET /api/v1/sales-report
+
+**Purpose:** order-level sales list with totals, the same report as the web admin.
+
+**Used by:** **Reports > Sales Report**. Date range defaults to **This Month**. For a `sales_executive` the Stores and Sales Executive filters are locked to the user's own store and name.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `period` | string | no | `this_month` (default), `last_month`, `last_3_months`, `custom` |
+| `from` | date | with `custom` | Start date |
+| `to` | date | with `custom` | End date |
+| `store_ids` | comma list | no | Stores filter. When empty the report covers every store the user may see (the active store is not added automatically) |
+| `sales_executive_ids` | comma list | no | Sales executives filter |
+| `payment_method_ids` | comma list | no | Payment methods filter |
+| `delivery_method_ids` | comma list | no | Delivery modes filter |
+| `category_ids` | comma list | no | Categories filter |
+| `product_ids` | comma list | no | Products filter |
+| `customer_ids` | comma list | no | Customers filter |
+| `sort_direction` | string | no | `asc` or `desc` |
+| `page`, `per_page` | integer | no | Paging |
+
+**Response (200)** (illustrative row; field names the app reads)
+
+```json
+{
+  "status": "success",
+  "data": {
+    "data": [
+      {
+        "order_id": 7037,
+        "order_number": "ORD-004851",
+        "order_date": "2026-10-27T11:40:00Z",
+        "order_value": 658.0,
+        "payment_methods": "CARD, CASH",
+        "delivery_method": "Store Takeaway",
+        "sales_executive_name": "salesexecutiv2",
+        "sales_executive_id": 516,
+        "customer_name": "Layla Al-Harbi",
+        "store_name": "متجر النجمة Store"
+      }
+    ],
+    "pagination": { "current_page": 1, "last_page": 1, "per_page": 25, "total": 1 },
+    "summary": { "orders": 1, "order_value": 658.0 }
+  }
+}
+```
+
+`summary` holds totals over **all** matching rows, not just the page. The app also accepts `id`, `created_at`, `total_price`/`grand_total`, `payment_method`, `delivery_mode`, `sales_executive` and `store` as alternative names. The executive picker list comes from `GET list-sales-executives`.
+
+## GET /api/v1/discount-sales-report
+
+**Purpose:** orders that carried a discount, split into item-level and order-level discount.
+
+**Used by:** **Reports > Discount Sale Report**.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `sales_date_range` | string | no | `today`, `week`, `month` (default, This Month), `custom` |
+| `from`, `to` | date | with `custom` | Date range |
+| `discount_type` | string | no | `items` (cart items level) or `order` (overall order level). Not sent for All |
+| `order_number` | string | no | Partial match on the order number **or** the offline receipt number (for example `2-11-261027`) |
+| `executive_id` | integer | no | One sales executive |
+| `customer_id` | integer | no | One customer |
+| `store_id` | integer | no | One store. Only the picked store is sent; the active store is not added |
+| `page`, `per_page` | integer | no | Paging |
+
+**Row fields the app reads:** `order_id`, `order_number`, `order_date`, `offline_receipt_number`, `executive_name`, `executive_id`, `customer_name`, `discount_type` ("Cart items level" / "Overall order level"), `item_discount`, `discount`, `total_discount`, `store_name`. Totals arrive in `summary`; paging in `pagination` or `meta`.
+
+## GET /api/v1/product-sales-report
+
+**Purpose:** units sold and revenue per product.
+
+**Used by:** **Reports > Product Sales Report** (filters: category, product, date range, customer).
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `category_id` | integer | no | Category filter |
+| `product_id` | integer | no | Product filter |
+| `customer_id` | integer | no | Customer filter |
+| `from` | date | no | Start date |
+| `to` | date | no | End date |
+| `page` | integer | yes | Default 1 |
+| `per_page` | integer | yes | Default 25 |
+
+**Row fields:** `product_id`, `product_name`, `category`, `price`, `total_price` (total amount), `total_quantity`, `sales_count` (number sold), `currency`. `summary` carries `total_revenue` and totals; paging in `pagination`.
+
+## GET /api/v1/stock-report
+
+**Purpose:** stock quantity and value per product, now or as of a past date.
+
+**Used by:** **Reports > Stock Report**.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `snapshot_date` | date | no | "View stock as of" date. Blank = current stock |
+| `store_id` | integer | no | Picked store, else the active store |
+| `category_id` | integer | no | Category filter |
+| `product` | string | no | Product name or barcode search |
+| `stock_level` | string | no | Stock level filter. Not sent for All |
+| `expiring_within` | string | no | Expiry filter. Not sent for All |
+| `from`, `until` | date | no | Date range |
+| `sort_by`, `sort_direction` | string | no | Sorting |
+| `page`, `per_page` | integer | no | Paging |
+
+**Row fields:** `product_id`, `product_name`/`name`, `barcode`, `category_name`, `unit`, `retail_price`, `mrp`, `purchase_price`, `total_quantity`, `stock_value`, `retail_value`, `earliest_expiry`/`expiry_date`, `store_count`. `summary` carries `total_units`, `total_stock_value`, `total_retail_value`; `snapshot_date` echoes the as-of date.
+
+## GET /api/v1/non-stock-report
+
+**Purpose:** low-stock and out-of-stock products with their reorder level.
+
+**Used by:** **Reports > Non-Stock Report**.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `store` | string | no | Store filter |
+| `category` | string | no | Category filter |
+| `product` | string | no | Product filter |
+| `barcode` | string | no | Barcode filter |
+| `store_id` | integer | no | Active store |
+| `page` | integer | no | Page |
+
+**Response (200)** (trimmed)
+
+```json
+{
+  "status": "success",
+  "message": "data found",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 12416,
+        "name": "Fried chicken bucket",
+        "barcode": null,
+        "reorder_level": 5,
+        "unit": "PC",
+        "category_name": "Chicken Buckets 2",
+        "total_quantity": "0.000",
+        "store": "متجر النجمة Store",
+        "status": "Out of Stock"
+      }
+    ],
+    "last_page": 202,
+    "per_page": 20,
+    "total": 4024
+  }
+}
+```
+
+`status` is "Out of Stock" or a low-stock label when quantity is at or below `reorder_level`.
+
+## GET /api/v1/consumed-stocks-report
+
+**Purpose:** stock withdrawals made with **Withdraw Stock** (internal use, wastage).
+
+**Used by:** **Reports > Consumed Stocks Report**.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `product_id` | integer | no | Product filter |
+| `store_id` | integer | no | Picked store, else the active store |
+| `from`, `until` | date | no | Date range |
+| `page` | integer | no | Page |
+
+**Response (200)** (trimmed)
+
+```json
+{
+  "status": "success",
+  "message": "Consumed Stocks Report",
+  "data": {
+    "data": [
+      {
+        "id": 6574,
+        "product": "choclate cake",
+        "store": "MEDINA FUNZCART",
+        "quantity_withdrawn": "5.000000",
+        "old_quantity": 10,
+        "new_quantity": 5,
+        "withdrawn_by": "SALESMEDINA",
+        "created_at": "2026-08-24 09:39:29"
+      }
+    ],
+    "pagination": { "current_page": 1, "last_page": 5, "per_page": 25, "total": 125 }
+  }
+}
+```
+
+## GET /api/v1/transaction/customer-transactions
+
+**Purpose:** customer ledger lines (debit, credit, balance) for the Customer Transactions report and the customer profile **Transactions** tab.
+
+**Used by:** **Reports > Customer Transaction Reports** (list with total debit, total credit, balance and count; **View** opens the ledger).
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `customer_id` | integer | no | One customer |
+| `type` | string | no | `Debit` or `Credit` |
+| `transaction_type` | string | no | Invoice, Receipt, Voucher, ... |
+| `date_from`, `date_to` | date | no | Date range |
+| `page`, `per_page` | integer | no | Paging |
+
+**Response (200)** (one row, trimmed)
+
+```json
+{
+  "status": "success",
+  "message": "Customer transactions listed successfully",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 20039,
+        "order_id": 7036,
+        "payment_method": "7973",
+        "date": "2026-10-27",
+        "type": "Credit",
+        "reference_id": "RCP1001952",
+        "transaction_type": "Receipt",
+        "amount": "200.000",
+        "currency": "SAR",
+        "transaction_comment": "Receipt #RCP1001952",
+        "tax_amount": "30.510",
+        "balance": "-1887.040",
+        "status": "SUCC",
+        "store_id": 2,
+        "order_number": "ORD-004850",
+        "customer_name": "Test Default",
+        "customer_id": 2527
+      }
+    ]
+  }
+}
+```
+
+`payment_method` holds the master data **id** of the method (7973 = CARD in the demo). A negative balance means the customer owes money. More detail: [Transactions, invoices and receipts API](/docs/api/transactions-invoices-receipts).
+
+## GET /api/v1/suppliers/list-transactions
+
+**Purpose:** supplier ledger for **Reports > Supplier Transaction Reports**.
+
+**Query parameters:** `supplier_name`, `supplier_id`, `type` (transaction type), `from_date`, `to_date`, `list_all` (`true`/`false`), `page`, plus `store_id`. Details: [Suppliers and purchases API](/docs/api/suppliers-and-purchases).
+
+## GET /api/v1/list-sales-executives
+
+**Purpose:** list of sales executives for report pickers and the admin day-close filter.
+
+**Used by:** Sales Report, Discount Sale Report, Admin Day Sale Records.
+
+**Query parameters:** none.
+
+**Response (200)** (trimmed; contact fields masked)
+
+```json
+{
+  "status": "success",
+  "message": "Success",
+  "data": [
+    {
+      "id": 516,
+      "name": "salesexecutiv2",
+      "email": "<email>",
+      "phone": "<phone>",
+      "is_admin": false,
+      "created_at": "2026-02-23T06:31:31.000000Z"
+    }
+  ]
+}
+```
+
+The app uses only `id` and `name`.
+
+---
+
+## Daily sales close (shift and day close)
+
+Day close endpoints use the `{ "success": true/false, "message", "data" }` envelope and return validation errors as **422** with an `errors` map.
+
+### Business rules
+
+- A day close record has status `draft` (shift opened, not closed) or `closed`.
+- **Only one open draft per user per store.** Opening another returns **409**.
+- A close covers the user's transactions **after the previous close's `closing_transaction_id`**, limited to the **last 7 days**. Older unclosed transactions are skipped and a `notice` explains this.
+- Cash counts use the `CASH_DENOMINATIONS` master data (default notes 500, 200, 100, 50, 20, 10, 5, 1). A breakdown row with a denomination outside that list is rejected.
+- Short or excess cash is calculated against the expected closing cash.
+- When no shift name is given the server uses the default "Swift".
+- Before closing, the app warns **Sync orders before Day Close?** when local sales are still waiting in **Sales > Confirmed Orders**. You can cancel, review them, or **Close anyway** (unsynced sales are then missing from this close).
+- Website setting **COMPULSORY_SHIFT_OPEN** blocks billing until a shift is opened. **COMPULSORY_DAY_CLOSE_REGISTER** makes the app offer a pending day close (Yes / No) right after store selection.
+
+### POST /api/v1/daily-sales-close/open
+
+**Purpose:** open a shift (creates a `draft` day close with opening cash).
+
+**Used by:** **Open Shift** dialog (store, shift name, business date, opening time, opening cash balance with denomination breakdown, notes, **Save Opening Draft**).
+
+**Request body**
+
+```json
+{
+  "store_id": 2,
+  "shift_name": "Morning",
+  "business_date": "2026-10-27",
+  "opening_date": "2026-10-27",
+  "opening_time": "09:00:00",
+  "opening_cash_in_hand": 500,
+  "opening_cash_breakdown": [
+    { "denomination": "100", "count": 4 },
+    { "denomination": "50", "count": 2 }
+  ],
+  "notes": ""
+}
+```
+
+| Field | Rule |
+|---|---|
+| `store_id` | required, must be a store of this company |
+| `shift_name` | optional, max 255; default "Swift" |
+| `business_date`, `opening_date` | optional dates; default today in the company time zone |
+| `opening_time` | optional `HH:MM:SS`; default the store's shift opening time |
+| `opening_cash_in_hand` | optional number, 0 or more |
+| `opening_cash_breakdown` | optional array of `{denomination, count}` |
+| `user_id` | optional; default the signed-in user |
+
+**Response (201)**
+
+```json
+{
+  "success": true,
+  "message": "Day close draft opened successfully",
+  "data": { "id": 510, "status": "draft", "shift_name": "Morning", "business_date": "2026-10-27", "...": "same fields as list rows" }
+}
+```
+
+**Errors:** 422 validation (`errors.opening_cash_breakdown` for a bad denomination), 409 `"A draft day close is already open for this store."` with the existing draft in `data`.
+
+### GET /api/v1/daily-sales-close/pending-status
+
+**Purpose:** tell the app whether the user must close an older day before selling.
+
+**Used by:** store selection (when **COMPULSORY_DAY_CLOSE_REGISTER** is on) and the Day Sale Closing screen.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `store_id` | integer | yes | Active store |
+| `user_id` | integer | no | The app sends the signed-in user; the server uses the token's user |
+
+**Response when nothing is pending**
+
+```json
+{
+  "success": true,
+  "data": {
+    "pending_day_close": false,
+    "can_open_shift": true,
+    "open_draft": null,
+    "business_date": "2026-10-27",
+    "opening_transaction_id": 20040,
+    "message": null
+  }
+}
+```
+
+`pending_day_close` is `true` and `can_open_shift` is `false` while a draft (open shift) exists; `open_draft` then holds that draft.
+
+**Response when an older day is unclosed**
+
+```json
+{
+  "success": true,
+  "data": {
+    "pending_day_close": true,
+    "can_open_shift": false,
+    "requires_confirmation": true,
+    "business_date": "2026-10-26",
+    "message": "You did not close your last day sales for 26-Oct-2026.",
+    "confirmation_message": "Do you want to close it now?",
+    "opening_transaction_id": 19980,
+    "closing_transaction_id": 20039,
+    "opening_date": "2026-10-26",
+    "opening_time": "09:00:00",
+    "closing_date": "2026-10-26",
+    "closing_time": "21:47:09"
+  }
+}
+```
+
+A `notice` key is added when older transactions beyond the 7-day window were skipped.
+
+### GET /api/v1/daily-sales-close/summary
+
+**Purpose:** figures for **Day Close** step 1 (session information and transaction overview) and step 2 (**Confirm Close**: expected closing cash, today's cash collection).
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `store_id` | integer | yes | Active store |
+| `business_date` | date | no | Business date to close |
+
+**Response (200)** - demo story values for the 658.00 sale (cash 258 + card 400):
+
+```json
+{
+  "success": true,
+  "data": {
+    "user_name": "salesexecutiv2",
+    "opening_date": "2026-10-27",
+    "opening_time": "11:40:00",
+    "closing_date": "2026-10-27",
+    "closing_time": "11:40:00",
+    "opening_transaction_id": 20040,
+    "closing_transaction_id": 20046,
+    "total_orders": 1,
+    "total_sales": "658.00",
+    "collected_on_sales": "658.00",
+    "payment_received": "658.00",
+    "cash_sales": "258.00",
+    "online_sales": "400.00",
+    "credit_amount": "0.00",
+    "credit_collected": "0.00",
+    "total_returns": "0.00",
+    "total_refunds": "0.00",
+    "refund_cash": "0.00",
+    "refund_online": "0.00",
+    "payment_method_breakdown": { "CASH": "258.00", "CARD": "400.00", "...": "0.00" },
+    "total_expenses": "0.00",
+    "cash_expenses": "0.00",
+    "bank_expenses": "0.00",
+    "expense_details": [],
+    "opening_cash_in_hand": null,
+    "expected_closing_cash": "258.00",
+    "today_cash_collection": "258.00",
+    "business_date": "2026-10-27"
+  }
+}
+```
+
+Amounts are strings with 2 decimals. Ids and times above are illustrative. `expense_details[]` rows carry `reference_number`, `payment_date`, `category_label`, `amount`, `payment_method_label`, `expense_account_name`, `payment_account_name`.
+
+**Error (422)**
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": { "store_id": ["The selected store id is invalid."] }
+}
+```
+
+### POST /api/v1/daily-sales-close/create
+
+**Purpose:** close the day (turns the draft into `closed`, or creates a closed record).
+
+**Used by:** **Confirm & Close Day** on Day Close step 2.
+
+**Query parameters:** `store_id` (required).
+
+**Request body**
+
+```json
+{
+  "shift_name": "Morning",
+  "business_date": "2026-10-27",
+  "opening_date": "2026-10-27",
+  "opening_time": "09:00:00",
+  "closing_date": "2026-10-27",
+  "closing_time": "22:00:00",
+  "cash_refunds": 0,
+  "cash_expenses": 0,
+  "cash_drop_amount": 0,
+  "opening_cash_in_hand": 0,
+  "opening_cash_breakdown": [],
+  "closing_cash_in_hand": 258,
+  "closing_cash_breakdown": [
+    { "denomination": "100", "count": 2 },
+    { "denomination": "50", "count": 1 },
+    { "denomination": "5", "count": 1 },
+    { "denomination": "1", "count": 3 }
+  ],
+  "notes": "",
+  "opening_transaction_id": 20040,
+  "closing_transaction_id": 20046
+}
+```
+
+All money fields must be 0 or more. Times are `HH:MM:SS`. The transaction ids come from the summary.
+
+**Response (201):** `{ "success": true, "message": "...", "data": { ...closed record... } }`. The app shows `message` and refreshes the list. On failure it shows `message` and the `errors` map.
+
+### GET /api/v1/daily-sales-close/list
+
+**Purpose:** rows for **Daily Sales Closes** (one per sales executive and business date) and **Admin Day Sale Records**.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `store_id[]` | integer array | no | Stores (the app sends the active store) |
+| `user_id[]` | integer array | no | Sales executives (admin filter) |
+| `start_date`, `end_date` | date | no | Business date range; `end_date` must be on or after `start_date` |
+| `period` | string | no | `today`, `week`, `month` |
+| `status` | string | no | `draft` or `closed` |
+| `page`, `per_page` | integer | no | `per_page` 1-100 |
+
+**Response (200)** (one row, trimmed)
+
+```json
+{
+  "success": true,
+  "message": "Daily sales closes retrieved successfully",
+  "data": [
+    {
+      "id": 509,
+      "sales_executive": { "id": 516, "name": "salesexecutiv2", "phone": "<phone>" },
+      "store": { "id": 2, "name": "متجر النجمة Store" },
+      "closing_period": "26-10-2026 to 27-10-2026",
+      "status": "closed",
+      "opening_date": "2026-10-26",
+      "opening_time": "09:00:00",
+      "closing_date": "2026-10-27",
+      "closing_time": "05:47:09",
+      "opening_transaction_id": 19980,
+      "closing_transaction_id": 20039,
+      "total_orders": 12,
+      "total_sales": "1557.00",
+      "total_online": "410.00",
+      "total_cash": "1073.25",
+      "total_credit": "425.00",
+      "total_payment_received": "1483.25",
+      "total_amount_collected_on_sale": "1483.25",
+      "total_credit_collected": "0.00",
+      "total_returns": "952.90",
+      "total_refunds": "140.00",
+      "refund_cash": "140.00",
+      "refund_online": "0.00",
+      "payment_method_breakdown": {
+        "COD": "0.00", "UPI": "0.00", "BANK": "0.00", "CARD": "410.00",
+        "CASH": "1073.25", "CHEQUE": "0.00", "CREDIT": "0.00", "ONLINE": "0.00"
+      },
+      "total_expenses": "0.00",
+      "cash_expenses": "0.00",
+      "bank_expenses": "0.00",
+      "expense_details": [],
+      "shift_name": "sssss",
+      "business_date": "2026-10-27",
+      "cash_summary": {
+        "total_sales_count": 12,
+        "total_sales_amount": "1557.00",
+        "cash_collected": "1073.25",
+        "online_collected": "410.00",
+        "credit_amount": "425.00",
+        "previous_balance_collected": "0.00",
+        "cash_refunds": "140.00",
+        "cash_expenses": "0.00",
+        "total_expenses": "0.00",
+        "cash_drop_amount": "0.00",
+        "opening_cash_in_hand": null,
+        "opening_cash_breakdown": null,
+        "expected_closing_cash": null,
+        "today_cash_collection": null,
+        "closing_cash_in_hand": null,
+        "closing_cash_breakdown": null,
+        "short_cash": null,
+        "excess_cash": null,
+        "notes": null
+      },
+      "created_at": "2026-10-27 11:13:52",
+      "updated_at": "2026-10-27 11:13:52"
+    }
+  ]
+}
+```
+
+### GET `/api/v1/daily-sales-close/view/{id}`
+
+**Purpose:** one close with its transactions and product summary.
+
+**Used by:** the Day Close detail page (Sales / Payment / Expenses breakdown, Cash Summary, product summary, print thermal or standard).
+
+**Path parameter:** `id` - the day close id.
+
+**Response (200):** the list row fields plus:
+
+```json
+{
+  "success": true,
+  "message": "Daily sales close retrieved successfully",
+  "data": {
+    "id": 123,
+    "...": "all list-row fields",
+    "transactions": [
+      {
+        "id": 5384,
+        "customer_name": "nks test",
+        "order_number": "ORD-001908",
+        "order_amount": 24,
+        "paid_amount": 24,
+        "payment_type": "CASH",
+        "date": "2026-04-03",
+        "time": "03:02:25"
+      }
+    ],
+    "product_summary": {
+      "items": [
+        { "product_id": 14593, "product_name": "Beef Pepper Fry", "unit_price": 12, "total_qty": 1, "total_amount": 12 }
+      ],
+      "grand_total_qty": 53,
+      "grand_total_amount": 78949.12
+    }
+  }
+}
+```
+
+## Related
+
+- [Reports (how to use each report)](/docs/pos-app/reports)
+- [Day close and shifts](/docs/pos-app/day-close-and-shifts)
+- [Dashboard API](/docs/api/dashboard)
+- [Transactions, invoices and receipts API](/docs/api/transactions-invoices-receipts)
+- [Stock API](/docs/api/stock) - Withdraw Stock feeds the consumed stocks report
+- [Settings and master data API](/docs/api/settings-and-master-data) - CASH_DENOMINATIONS

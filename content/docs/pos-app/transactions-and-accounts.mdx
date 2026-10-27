@@ -1,0 +1,232 @@
+---
+title: Transactions and Accounts
+description: Invoices, receipts, customer vouchers, supplier vouchers, expenses and party account ledgers in the CloudPOS app, and how a sale turns into these documents.
+---
+
+# Transactions and Accounts
+
+Every confirmed sale creates accounting documents on the server. You do not type them yourself. This page explains each document type, where to find it, and what you can do with it.
+
+| Document | Prefix (company setting) | Created by |
+|---|---|---|
+| Invoice | `INVOICE_PREFIX` (default `INV`) | Every confirmed sale, or **Create invoice** |
+| Receipt | `RECEIPT_PREFIX` (default `RCP`) | Every payment received, or **Create Receipt** |
+| Customer voucher | `VOUCHER_PREFIX` (default `VCH`) | Refunds, credit notes, discounts, or **Create Voucher** |
+| Supplier invoice / voucher / receipt | `SINV` / `SVCH` / `SRCP` | Purchases and supplier payments |
+| Expense | `EXP` reference | **Expenses → New Entry** |
+
+Invoice, receipt and voucher numbers are the prefix followed by a running counter that starts at 1000001. For example `RCP1001953`.
+
+The menu items:
+
+| Menu | Permission |
+|---|---|
+| **Transactions → Invoice** | `menu.transactions.invoice.access` |
+| **Transactions → Receipts** | `menu.transactions.receipts.access` |
+| **Transactions → Customer Voucher** | `menu.transactions.customer_voucher.access` |
+| **Transactions → Supplier Voucher (Purchase Entry)** | `menu.transactions.supplier_voucher_purchase.access` |
+| **Transactions → Proforma Invoice** | `menu.transactions.proforma.access` |
+| **Transactions → Expense** | always shown |
+| **Party Accounts → Customer Transactions** | `menu.party_accounts.customer_transactions.access` |
+| **Party Accounts → Supplier Transactions** | `menu.party_accounts.supplier_transactions.access` |
+
+## From sale to documents: the demo
+
+Layla Al-Harbi bought two chicken buckets for SAR 658.00. She paid card 400 and cash 300 (SAR 42.00 returned as change). When the sale synced:
+
+| Document | Number | Details |
+|---|---|---|
+| Order | ORD-004851 | Offline receipt number `2-11-261027-0003`, status CONFIRMED, payment Paid |
+| Invoice | INV-OR1002060 | Amount 658.00, linked to offline receipt 2-11-261027-0003, ZATCA status NOT SENT |
+| Receipt | RCP1001953 | The payment for the invoice: cash 258 + card 400 |
+
+The company's invoice prefix in this demo is `INV-OR`, so its invoices read INV-OR1002060. Your prefix may differ.
+
+Cash is stored net of change. Layla handed over 300 cash, but 42 went back, so the receipt records 258 cash.
+
+## Invoices
+
+Open **Transactions → Invoice**. The title is **Invoice List** ("Manage customer invoices and payment status.").
+
+![Invoice List](media:invoice-list)
+*Invoice List: every confirmed sale creates an invoice (INV-OR1002060 for Layla's order, linked to offline receipt 2-11-261027-0003); filters incl. ZATCA status and Today; ZATCA bulk actions Sync ALL / Sync Failed / Sync Not Send / Sync Selected*
+
+### Filters
+
+| Filter | Notes |
+|---|---|
+| **Invoice No** | Part of the invoice number. |
+| **Order / Offline Receipt No.** | The order number (ORD-004851) or the offline receipt number (2-11-261027-0003). Use this to find the invoice of a till receipt. |
+| **Name**, **Phone** | Customer. |
+| **From Date**, **To Date** | Date and time (YYYY-MM-DD HH:MM:SS). |
+| **Today** | Fills From/To with today 00:00:00 to 23:59:59. |
+| **All Status** | **Paid**, **Pending**, **Failed**. |
+| **All ZATCA Status** | **Sent**, **Not Sent**, **Failed**. Only when ZATCA Phase 2 is on. |
+
+Results update as you type.
+
+### Columns
+
+Selection box (Phase 2 only), **Invoice Number** (copy button), **Offline Receipt No.**, **Amount**, **Name**, **Invoice Date**, **Type**, **Due Date**, **Status**, **ZATCA Status** (Phase 2 only) and **Action**.
+
+The ZATCA badge reads **SENT** (green), **FAILED** (red), **PENDING** (blue) or **NOT SENT** (amber). See [ZATCA](/docs/pos-app/zatca).
+
+### Row actions
+
+Tap the action button to open **More Options**:
+
+- **Share**: send the invoice link or PDF (WhatsApp, email, share sheet).
+- **Phase 1 Print**: prints the invoice with the ZATCA Phase 1 QR code. Shown when Phase 1 is on.
+- **Send to ZATCA**, **Phase 2 Print**, **Resync Invoice**, **Resync Invoice (Warning)**, **Resync Invoice (Failed)**, **Resync Invoice (Pending)**: Phase 2 actions. Which one you see depends on the invoice's ZATCA state.
+
+Tap the row (or the eye icon) for **Invoice details**: **Invoice Number**, **Customer Name**, **Customer Phone**, **Amount**, **Type**, **Invoice Date**, **Due Date**, **Status**, **Order Number** and the **Items** (item, quantity, price, tax, total).
+
+### Bulk ZATCA sync
+
+With ZATCA Phase 2 on, a bar above the table offers **Sync ALL**, **Sync Failed**, **Sync Not Send** and **Sync Selected**, plus **Select Page** and **Unselect**. See [ZATCA](/docs/pos-app/zatca#bulk-sync-from-the-invoice-list).
+
+### Create an invoice by hand
+
+Most invoices come from sales. For other charges:
+
+1. Tap **Create invoice**.
+2. Choose the **Type** (**Order** or **Other**), **Invoice date** and **Due date**.
+3. Pick the **Customer**. Their balance is shown.
+4. Add **Invoice items**: **Item name**, **Unit amount**, **Tax %**, **Quantity**.
+5. Choose the **Status** (**Paid**, **Pending**, **Failed**) and **Payment Method**. Enter a **Discount** if any.
+6. Check **Total Amount**, **All Tax Amount** and **Total Payable**, then **Submit**.
+
+**Export** writes all matching invoices to Excel.
+
+## Receipts
+
+A receipt is money received from a customer. Sales make receipts automatically, one per payment method used.
+
+Open **Transactions → Receipts** (**Receipt List**, "Manage customer receipts and payments.").
+
+![Receipt List](media:receipt-list)
+*Receipt List: filters by receipt, order or offline receipt number, reference, name, phone, email, status, method and dates; Create Receipt*
+
+Filters: **Receipt No.**, **Order / Offline Receipt No.**, **Reference No.**, **Name**, **Phone Number**, **Email Address**, **All Status**, **All Payment** (method), **From Date**, **To Date**.
+
+Columns: **Receipt Number**, **Offline Receipt No.**, **Customer Name**, amount, **Method**, **Status**, **Payment Reference**, date and **Action** (**View**, **Share**). **View** opens **Receipt payment details** with each payment line (**Invoice**, **Method**, amount, date).
+
+### Create a receipt (customer pays a balance)
+
+1. Tap **Create Receipt**.
+2. Pick the **Customer**. Their balance is shown.
+3. Tap **+ Add Item**. Choose the **Item Type**:
+   - **Invoice Payment**: pick the **Invoice**. The **Invoice Amount** and **Balance Amount** are shown. The amount cannot exceed the balance.
+   - **General Payment**: a payment not tied to one invoice. Type a **Description**.
+4. Set the **Payment Date** and **Amount**.
+5. Choose the **Payment Method** and an optional **Payment Reference**.
+6. Tap **Submit**. You see "Receipt created successfully".
+
+A receipt with both kinds of items shows the type **Mixed**. Changing the customer clears the items ("Change Customer?").
+
+## Customer Vouchers
+
+A customer voucher is money or credit going back to a customer: a refund, a credit note, or a discount after the sale. Sales returns with a refund create one automatically.
+
+Open **Transactions → Customer Voucher** (**Customer Voucher List**).
+
+![Customer Voucher List](media:customer-voucher-list)
+*Customer Voucher List: filter by customer, voucher number, type, status and dates; Create Voucher (credit notes / payments back to customers)*
+
+Filters: **Customer Name**, **Voucher No**, **All Types**, **All Status**, **From Date**, **To Date**.
+
+Columns: **Voucher Number**, **Customer Name**, **Type**, **Voucher Date**, **Due Date**, **Payment Method**, **Paid Amount**, **Status**, **Action**.
+
+**More Options** on a row: **Share**, and with ZATCA Phase 2 **ZATCA Phase 2** (print) and **Send Credit Note to ZATCA**.
+
+### Create a customer voucher
+
+1. Tap **Create Voucher**.
+2. Pick the **Customer***.
+3. Choose the **Type**: **Order**, **Discount**, **Sales Return** or **Other**.
+4. Set the **Voucher date**, status and **Payment method**.
+5. Add **Voucher items**: **Item name***, **Unit amount***, **Quantity**.
+6. Check the **Total Amount** and tap **Submit**.
+
+## Supplier Vouchers
+
+**Transactions → Supplier Voucher (Purchase Entry)** opens the same **Supplier Voucher List** as **Suppliers → Supplier Voucher**. See [Purchases](/docs/pos-app/purchases#supplier-vouchers).
+
+## Expenses
+
+Record shop costs such as rent, electricity or cleaning.
+
+### Expense list
+
+Open **Transactions → Expense**. The title is **Expenses** ("Manage expense entries and payments.").
+
+![Expenses](media:expense-list)
+*Expenses: filter by category, reference number, debit account and status; columns payment date, debit/credit account, amount; New Entry*
+
+Filters: **All Categories**, **Reference No**, **Debit account** (**All Debit Accounts**), **All Status**. Columns: **Reference number**, **Payment date**, **Category**, **Debit A/c**, **Credit A/c**, **Amount**, **Status**. Tap a row for **Expense Details** with the **Accounting Entry (Double Entry)**: **Debit (Expense A/c)**, **Credit (Cash/Bank A/c)** and **Transaction Amount**.
+
+### Create an expense
+
+1. Tap **New Entry**. The **Create Expense** form opens.
+2. The **Reference No.** is filled automatically, for example **EXP00120**.
+3. Set the **Payment Date**.
+4. Choose the **Expense Category** (from the `EXPENSE_CATEGORY` list).
+5. Type the **Description / Vendor** (for example "Office rent").
+6. Choose the **Expense Account (Debit)**: the cost account.
+7. Choose **Paid From / Source (Credit)**: the cash or bank account the money left.
+8. Enter the **Amount** and choose the **Payment Method**.
+9. Optional **Notes**.
+10. Tap **Create**, or **Create & create another** to start the next one.
+
+![Create Expense](media:expense-create)
+*Create Expense: auto reference number (EXP00120), payment date, expense category, description/vendor, expense account (debit), paid-from account (credit), amount, payment method, notes; Create or Create & create another*
+
+Expenses paid in cash reduce the cash expected at day close. See [Day close and shifts](/docs/pos-app/day-close-and-shifts).
+
+## Party Accounts
+
+### Customer Transactions
+
+Open **Party Accounts → Customer Transactions** (**Customer Transaction**, "Manage customer transactions and account history.").
+
+![Customer Transaction](media:party-customer-transactions)
+*Party Accounts > Customer Transaction: every customer debit/credit with amount, customer, type, reference ID and date filters; sidebar shows the profile card with Active Store switcher*
+
+Filters: **Amount**, **Customer Name**, **Type** (debit / credit), **Reference ID**, **Date**. Columns: **No**, **Name**, **Amount**, **Type**, **Reference ID**, date, **Status**, **Action**. **View** opens **Transaction Details**: **Transaction ID**, **Transaction Type**, **Payment Method**, **Reference**, **Comment**, **Created At**.
+
+How Layla's sale shows up (as on her profile **Transactions** tab):
+
+| Line | Type | Amount |
+|---|---|---|
+| Invoice INV-OR1002060 | Debit | 658.00 |
+| Receipt, cash | Credit | 258.00 |
+| Receipt, card | Credit | 400.00 |
+| Sales return | Credit | 220.00 |
+| Refund voucher (cash paid back) | Debit | 220.00 |
+
+Her balance stays 0.00: everything she was charged she paid, and the return was refunded in cash.
+
+### Supplier Transactions
+
+**Party Accounts → Supplier Transactions** opens the supplier ledger. See [Purchases](/docs/pos-app/purchases#supplier-transactions).
+
+## How it works
+
+- **Invoice on confirm.** The server creates the invoice when the order is confirmed, and a receipt for each collected payment. With offline-first billing this happens when the sale syncs, not at the till.
+- **Credit sales.** If part of a sale is "Sell on Credit", no receipt is made for that part. The invoice stays partly unpaid and the customer's balance goes up.
+- **Excess kept as credit.** If the cashier turns on the excess toggle, the extra amount becomes customer credit instead of change.
+- **Balances.** Debits (invoices, refund vouchers) raise what the customer owes; credits (receipts, returns) lower it.
+- **ZATCA.** Only tax invoices and credit-note vouchers go to ZATCA. Receipts, expenses and proforma invoices do not.
+- **Stores.** Lists use your active store. Switch store from the profile card in the sidebar.
+
+## Related
+
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Sales returns](/docs/pos-app/sales-returns)
+- [Customers](/docs/pos-app/customers)
+- [ZATCA](/docs/pos-app/zatca)
+- [Quotations and proforma](/docs/pos-app/quotations-and-proforma)
+- [Purchases](/docs/pos-app/purchases)
+- [API: Transactions, invoices and receipts](/docs/api/transactions-invoices-receipts)
+- [API: ZATCA](/docs/api/zatca)
+- [API: Customers](/docs/api/customers)

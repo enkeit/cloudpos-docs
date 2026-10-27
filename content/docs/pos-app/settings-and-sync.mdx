@@ -1,0 +1,219 @@
+---
+title: Settings and Sync
+description: Every card on the CloudPOS Settings screen, the counter number, the Offline Data page, product resync, realtime sync, Offline Mode and clearing local data.
+---
+
+# Settings and Sync
+
+The **Settings** screen holds the options that belong to this device: language, counter number, offline data, sync and display preferences. Company-wide rules (taxes, buttons, payment methods) are set by the administrator on the server. Those are listed in [Settings reference](/docs/pos-app/settings-reference).
+
+Open it from the menu: **Settings**. You need the `menu.settings.main.access` permission.
+
+![Settings screen](media:settings)
+*Settings: Company Info, Language, POS Counter Identity (Counter 11 + device id), Offline Data (1430 products cached), Last Product Sync, Resync Products, Realtime Sync Tester, Offline Mode, Notification Position, Screen Orientation, Developer Mode, Clear Local Storage, Clear Product Cache*
+
+## The Settings cards
+
+The cards appear in this order.
+
+| Card | What it does |
+|---|---|
+| **Company Info** | Opens **Company Information**: who is signed in and which company and server this device uses. |
+| **Language** | Switches the app between **English**, **العربية** (Arabic) and **മലയാളം** (Malayalam). |
+| **POS Counter Identity** | Sets this device's counter number for the active store. |
+| **Offline Data** | Shows "N products cached locally" and opens the Offline Data page. |
+| **Last Product Sync** | When products were last downloaded. Shows **Not synced yet** on a new device. |
+| **Resync Products** | Downloads the full product catalog again. |
+| **Realtime Sync Tester** | A diagnostic screen for support staff. Shown only in test builds. |
+| **Offline Mode** | Forces the app offline (**Manually enabled**) or follows the real connection (**Uses live internet status**). |
+| **Notification Position** | Where pop-up messages appear: **Left**, **Center** or **Right**. |
+| **Screen Orientation** | **Auto**, **Portrait** or **Landscape**. Auto means portrait on phones and landscape on tablets. Not shown in the web version. |
+| **Developer Mode** | **On • file-output printer available** or **Off • production printing**. |
+| **Clear Local Storage** | Deletes local data on this device and logs you out. |
+| **Clear Product Cache (Debug)** | Clears cached products. Shown only in test builds. |
+
+## Company Information
+
+![Company Information page](media:company-info)
+*Settings > Company Information: signed-in user, company, username, email, role, customer ID, company ID, token type, time zone, base URL and app version*
+
+This page is read-only. It shows **Company Name**, **Logged In Username**, **Logged In Email**, **User Role**, **Customer ID** (your user id), **Company ID**, **Token Type**, **Timezone**, **Base URL** and **App Version**.
+
+Support staff often ask for the **Base URL** and **App Version**. Read them from here. Tap **Back to Settings** to return.
+
+## POS Counter Identity
+
+![POS Counter Identity card](media:settings-counter)
+*POS Counter Identity: counter number 1-999 (unique per store) becomes part of every offline receipt number; last bill today, optional last-bill override after a reinstall, next bill number and device ID*
+
+The card shows:
+
+- **Counter number** (use 1–999). In the demo: 11.
+- **Last bill on this device today: …**, or **No bills on this device today for this counter.**
+- **Last bill sold today (optional)** — used after a reinstall.
+- **Next bill No.: …** — the next receipt number this counter will issue.
+- **Device ID: …** — a fixed id for this installation.
+
+To set or change the counter:
+
+1. Enter the counter number.
+2. Save. You see "Counter 11 saved. Next bill No.: 2-11-261027-0004" (for the demo store on 27 October 2026).
+
+Rules:
+
+- **Every counter in the same store must use a different number.** Two tills with the same number would print the same receipt numbers.
+- Changing the number does not change receipts already issued.
+- The number is saved per store. If you switch store, set it for that store too.
+- If you have not chosen a store yet you see **Select a store before configuring this counter.**
+
+### After a reinstall
+
+**Clear Local Storage** and **Reset API Key** keep the counter number and today's bill count. Uninstalling the app, or clearing the app's data in the phone or Windows settings, does not. After that the device forgets today's bill count. To avoid duplicate numbers:
+
+1. In the admin panel, find this counter's last bill today. Example: 2-11-261027-0010.
+2. Enter the last digits in **Last bill sold today (optional)**. For that example, enter **10**.
+3. Save. The next bill becomes 0011.
+
+Bill numbers can only move forward. If you enter a lower number than the device has already issued, you see "Bill numbers can only move forward. This device already issued …".
+
+## Offline Data
+
+Tap **Offline Data** to see what is stored on this device for billing and offline use.
+
+![Offline Data page](media:offline-data)
+*Settings > Offline Data: what is cached on this device for billing and offline use (products, categories, last sync, payment methods, delivery methods, document configs, …) with per-row Sync / Clear, Sync section and Sync All*
+
+The page is grouped into sections. Each row shows a count and has **Sync** and **Clear** buttons. Each section has **Sync section**. The bottom has **Sync All**.
+
+| Section | Rows |
+|---|---|
+| **Catalog & inventory** | **Products** (product catalog for billing and search), **Categories**, **Last product sync** |
+| **Billing & checkout** | **Payment methods** (cash, card, UPI and others), **Delivery methods**, **Document configurations** (invoice and receipt templates) |
+| **Customers & suppliers** | **Customers**, **Suppliers** |
+| **Store reference data** | **Stores**, **Units of measure**, **Rack / master data**, **Roles & permissions**, **Active store** |
+| **Local drafts (on device)** | **Cart items**, **Saved orders** (drafts not yet confirmed), **Confirmed orders** (orders confirmed locally) |
+| **Connection** | **Internet** (live status or **Offline mode is manually enabled**), **Last full sync** |
+
+When to use it:
+
+- A new payment method or delivery method was added in the admin panel → **Sync** that row.
+- Receipt layout changed in the admin panel → **Sync** on **Document configurations**.
+- A new user role or permission was given → **Sync** on **Roles & permissions**.
+- Everything looks out of date → **Sync All**. You see **Offline data synced successfully**.
+
+Status messages at the top:
+
+- **Offline mode is on. Disable it in Settings to sync.**
+- **No internet connection. Sync is unavailable right now.**
+
+**Clear** on a row asks first. Do not clear **Confirmed orders** unless every order has reached the server. Check **Sales → Confirmed Orders** first.
+
+## Resync Products
+
+Use **Resync Products** when prices or products look wrong on billing.
+
+1. Make sure the cart is empty and you are online.
+2. Tap **Resync Products**. You see **Resyncing...**.
+3. When done: "Products resynced successfully (N items)".
+
+Possible messages:
+
+| Message | Meaning |
+|---|---|
+| **Offline Mode is enabled. Disable it to resync products.** | Turn Offline Mode off first. |
+| **No internet connection. Cannot resync products.** | Connect to the internet. |
+| **Resync finished but no products were returned. Check tenant/API key or internet.** | The server sent zero products. Check the store has sellable products and the API key is right. |
+
+## Offline Mode
+
+Turn on **Offline Mode** when the internet is unreliable and you want the app to stop trying.
+
+- On: "Offline Mode enabled. Online actions are now blocked." Billing still works from the cached products. Sales are saved on the device.
+- Off: "Offline Mode disabled. Online actions are available again."
+- Off with no connection: "Offline Mode disabled, but internet is still unavailable."
+
+Remember to turn it off when the connection is back. Then send pending sales from **Sales → Confirmed Orders**.
+
+## Developer Mode
+
+Developer Mode adds a **Development Printer** that writes print output to a folder instead of paper. It is for testing layouts.
+
+- On: "Developer Mode enabled. Select Development Printer in Printer settings."
+- Off: "Developer Mode disabled. Physical printer settings restored."
+
+Keep it off on real tills.
+
+## Clear Local Storage
+
+This is the last resort when the app behaves strangely.
+
+1. Make sure **Sales → Confirmed Orders** says every order has reached the server.
+2. Tap **Clear Local Storage**.
+3. Read the warning: "This will clear all local data except login credentials and log you out. Are you sure?"
+4. Tap **Clear & Logout**.
+5. Log in again, pick the store and let the sync finish.
+
+What is kept:
+
+- The API key and server, so you do not enter the key again.
+- **Remember Me** login details.
+- The counter number, the device ID and today's bill sequence. Receipt numbers carry on without gaps or duplicates.
+- Printer choices, paper sizes, receipt themes, language and sidebar layout.
+
+To change the API key, use **Reset API Key** on the login screen. That also keeps the counter number and bill sequence.
+
+## How it works
+
+### What is stored on the device
+
+- Products, stock, categories, customers and configuration are cached on the device. This is what makes offline billing possible.
+- The session (token, role, company, stores, active store, time zone) is stored on the device.
+- Printer choices, paper sizes and receipt themes are stored per device.
+- Counter numbers are stored per store. The daily receipt sequence is stored per counter.
+
+### What the Offline Data rows download
+
+| Row | Server source |
+|---|---|
+| Products | sellable product list (`product/executive/list-products?type=sellable`) |
+| Categories | category list for the store |
+| Stock quantities | `product/list-stocks` |
+| Payment methods | payment method list |
+| Delivery methods | `logistics/list-delivery-methods` |
+| Document configurations | `document/document-configs?store_id=` |
+| Customers | customer list |
+| Suppliers | `get-suppliers` |
+| Stores | `stores/get-stores` |
+| Units | `product/list-units` |
+| Racks | `master-data-values?code=RACKS` |
+| General and app settings | `general` and `website-settings` |
+| Roles & permissions | `roles/list?store_id=` |
+
+### Realtime sync
+
+While the app is open, it stays connected to the server for live changes.
+
+1. After the store sync, the app opens a secure WebSocket (Laravel Reverb) and joins the private channel `private-company.<company id>.sync`. The channel is authorised with your session.
+2. When something changes on the server (a product, price, stock, customer or sale), the server sends a `data.changed` event.
+3. The app then asks the server for the changes since its last check (`GET /api/v1/sync/changes?since=<cursor>&store_id=<id>`) and updates only what changed.
+4. **Product and price changes wait while the cart has items.** They are applied once the cart is empty, so a price never changes in the middle of a sale.
+5. If the connection drops, the app retries with growing waits (1, 2, 4 … up to 30 seconds), and catches up on reconnect.
+
+See [Sync and realtime API](/docs/api/sync-and-realtime).
+
+### Pending sales sync
+
+- Confirmed sales are kept on the device until the server accepts them.
+- Synced records are removed from the device after 30 days.
+- Sales that failed or got an unclear answer appear in **Sales → Confirmed Orders** (the **Sync attention** page). There is no automatic retry. See [Troubleshooting and FAQ](/docs/pos-app/troubleshooting-faq).
+
+## Related
+
+- [Sync and realtime API](/docs/api/sync-and-realtime)
+- [Settings and master data API](/docs/api/settings-and-master-data)
+- [Products and categories API](/docs/api/products-and-categories)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Getting started](/docs/pos-app/getting-started)
+- [Printing](/docs/pos-app/printing)
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Troubleshooting and FAQ](/docs/pos-app/troubleshooting-faq)

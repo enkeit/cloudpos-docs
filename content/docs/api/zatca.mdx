@@ -1,0 +1,232 @@
+---
+title: ZATCA API
+description: ZATCA (Saudi e-invoicing) endpoints used by the POS app - Phase 1 print, Phase 2 submit-and-print and resync for invoices and vouchers, bulk send, the invoice ZATCA status fields and filters, and the dashboard ZATCA overview.
+---
+
+# ZATCA API
+
+ZATCA is the Saudi tax authority's e-invoicing system (FATOORA). CloudPOS supports:
+
+- **Phase 1** - a printed invoice with a ZATCA QR code (seller name, VAT number, time stamp, total, VAT).
+- **Phase 2** - the backend signs the invoice, sends it to ZATCA and stores the result. B2C invoices are **reported**; B2B invoices are **cleared** and need the buyer's VAT and CR numbers.
+
+Phases are switched on per company with the website settings **ZATCA_PHASE_1** and **ZATCA_PHASE_2** (Phase 2 can only be turned on after Phase 1). The POS shows the ZATCA actions only when the matching setting is on.
+
+All endpoints below are `POST`, need `X-Tenant` and `Authorization: Bearer <access-token>`, and use the `{ "success": true/false, "message", "data" }` envelope. Print and resync calls send the record id as a **form field** `id` (the server also accepts it as a query parameter).
+
+## Where ZATCA appears in the app
+
+| Screen | Action | Endpoint |
+|---|---|---|
+| **Transactions > Invoice** row actions | ZATCA Phase 1 print | `zatca/phase1/invoice/print` |
+| **Transactions > Invoice** row actions | Send to ZATCA and print (Phase 2) | `zatca/phase2/invoice/print` |
+| **Transactions > Invoice** row actions | Resync | `zatca/phase2/invoice/resync` |
+| **Transactions > Invoice** toolbar | **Sync ALL**, **Sync Failed**, **Sync Not Send**, **Sync Selected** | `zatca/bulk-send` |
+| **Transactions > Customer Voucher** row actions | Phase 2 print / resync (credit notes) | `zatca/phase2/voucher/print`, `zatca/phase2/voucher/resync` |
+| **Dashboard** | ZATCA overview cards and the failed-ZATCA banner | `GET dashboard/zatca-overview` |
+
+Every confirmed sale creates an invoice automatically. In the demo story, order ORD-004851 created invoice **INV-OR1002060** with ZATCA status **NOT SENT**.
+
+## POST /api/v1/zatca/phase1/invoice/print
+
+**Purpose:** generate the Phase 1 invoice PDF with QR code.
+
+**Request (form fields)**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `id` | integer | yes | Invoice id (not the invoice number) |
+
+**Response (200)**
+
+```json
+{
+  "success": true,
+  "message": "Phase 1 invoice PDF generated successfully",
+  "data": {
+    "invoice_id": 4,
+    "invoice_number": "INV-OR1002060",
+    "filename": "<file>.pdf",
+    "download_url": "{{server}}/storage/invoices/<file>.pdf",
+    "phase": 1
+  }
+}
+```
+
+The app downloads `download_url` and opens the PDF. Missing `id` returns 400 `{"success": false, "message": "Invoice ID is required"}`.
+
+## POST /api/v1/zatca/phase2/invoice/print
+
+**Purpose:** send the invoice to ZATCA if it has not been accepted yet, then return the Phase 2 PDF.
+
+**Request (form fields):** `id` (invoice id, required).
+
+**Response (200)**
+
+```json
+{
+  "success": true,
+  "message": "Phase 2 invoice PDF generated successfully",
+  "data": {
+    "invoice_id": 4,
+    "invoice_number": "INV-OR1002060",
+    "zatca_invoice_id": 12,
+    "status": "success",
+    "filename": "<file>.pdf",
+    "download_url": "{{server}}/storage/invoices/<file>.pdf",
+    "phase": 2
+  }
+}
+```
+
+**Errors**
+
+- `{"success": false, "message": "Failed to send invoice to ZATCA", ...}` when ZATCA rejects the invoice. The app shows the message; the invoice's ZATCA status becomes failed.
+- 400 when `id` is missing.
+
+Ids in the examples are illustrative.
+
+## POST /api/v1/zatca/phase2/invoice/resync
+
+**Purpose:** send the invoice to ZATCA again (after fixing data, or after a failure).
+
+**Request (form fields):** `id` (invoice id, required).
+
+**Response** (HTTP 200 on success, 500 on failure)
+
+```json
+{
+  "success": true,
+  "message": "Invoice resync completed successfully",
+  "data": {
+    "invoice_id": 4,
+    "invoice_number": "INV-OR1002060",
+    "zatca_invoice_id": 13,
+    "resync_status": "success",
+    "zatca_response": { "...": "ZATCA reporting / clearance result" },
+    "error": null
+  }
+}
+```
+
+On failure `success` is `false`, `message` is "Invoice resync failed", `resync_status` is `failed` and `error` holds ZATCA's reason.
+
+## POST /api/v1/zatca/phase2/voucher/print
+
+**Purpose:** send a customer voucher (credit note, for example from a sales return) to ZATCA and return its PDF.
+
+**Request (form fields):** `id` (voucher id, required).
+
+**Response (200):** `{"success": true, "message": "Phase 2 voucher PDF generated successfully", "data": {..., "status": "success", "filename", "download_url"}}`. Failure: "Failed to send voucher to ZATCA".
+
+## POST /api/v1/zatca/phase2/voucher/resync
+
+**Purpose:** resend a voucher to ZATCA.
+
+**Request (form fields):** `id` (voucher id, required).
+
+**Response:** same shape as invoice resync, with `resync_status` `success` or `failed`.
+
+## POST /api/v1/zatca/bulk-send
+
+**Purpose:** queue many invoices for ZATCA submission at once.
+
+**Used by:** the bulk buttons on **Transactions > Invoice**:
+
+| Button | Flags sent |
+|---|---|
+| **Sync Selected** | both flags `false`; the server sends exactly the ticked `ids` |
+| **Sync ALL** | `bulk_not_send: true` and `bulk_failed: true` |
+| **Sync Not Send** | `bulk_not_send: true` |
+| **Sync Failed** | `bulk_failed: true` |
+
+The app always includes the invoice ids it is working with in `ids`; the app asks you to confirm with the count before sending.
+
+**Request body (JSON)**
+
+```json
+{
+  "ids": [4, 5, 6],
+  "bulk_not_send": false,
+  "bulk_failed": false
+}
+```
+
+**Server rules**
+
+- `bulk_not_send: true` picks **every** company invoice that has never been sent. This flag is checked first.
+- Otherwise `bulk_failed: true` picks every invoice that failed and has no successful submission.
+- Otherwise `ids` must be a non-empty list. With no ids and no flag the server returns 400 "Invoice IDs are required or bulk flags must be set".
+- Invoices already accepted by ZATCA are skipped.
+- Invoices are queued as background jobs; B2B vs B2C is decided by whether the customer has a VAT number.
+
+**Response (200)**
+
+```json
+{
+  "status": "success",
+  "message": "Queued 3 invoices for ZATCA submission",
+  "data": {
+    "queued_count": 3,
+    "skipped_count": 0,
+    "total_found": 3,
+    "total_requested": 3
+  }
+}
+```
+
+Because sending is queued, refresh the list after a short while to see new statuses. The app waits up to 40 seconds for this call.
+
+## Automatic sending
+
+The backend can send invoices to ZATCA by itself when an invoice is created. This happens only when all of these hold:
+
+- the company has ZATCA settings and is onboarded (company prop `COMPANY_ID` exists), and
+- the company prop `ZATCA_SYNC_B2C_QUEUE` (for B2C customers) or `ZATCA_SYNC_B2B_QUEUE` (for B2B customers) is set.
+
+Otherwise invoices stay **NOT SENT** until someone uses print, resync or bulk send.
+
+## ZATCA fields on invoices
+
+`GET /api/v1/invoice/list-invoices` (see [Transactions, invoices and receipts API](/docs/api/transactions-invoices-receipts)) returns ZATCA state per invoice:
+
+| Field | Values | Meaning |
+|---|---|---|
+| `zatca_status` | `pass`, `success`, `sent`, `reported`, `cleared`, `warning`, `failed`, or an object with `status` / `zatca_status` | Result from ZATCA. The app shows pass/success/sent/reported/cleared as accepted |
+| `zatca_request_status` | `failed`, `pending`, `processing`, `not_sent` | State of the request from CloudPOS |
+| `zatca_invoices[]` | list | Each submission attempt |
+
+**ZATCA filter on the invoice list:** the **ZATCA Status** filter sends `zatca_status` as:
+
+| Filter choice | Sent value |
+|---|---|
+| Sent / Success | `sent` |
+| Not Sent | `not_sent` |
+| Failed | `failed` |
+
+Example: `GET {{server}}/api/v1/invoice/list-invoices?zatca_status=not_sent&date_from=2026-10-27&date_to=2026-10-27&store_id=2`.
+
+## Phase 1 QR on device receipts
+
+Thermal and A4/A5 receipts printed by the app itself build the Phase 1 QR **on the device** (TLV format) from:
+
+1. seller name (`zatca_company_name` from sign-in),
+2. VAT number (`vat_number` from sign-in),
+3. invoice time stamp,
+4. invoice total with VAT,
+5. VAT amount.
+
+No API call is needed for that QR. Whether it prints is controlled by the document config flag `showQRCode`.
+
+## Dashboard ZATCA overview
+
+`GET /api/v1/dashboard/zatca-overview?period=today` returns counts for invoices (`success_zatca`, `not_sent`, `failed`, `warning`) and vouchers (`voucher_success`, `voucher_not_sent`, `voucher_failed`, `voucher_warning`). Details: [Dashboard API](/docs/api/dashboard#get-apiv1dashboardzatca-overview).
+
+## Related
+
+- [ZATCA in the POS app](/docs/pos-app/zatca)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Customers](/docs/pos-app/customers) - B2B customers need VAT and CR numbers
+- [Transactions, invoices and receipts API](/docs/api/transactions-invoices-receipts)
+- [Dashboard API](/docs/api/dashboard)
+- [Settings and master data API](/docs/api/settings-and-master-data)

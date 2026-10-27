@@ -44,3 +44,6 @@ run-deploy.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Wrangler local state
+.wrangler/

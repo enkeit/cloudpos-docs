@@ -1,0 +1,185 @@
+---
+title: Quotations and Proforma Invoices
+description: Create price quotes from the billing screen, print them, track their status and expiry, convert them into orders, and follow the proforma invoice each quote creates.
+---
+
+# Quotations and Proforma Invoices
+
+A quotation is a price offer you give a customer before they buy. CloudPOS builds quotations with the same billing screen you use for sales, so prices, units, tax and delivery work the same way. Every quotation also creates a **proforma invoice** in the background.
+
+You find quotations in the side menu under **Quotations**:
+
+- **Quotations** opens the billing screen in quotation mode (create a new quote).
+- **Quotation List** shows all quotes, with filters, print and convert actions.
+
+Both items need the permission `menu.quotation.main.access`. The proforma list is under **Transactions → Proforma Invoice** and needs `menu.transactions.proforma.access`.
+
+## Create a quotation
+
+1. Open **Quotations → Quotations**. The billing screen opens in quotation mode.
+2. Add products the normal way: search, scan a barcode, or tap a product tile. Change quantities in the cart.
+3. Select the customer. A quotation always needs a customer. If none is selected you see **Please select a customer before creating quotation**.
+4. Tap **Create Quotation**. The **Finalize Order** dialog opens in quotation mode.
+5. Check the **Quotation Date** and **Expiry Date**. The expiry date defaults to 30 days after the quotation date.
+6. Optional: pick a delivery method and type the **Terms & Conditions**. Leave the terms empty to print the default terms from the Quotation document settings.
+7. Tap **Create Quotation** to save, or **Create & Print Quote** to save and print in one step.
+8. You see **Quotation created successfully!**. The cart is cleared.
+
+In quotation mode the action bar shows **Create Quotation** and **Quotation List** instead of **Save Order** and **Confirm Order**. No payment is taken, so the payment step is not required.
+
+### Quick product tiles and the Select Price dialog
+
+The billing screen can show a row of quick-access product tiles. When you tap one, a **Select Price for** dialog opens with fixed price buttons (1 to 20 in your currency, for example SAR 1 to SAR 20). Tap a price to add the item at that price, or **Cancel** to close.
+
+![Select Price dialog](media:select-price)
+*Select Price dialog: quick price buttons shown when a quick-pick product is configured with price options*
+
+### Worked example: QTN-00133
+
+Layla Al-Harbi asks for a catering quote.
+
+1. Open **Quotations → Quotations**.
+2. Add **family chicken bucket** and set the quantity to 5. The price is 210.00 each.
+3. Select customer **Layla Al-Harbi**.
+4. Tap **Create Quotation**. Keep **Store Takeaway** as the delivery method.
+5. Enter the terms: "Valid for 7 days. Catering order for 5 family buckets."
+6. Tap **Create Quotation**.
+
+The server numbers the quote **QTN-00133**. Prices are tax-inclusive at 18%, so the totals are:
+
+| Field | Amount (SAR) |
+|---|---|
+| 5 × family chicken bucket at 210.00 | 1050.00 |
+| Sub Total (without tax) | 889.83 |
+| Tax (18% included) | 160.17 |
+| Grand Total | 1050.00 |
+
+The quotation date is 2026-10-27 and the expiry date is 2026-11-26 (30 days later). The status is **Pending**.
+
+## Quotation List
+
+Open **Quotations → Quotation List**. The page title is **Quotation List** with the subtitle "Search, view and convert quotations to orders".
+
+![Quotation List](media:quotation-list)
+*Quotation List: QTN-00133 for Layla Al-Harbi (Pending, expires after 30 days), filters, and view / convert to order / print actions*
+
+### Filters
+
+Open **Filters** ("Filter by quotation number, customer, store, status and dates."):
+
+| Filter | What it does |
+|---|---|
+| **Quotation #** | Matches part of the quotation number, for example `00133`. |
+| **Select Store** | Shows quotes of one store. Defaults to your active store. |
+| **Select Customer** | Shows quotes of one customer. |
+| **Quotation Status** | **All**, **Pending**, **Confirmed**, **Cancelled**, **Order created**. |
+| **Quotation Date** | Quotes created on that exact day. |
+| **Expiry Date** | Quotes that expire on that exact day. |
+
+Typing waits 300 ms before searching. Changing a dropdown or a date loads page one again. **Clear filters** resets everything.
+
+### Columns and actions
+
+Each row shows the quotation number (with a copy button), customer, store, date, expiry, grand total and a status badge. The row actions are:
+
+- **View details** (eye icon): opens the quotation details page.
+- **Convert to order**: loads the quote into billing so you can confirm it as a sale.
+- **Print quotation**: prints the quote on the quotation printer.
+
+The header also has **Export** (all matching quotes to Excel), **Refresh** and **New** (opens quotation mode in billing).
+
+## Quotation details
+
+Tap **View details** on a row.
+
+![Quotation details](media:quotation-details)
+*Quotation details QTN-00133: customer, store, date and expiry, items with tax, sub total, tax, grand total and the terms entered at creation*
+
+The page shows:
+
+- **Quotation # QTN-00133** with the status chip.
+- Customer name and phone, store, quotation date and expiry date.
+- **Items**: product, unit, quantity, unit price, tax rate, tax amount and line total.
+- **Sub Total**, tax and **Grand Total**.
+- **Terms & Conditions** as entered when the quote was created.
+
+Tap **Quotation List** to go back.
+
+## Convert a quotation to an order
+
+1. In **Quotation List**, tap **Convert to order** on the row.
+2. The app loads the quote into the billing cart: items, quantities, sale units, prices, tax, customer, address, discount and delivery method.
+3. You see **Quotation loaded in billing. Confirm the order when ready.**
+4. Check the cart. You can still change it.
+5. Finish the sale as usual: **Confirm Order** or **Confirm and Print**, with payment.
+
+When the order is saved, the app sends the `quotation_id` with it. The server then marks the quote as **order created** and updates the linked proforma invoice to **Order Created**.
+
+Rules from the server:
+
+- A quote that is already **order created** cannot be converted again ("Quotation already converted to an order").
+- A **Cancelled** quote cannot be converted ("Cancelled quotations cannot be converted").
+- A quote with no items cannot be converted.
+- If a product in the quote is no longer in the local catalog, the app still adds the line using the quote's product id, name and price.
+
+## Print a quotation
+
+Tap **Print quotation** on a row, or use **Create & Print Quote** when you create it.
+
+- The quote prints on the printer chosen in **Printer Settings → Quotation Printer**.
+- The layout uses the **Quotation** document configuration (logo, header, terms, labels).
+- A4/A5 quotation themes include **Simplified Quotation**, **Centered Simplified Quotation**, **Bilingual Centered Quotation**, **Boxed Bilingual Quotation**, **Boxed Header Quotation** and **Mobile Shop Quotation**.
+- If the quote has no terms, the default terms from the Quotation document configuration are printed.
+
+If the quote was created but printing failed, you see "Quotation created, but print failed…". The quote is saved; print it again from the list.
+
+## Quotation statuses
+
+| Status | Meaning | Can change to |
+|---|---|---|
+| **Pending** | New quote, waiting for the customer. | Confirmed, Cancelled, Order created (by converting) |
+| **Confirmed** | Customer accepted the quote. | Pending, Cancelled, Order created |
+| **Cancelled** | Quote is closed. | Pending or Confirmed (by status update); cannot be converted |
+| **Order created** | Quote became an order. | Final. Status cannot be updated any more. |
+
+The status update API accepts only Pending, Confirmed and Cancelled. It refuses any change once the quote is **order created**. Deleting a quote needs the permission `quotation.delete`, which is not given to any seeded POS role.
+
+## Proforma Invoices
+
+Every new quotation creates a matching proforma invoice on the server. The proforma has the quote's customer, amount, tax and discount. Its invoice date is the quotation date and its due date is the expiry date.
+
+Open **Transactions → Proforma Invoice**. The title is **Proforma Invoices** ("Manage proforma invoices and payment status.").
+
+![Proforma Invoices](media:proforma-list)
+*Proforma Invoices: search by invoice number, name or phone and status (Pending, Paid, Overdue, Order Created)*
+
+### Filters and columns
+
+- **Invoice #**: search by proforma invoice number.
+- **Customer**: name or phone.
+- **Status**: **All**, **Pending**, **Paid**, **Overdue**, **Order Created**.
+
+Results update as you type. Each row shows the invoice number, the linked **Quotation #**, customer, amount, invoice date, due date and status. Both numbers have copy buttons. **View Details** opens **Proforma Invoice Details** with **Amount**, **Invoice Date**, **Due Date**, **Phone**, **Quotation #** and the items (**Item**, **Qty**, **Unit Amount**, **Total**). **Export** writes all matching rows to Excel.
+
+Proforma invoices are not tax invoices. They are not sent to ZATCA and they do not appear in the normal Invoice List.
+
+## How it works
+
+- **Numbering.** Quotation numbers use the prefix `QTN-` and a running number per company (for example QTN-00133). Proforma invoice numbers have no prefix.
+- **Expiry.** The app fills the expiry date as quotation date + 30 days. If you move the quotation date past the expiry date, the expiry resets to 30 days after the new date. The server also uses +30 days when no expiry date is sent. An expiry date before the quotation date is refused ("Expiry date cannot be before quotation date").
+- **Tax.** Quote prices are tax-inclusive, exactly like sales. Line tax = total × rate / (100 + rate). For QTN-00133: 1050 × 18 / 118 = 160.17.
+- **Totals on the server** are stored with 3 decimals (for example `grand_total: "1050.000"`).
+- **Sale units.** A quote line can use a pack unit (for example CASE with conversion rate 24). Converting turns it back into base units in the cart.
+- **Store.** The quotation list uses your active store unless you pick another store in the filter.
+- **Offline.** Creating, listing and converting quotations need a connection. They are not queued offline.
+
+## Related
+
+- [Billing](/docs/pos-app/billing)
+- [Payments and tax](/docs/pos-app/payments-and-tax)
+- [Customers](/docs/pos-app/customers)
+- [Printing](/docs/pos-app/printing)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [API: Quotations and proforma](/docs/api/quotations-and-proforma)
+- [API: Cart and orders](/docs/api/cart-and-orders)
+- [API: Settings and master data](/docs/api/settings-and-master-data)

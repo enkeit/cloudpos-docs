@@ -1,0 +1,228 @@
+---
+title: Sales Returns
+description: Return some or all items of a sale, refund the customer in cash, card or UPI or as account credit, and print the return bill.
+---
+
+# Sales Returns
+
+A sales return takes items back from a sale. It puts the stock back and gives the customer a refund or a credit. You always start a return from the original order.
+
+You need the permission `menu.sales.returns.access` to see **Sales → Sales Return**.
+
+A return has two steps:
+
+1. **Return items**: pick each line and the quantity coming back.
+2. **Complete return**: decide on the delivery charge and the refund, then finish.
+
+## Start a return
+
+1. Go to **Sales** and find the order. Search by order number (ORD-004851) or receipt number (2-11-261027-0003).
+2. Open More (⋮) → **Return**. Or open the order and tap **Return** in **Order Details**.
+3. The **Sales Return** page opens with the order loaded.
+
+If you open **Sales Return** from the menu without an order, it says "Open an order from Sales" and "Go to Sales → order actions → Return to start a return".
+
+## Step 1: Return items
+
+![Sales Return step 1](media:return-items)
+*Sales Return step 1: order details and items with returned qty/total so far, Return action per line, order and return summaries*
+
+The top card (**ORDER DETAILS**) shows **Order Number**, **Date** and **Customer**.
+
+The **Order Items** table shows each line with:
+
+| Column | Meaning |
+|---|---|
+| **Product Name** | The item sold |
+| **Quantity** | Quantity sold |
+| **Unit Price** | Price per unit on the bill |
+| **Total Price** | Line total |
+| **Returned Qty** | Quantity already returned |
+| **Returned Total** | Amount already returned |
+| **Status** | **Returned** when nothing is left to return |
+| **Action** | **Return** button |
+
+### Return one line
+
+1. Tap **Return** on the line.
+2. The return dialog opens for that line.
+
+![Return dialog for one line](media:return-line-dialog)
+*Return dialog for one line: quantity (up to the maximum returnable), auto-calculated return total and a reason*
+
+3. Enter the **Quantity**. The helper text shows **Maximum returnable**.
+4. **Return Total** is calculated for you (quantity × unit price).
+5. Type a **Reason**.
+6. Tap **Submit**. You see "Item returned successfully".
+
+Repeat for each line that comes back.
+
+**Demo.** Layla brought back one classic chicken bucket from ORD-004851:
+
+| Field | Value |
+|---|---|
+| Line | classic chicken bucket (sold 2 at 220.00) |
+| **Quantity** | 1 |
+| **Return Total** | 220.00 |
+| **Reason** | Customer changed mind |
+
+## Step 2: Complete return
+
+![Sales Return step 2](media:return-summary)
+*Sales Return step 2: order vs return summary, Delivery Charge Refundable toggle, and Has Payment off (no voucher or payment record is created)*
+
+The page shows two summaries side by side:
+
+| **Order Summary** | **Return Summary** |
+|---|---|
+| **Total Items** | **Returned Items** |
+| **Total Quantity** | **Returned Quantity** |
+| **Discount** | **Return Total** |
+| **Delivery Charge** | |
+| **Order Total** | |
+
+Then set:
+
+1. **Delivery Charge Refundable**. Turn it off to keep the delivery charge out of the refund. In the demo it was off.
+2. **Has Payment**. This decides whether money goes back now.
+
+### Has Payment off
+
+The app shows: "No Payment Mode: Items will be returned without any payment transaction. No voucher or payment records will be created."
+
+Stock still comes back. Use this when the customer exchanges goods or you settle the balance later.
+
+### Has Payment on (refund)
+
+![Sales Return with refund](media:return-refund)
+*Sales Return with a refund: payment method, return amount, server-calculated returned total and maximum cash refund*
+
+1. Pick the **Payment Method** (for example **Cash**, **Card** or **UPI**).
+2. Enter the **Return Amount**.
+3. Check the hints under the field:
+   - **Returned items total**: the value of the returned lines.
+   - **Amounts calculated by server**: the figures come from the server.
+   - **Suggested refund (after pro-rata discount)**: shown when the order had a discount.
+   - **Maximum cash refund**: the most you can refund.
+4. Tap **Complete Sales Return**. You see "Sales Return Created Successfully".
+
+"You may refund up to the returned items total without applying the discount."
+
+**Demo.** Has Payment on, **CASH**, Return Amount **220.00**. The return was completed.
+
+## The Sales Return Orders list
+
+![Sales Return Orders list](media:return-list)
+*Sales Return Orders list: Layla's return of SAR 220.00 is Completed; view and print actions, export and refresh*
+
+**Sales → Sales Return** opens **Sales Return Orders**: "View and manage completed return transactions".
+
+| Column | Meaning |
+|---|---|
+| **Return ID** | The return record |
+| **Bill No.** | The offline receipt number of the sale |
+| **Order No.** | The server order number |
+| **Return Amount** | Total returned |
+| **Status** | **Completed** or **Pending** |
+| **Date** | When the return was made |
+| **Action** | View details, print return bill |
+
+- Search by **Order or bill number**. Tap a number to copy it.
+- The view action opens **Return Details** with **Return Items**, each **Reason**, **RETURN SUMMARY** and **FINAL SUMMARY** (**Total Purchase**, **Total Return**, **Net Total**).
+- The printer icon (**Print return bill**) prints the return bill.
+- **Export to Excel** downloads the list.
+
+A **Pending** return has items submitted in step 1 but was not completed in step 2. Open it from the order again to finish it.
+
+In the demo, the list shows Layla's return of SAR 220.00 as **Completed**.
+
+## What the customer's account shows
+
+After a return with a refund, the customer's ledger (Customer Profile → **Transactions**) shows:
+
+- a **sales return credit** for the returned value, and
+- a **refund voucher debit** for the money paid back.
+
+Without a payment, only the credit is posted, so the customer's balance goes up by the return value. See [Customers](/docs/pos-app/customers).
+
+## Printing
+
+- From the return list, the print button prints the **Return Bill**.
+- Printing the original order after a return can print a **Sales and Return Bill**: the remaining sale lines with the returned lines listed separately.
+- Bilingual thermal templates can print the return as a **Credit Note** with **Credit Note No**, **Credit Note Date** and **Credit Note Total**.
+
+Each of these uses its own document configuration (**Return Bill**, **Sales and Return Bill**, **Credit Note**). See [Printing](/docs/pos-app/printing).
+
+## How it works
+
+### Step 1 on the server
+
+Each **Submit** calls `POST /api/v1/order/sales-return` with:
+
+```json
+{
+  "order_id": 4851,
+  "cart_item_id": 91234,
+  "quantity": 1,
+  "price": 220.00,
+  "reason": "Customer changed mind",
+  "is_delivery_refundable": false
+}
+```
+
+The ids above are examples. The server checks:
+
+- The item belongs to the order.
+- The quantity is not more than sold minus already returned.
+- The price is not more than the original unit price.
+
+The lines collect on a draft return record until you complete it. The app reads the lines with `GET /api/v1/order/list-return-order-items?order_number=`.
+
+### Step 2 on the server
+
+**Complete Sales Return** calls `POST /api/v1/order/complete-return-order`:
+
+```json
+{
+  "return_order_id": 512,
+  "is_delivery_refundable": false,
+  "has_payment": true,
+  "payment_method": "CASH",
+  "paid_amount": 220.00
+}
+```
+
+The server then:
+
+1. Refuses to complete the same return twice, or a return with no items.
+2. Caps the refund at the maximum cash refund and at the customer's credit balance. If the customer owes more than the return value, the return is set off against what they owe instead of paying cash.
+3. Puts the stock back in base units, on the right store and variant row.
+4. Reverses the cost of goods sold and writes the accounting entries and a voucher.
+5. Refunds the delivery charge only when `is_delivery_refundable` is true.
+6. Returns the refund breakdown, which the app shows and prints.
+
+The list uses `GET /api/v1/order/list-return-orders`.
+
+### Return window
+
+The company prop `RETURN_WINDOW_DAYS` (default 7) sets how many days packing photos and videos are kept after delivery. It does not block a sales return.
+
+### Return or cancel?
+
+| Situation | Use |
+|---|---|
+| Order not shipped or delivered, whole order goes back | **Cancel Order** with a refund ([Sales and orders](/docs/pos-app/sales-and-orders)) |
+| Order shipped or delivered | Sales return |
+| Only some items come back | Sales return |
+| Order already has a processed return | Sales return (cancel is no longer allowed) |
+
+## Related
+
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Customers](/docs/pos-app/customers)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Day close and shifts](/docs/pos-app/day-close-and-shifts)
+- [Printing](/docs/pos-app/printing)
+- [API: Sales returns](/docs/api/sales-returns)
+- [API: Cart and orders](/docs/api/cart-and-orders)
+- [API: Transactions, invoices and receipts](/docs/api/transactions-invoices-receipts)

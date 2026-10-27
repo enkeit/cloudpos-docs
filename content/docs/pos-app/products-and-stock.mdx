@@ -1,0 +1,259 @@
+---
+title: Products and Stock
+description: Manage categories, products, sale units, variants, stock batches, stock adjustments, barcode labels and the weigh-machine PLU file from the POS app.
+---
+
+# Products and Stock
+
+This page covers the catalog side of CloudPOS: categories, products, stock batches, barcode labels and weighing scales. All of it is in the side menu:
+
+| Menu | Opens | Permission |
+|---|---|---|
+| **Category** | Category List | `menu.catalog.category.access` |
+| **Product → Product** | Product List | `menu.catalog.product.list.access` |
+| **Product → Stock** | Product Stock List | `menu.catalog.product.stock.access` |
+| **Product → Product Barcode** | Print Barcodes | `menu.catalog.product.barcode.access` |
+| **Product → Weigh machine download** | Weigh machine (PLU export) | `menu.catalog.product.list.access` |
+
+The seeded roles **sales_executive**, **restaurant_sales** and **purchase_manager** have these permissions. Purchase prices are only shown to users who also have `menu.purchase.orders.access`.
+
+## Categories
+
+### Category List
+
+Open **Category**. The page title is **Category List** ("Review and manage your product categories.").
+
+![Category List](media:category-list)
+*Category List: search in any language, category name and slug, edit action, Add Category*
+
+- **Search Category**: type a name. It matches the category name in any language you have set up (English, Arabic, Malayalam, …).
+- Columns: **No**, **Category Name**, **Slug**, **Action** (edit).
+- Header buttons: **Add Category**, **Export**, **Refresh**.
+
+### Add a category
+
+1. Tap **Add Category**. The **Add New Category** form opens.
+2. Type the **Category Name** in English.
+3. For each other language (for example Arabic and Malayalam), type the name in the **Category Name - [language]** field, or tap the translate icon (**Translate to …**) to fill it automatically. You must type the English name first ("Please enter Category Name before translating.").
+4. Optional: choose a **Parent Category** to make this a sub-category.
+5. Check the **Category Slug** (URL slug). It is required.
+6. Optional: **Select Taxes**. The tax you pick here applies to every product in the category that has no tax of its own.
+7. Set the **Sellable** and **Purchasable** switches. Sellable categories show in billing. Purchasable categories show in purchases.
+8. Optional: choose a **Category Image** and **Category Icon** (**Choose** or **Upload from Device**).
+9. Tap **Submit**.
+
+![Add New Category](media:category-add)
+*Add New Category: name with Arabic and Malayalam translations (auto-translate button), parent category, URL slug, taxes, Sellable and Purchasable switches*
+
+Category tax is important for billing. The server takes the tax rate from the first of these that applies: the stock row's own tax rate, the product's taxes, then the **category tax**. See [Payments and tax](/docs/pos-app/payments-and-tax).
+
+## Products
+
+### Product List
+
+Open **Product → Product**. The title is **Product List** ("Review and manage your product catalog.").
+
+![Product List](media:product-list)
+*Product List: filters (name, category, price, barcode, HSN, property, item code), columns price / MRP / purchase price / unit / barcode, export and Add Product*
+
+Open **Show Filters** to search ("Filter by name, category, price, barcode, HSN or item code."):
+
+| Filter | Notes |
+|---|---|
+| **Product Name** | Name or barcode search, best matches first. |
+| **Category** | One category. |
+| **Price** | Partial match on price. |
+| **Barcode** | Product barcode. |
+| **HSN Code** | Product or stock HSN code. |
+| **Property** | Shows products that have any value for that property: **Color**, **Shirt size**, **Shoe size**, **Manufacturer**. |
+| **Item Code** | Only when the item code setting (`ITEM_CODE_ENABLED`) is on. Case-insensitive. |
+
+Columns: **No**, product, **Category Name**, **Price**, **MRP**, **Purchase Price** (purchase permission only), **Unit**, **Barcode**, **Item Code** (when enabled) and **Action** (view, delete). Barcode and item code have copy buttons.
+
+The Product List reads the product catalog stored on this device, so it works offline. **Refresh** clears the filters and reloads. **Export** writes every filtered product to Excel.
+
+To delete a product, tap delete and confirm in **Confirm Delete** ("Are you sure you want to delete this product?").
+
+### Create a product (quick form)
+
+1. Tap **Add Product**. The **Create New Product** form opens ("Create a new product with custom barcode").
+2. Fill in the fields:
+
+| Field | Required | Notes |
+|---|---|---|
+| **Product Name** | Yes | English name. |
+| **Barcode** | Yes | Scan, type, or tap generate. Generated barcodes start with the company prefix (default `111000`, for example `111000465`). |
+| **Product Category** | Yes | Pick a category or tap **+** to add one. |
+| **Other Language Names** | No | **Product Name (Arabic)**, **Product Name (Malayalam)**, … with a **Translate** button each. |
+| **Product Unit** | Yes | For example PCS, KG, CASE. Comes from the units list. |
+| **Purchase Price** | No | Shown only with purchase permission. |
+| **Max Sale Price / MRP** | No | The MRP printed on bills. |
+| **Selling Price** | Yes | Tax-inclusive selling price. |
+| **Quantity** | No | Opening stock. Default 0. |
+| **Supplier** | No | Shown only when **Quantity** is more than 0. |
+| **Item Code** | No | Only when item codes are enabled. |
+| **Max Discount Percentage** / **Max Discount Amount** | No | Limits how far staff can discount this product. |
+| **SKU** | No | Type it or tap **Generate SKU**. Products with an SKU go to the weigh machine. |
+
+3. Save with one of the buttons:
+   - **Save (F9)**: saves and closes the form.
+   - **Save and Create (F8)**: saves and keeps the form open for the next product.
+   - **Close**, **Esc** or **F4** closes without saving.
+
+If another product already has the same barcode you see **Duplicate Barcode Found**. Tap **Continue** to save anyway or go back and change it. On success you see **Product added successfully** and the product appears in billing straight away.
+
+![Create New Product](media:product-create)
+*Create New Product (quick form): name, barcode with generate button, category (+ add), Arabic/Malayalam names with translate, unit, purchase price, MRP, selling price, opening quantity, item code, max discount % and amount, SKU; Save (F9) and Save and Create (F8)*
+
+### Multi Sale Unit (packs and boxes)
+
+When `MULTI_SALE_UNIT_ENABLED` is on (default **on**), the form shows an **Advanced** switch. Turn it on to see **Multi Sale Unit**.
+
+![Multi Sale Unit section](media:product-create-advanced)
+*Create New Product, lower part: Multi Sale Unit section (add pack/box units once the base unit is chosen)*
+
+1. Pick the **Product Unit** first. It becomes the base unit (for example "PCS (Base Unit)"). Until then you see "Select the product unit first to activate this section."
+2. Tap **Add Sale Unit**.
+3. For each row choose the **Sale Unit**, the **Conversion Rate** (how many base units are in one sale unit), a **Barcode** (type or generate) and a **Price**.
+4. Remove a row with **Remove sale unit**.
+
+Rules: every row needs a unit, a conversion rate above 0, a unique barcode and a price above 0. Each row must use a different unit. Example: base unit PCS, sale unit CASE with conversion rate 24. Scanning the CASE barcode in billing adds one case; stock goes down by 24 pieces.
+
+### Variants
+
+When `PRODUCT_VARIANT_ENABLED` is on (default off), the form shows a variants section.
+
+1. Under **Options**, tap **Add Option** and pick a property (attribute) such as Colour or Size.
+2. Type the values and press Enter (**Type value + Enter**), for example Red, Blue.
+3. Tap **Generate Variants**. Every combination becomes a variant row.
+4. For each row set **SKU**, **Barcode**, **Price**, **MRP**, **Purchase Price**, **Qty** and **Active**. You can also **Add Variant** by hand.
+
+Variants need at least one product property. If none exists you see "No product properties are available."
+
+In billing, a product with variants opens a variant picker so the cashier chooses the exact variant.
+
+### Product properties
+
+Properties (for example `PRODUCT_COLOR`, `SHIRT_SIZE`, `SHOE_SIZE`, `WARRANTY_IN_MONTH`, `FOOD_TYPE`) are extra fields on a product. They are used for filters, variants, warranty printing and Veg/Non-veg marks in the restaurant menu.
+
+## Stock
+
+### Product Stock List
+
+Open **Product → Stock**. The title is **Product Stock List** ("Review and manage product stock entries."). Each row is one **stock batch**: one purchase or opening entry of a product in a store, with its own prices.
+
+![Product Stock List](media:stock-list)
+*Product Stock List: one row per stock batch with retail price, MRP, purchase price, quantity badge (red = 0, amber = low), unit, rack and date; Add Stock*
+
+Filters ("Filter by name, category, barcode, rack, store and stock status."): **Stock Name**, **Category**, **Barcode**, **Rack Number**, **Store**, **Stock Status** (**Out of Stock**, **Low Stock**, **At Reorder Level**).
+
+Columns: **Product** (with variant name), **Barcode**, **Retail Price**, **MRP**, **Purchase Price** (purchase permission), **Quantity**, **Unit**, **Rack**, **Order Date**, **Action**.
+
+The quantity badge colour comes from the server's stock status:
+
+- Red: **Out of Stock**.
+- Amber: **Low Stock** or **At Reorder Level** (at or below the product's reorder level).
+- Grey: available.
+
+Header buttons: **Add Stock**, **Export to Excel**, **Refresh**.
+
+### Stock row actions
+
+- **View**: opens **Stock Details** (product, variant, category, store, supplier, unit, retail price, MRP, purchase price, quantity, rack, wholesale price).
+- **⋮ → Adjust Stock**: choose **Increase Stock** or **Decrease Stock**, enter **Adjust Quantity** and a **Reason**, then **Submit**. You see "Stock adjusted successfully".
+- **⋮ → Move Stock**: pick the **Destination Store** and quantity. The stock leaves this store and arrives in the other one.
+- **⋮ → Withdraw Stock**: shows **Available Stock**. Enter the **Withdraw Quantity**. Withdrawals are for internal use or waste and appear in the **Consumed Stocks Report**.
+
+### Add Stock
+
+1. Tap **Add Stock**. The **Add Product Stock** page opens.
+2. Pick the **Date**, store and **Select Supplier**.
+3. For each item: scan or pick the product, choose the variant if needed, the unit, **Qty** and **Purchase Rate**.
+4. Tap **Show prices, expiry & tax details** to fill **Retail Price**, **MRP**, **Wholesale Price**, **Minimum Units for Wholesale**, **Purchase Unit**, **Rack** and **Expiry Date**.
+5. Tap **Add stock item**. The item goes to a pending list on this device.
+6. Choose **Select Payment Method** and the amounts. The **Purchase Summary** shows **Total Items**, **Total Quantity**, **Total Purchase Amount**, **Supplier Balance** and **Amount to Pay** / **Amount to Receive**.
+7. Tap **Finish (n items)**. The app sends all items and shows **Batch Processing Results** (successful and failed). Use **Retry Failed** for any that failed.
+
+Pending items are saved on the device, so they survive a restart until you tap **Finish**.
+
+### Stock rules in billing
+
+| Setting | Default | Effect |
+|---|---|---|
+| `ALLOW_OVERSELL` | on | When off, billing stops at the available quantity and asks **Oversell approval required** ("Only 3 PCS available, but 5 requested…"). Tap **Approve & Add to Cart** to sell anyway. |
+| `POS_HIDE_NONSTOCK_PRODUCT` | off | Hides zero-stock products, batches and variants in billing. Works only when stock tracking (`stock_enabled`) is on. |
+| `STOCK_GROUPING_FIELDS` | price + unit | Which fields make two batches "the same" in billing. Options: PRICE, MRP, PURCHASE_PRICE, UNIT, HSN_CODE, TAX_RATE, WHOLESALE_PRICE, WHOLESALE_MIN_UNIT. Batches that differ on a chosen field show separately in **Multiple Stock Options Available**. |
+| Wholesale price | per batch | When the cart quantity reaches **Minimum Units for Wholesale**, the line uses the batch's **Wholesale Price**. |
+
+## Barcode labels
+
+Open **Product → Product Barcode**. The title is **Print Barcodes** ("Select products to print barcode labels").
+
+![Print Barcodes](media:barcode-list)
+*Print Barcodes: filter by category, name, barcode; tick rows or Select all on page, then print labels*
+
+1. Filter by category, product name or barcode.
+2. Tick the rows you want, or **Select all on page**.
+3. Tap **Print Selected (n)**. The **Confirm Barcode Print** dialog opens.
+4. Choose the **Sticker Size**: 50x25mm (default), 30x20mm, 38x25mm, 40x25mm, 55x35mm, 60x40mm, 70x40mm, 100x50mm, 40x20mm or 91x24mm.
+5. Choose **Stickers Per Row** (1 to 10).
+6. For each product set the **QUANTITY** of labels and optional **MFG DATE** and **EXP DATE**. The expiry cannot be before the manufacturing date.
+7. Tap **Confirm**.
+
+Labels go to the barcode printer from **Printer Settings → Barcode**. Without a printer the app makes a **Barcode Stickers PDF**. A job can hold at most 2000 labels. Products without a barcode are skipped after a **Missing Barcode** warning. Fonts, margins, gap, DPI (203 or 300) and rotation are set once in **Printer Settings → Barcode** (Barcode Sticker Layout).
+
+## Weigh machine (PLU file)
+
+Open **Product → Weigh machine download**. This page writes a **PLU.csv** file that your weighing scale imports.
+
+![Weigh machine](media:weigh-machine)
+*Weigh machine: products with an SKU go into PLU.csv for the scale; filter All / Selected / Weighted, save folder, keep file up to date, Download PLU.csv and Sync & download*
+
+1. Check the product list. Filter **All**, **Selected** or **Weighted**.
+2. Check **Save folder**. Tap **Change** to pick another folder or **Use default folder**.
+3. Tap **Download PLU.csv** to write the file now, or **Sync & download** to fetch the latest catalog and prices first.
+4. Optional: turn on **Keep file up to date**. The app rewrites PLU.csv whenever products or prices change.
+5. Optional: **Export Excel** writes the product list with columns you choose.
+
+A product goes to the scale when it has an **SKU** (its own, or one on a stock row of the active store). The SKU becomes the PLU number.
+
+PLU.csv columns:
+
+| Column | Value |
+|---|---|
+| NAME | Product name |
+| BARCODE | Product barcode |
+| PRICE | Selling price, 2 decimals |
+| UNIT | `1` for KG, `2` for PC/PCS, other units as written |
+| PLU | The SKU |
+
+If the file is open in another program (Excel or the scale software), close it and try again.
+
+### Scale barcodes in billing
+
+The scale prints labels with an embedded barcode. Billing reads it automatically:
+
+- 12 digits: `000` + 4-digit product code + 5-digit payload.
+- 14 digits (older layout): `000` + 6-digit product code + 5-digit payload.
+- For KG products the payload is grams: `01500` = 1.5 kg, `00725` = 0.725 kg.
+- For piece products the payload is the count: `00003` = 3.
+
+## How it works
+
+- Products and stock are downloaded to the device at start-up ("products" and "stock" sync steps) and kept fresh by realtime sync. Billing never waits for the server to show a product.
+- New and edited products update the local catalog at once.
+- Stock goes down when a sale syncs to the server, and up again on a sales return (in base units).
+- Category taxes come from `tax/get-category-tax`; the taxes list comes from `tax/list-tax`.
+- Barcodes are generated by `product/generate-barcode`; SKUs by `product/generate-sku`.
+
+## Related
+
+- [Billing](/docs/pos-app/billing)
+- [Payments and tax](/docs/pos-app/payments-and-tax)
+- [Purchases](/docs/pos-app/purchases)
+- [Reports](/docs/pos-app/reports)
+- [Printing](/docs/pos-app/printing)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [API: Products and categories](/docs/api/products-and-categories)
+- [API: Stock](/docs/api/stock)
+- [API: Settings and master data](/docs/api/settings-and-master-data)

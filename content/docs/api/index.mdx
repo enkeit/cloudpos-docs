@@ -1,0 +1,252 @@
+---
+title: API Reference Overview
+description: How the CloudPOS POS app talks to the CloudPOS backend - tenant discovery, base URL, headers, language, store scoping, response envelopes, pagination, error codes and the sign-in flow.
+---
+
+# API Reference Overview
+
+The CloudPOS POS app is a client of the CloudPOS backend (a Laravel API). Every screen in the app reads and writes data through the REST endpoints described in this section. This page explains the rules that apply to **every** call. The pages that follow describe each endpoint the app uses, grouped by area.
+
+Use this section if you are:
+
+- an owner or IT person checking why a screen shows what it shows,
+- a developer building an integration against the same backend,
+- the AI assistant answering "which API feeds this screen?".
+
+In all examples, `{{server}}` means **your tenant domain** (for example `https://<your-company>.cloudposai.com`). Values in angle brackets such as `<your-tenant-key>` and `<access-token>` are placeholders. Never paste real keys or tokens into tickets or chat.
+
+## Base URL and tenant discovery
+
+Each company (tenant) has its own backend domain. The app finds it from the **API key** the owner gives to staff.
+
+1. On first start the app shows the **API Key** screen.
+2. The app sends the key to the central discovery service:
+
+```
+POST https://cloudposai.com/api/v1/find-domain
+X-Tenant-Key: <your-tenant-key>
+Accept: application/json
+```
+
+3. The service answers with the tenant domain:
+
+```json
+{
+  "status": 200,
+  "message": "Instance found",
+  "data": {
+    "domain": "https://<your-company>.cloudposai.com"
+  }
+}
+```
+
+4. If the domain has no `http://` or `https://`, the app adds `https://`. Trailing slashes are removed.
+5. The app saves the key (preference `api_key`) and the domain (preference `app_url`) and uses the domain as `{{server}}` for every later call.
+
+Notes:
+
+- Discovery succeeds only when the HTTP status is 200 **and** the body `status` is `200`. Any other answer shows an error on the API Key screen.
+- A 5xx answer or a non-JSON body is treated as "service unavailable, try again".
+- **Reset API Key** on the Login screen clears the saved key so the API Key screen appears again.
+- Builds can also be compiled with a fixed base URL (`--dart-define BASE_URL=...`). The built-in default is used only until a key is discovered.
+
+All endpoints in this reference are relative to `{{server}}/api/v1/...` unless stated otherwise.
+
+## Required headers
+
+| Header | When | Value |
+|---|---|---|
+| `X-Tenant` | Every call to `{{server}}` | `<your-tenant-key>` (the same API key used for discovery) |
+| `Authorization` | Every call after sign-in | `Bearer <access-token>` |
+| `Content-Type` | Calls with a JSON body | `application/json` |
+| `Accept` | Recommended on every call | `application/json` |
+| `Accept-Language` | Localised calls | `en`, `ar` or `ml` (same as `?locale=`) |
+
+Rules:
+
+- The backend identifies the company from `X-Tenant`. A missing or unknown key returns **404** `{"error":"Tenant not found"}` from the tenant middleware (sign-in returns its own messages, see below).
+- Calls made before sign-in (find-domain, sign-in, forgot and reset password) carry the key but no token. Sign-in sends `X-Tenant`, find-domain sends `X-Tenant-Key`, and forgot/reset password send it in an `api_key` header.
+- Some read-only endpoints do not require a token on the server (website settings, general settings, admin settings, master data values, languages, document configs, printer settings). The app still sends the token once signed in.
+- The access token is a Laravel Sanctum token returned by sign-in. It stays valid until sign-out revokes it.
+- Some ZATCA calls send their `id` as a form field instead of JSON. They still send the same `X-Tenant` and `Authorization` headers.
+
+Example of a normal authenticated request:
+
+```
+GET {{server}}/api/v1/dashboard?store_id=2
+X-Tenant: <your-tenant-key>
+Authorization: Bearer <access-token>
+Accept: application/json
+Accept-Language: en
+```
+
+## Language (locale)
+
+The app's language (English, العربية, മലയാളം, chosen in **Settings > Language**) is sent on localised requests **twice, with the same value**:
+
+- as the query parameter `?locale=<code>`, and
+- as the `Accept-Language` header.
+
+Two endpoints are always called **without** a locale:
+
+| Endpoint | Why |
+|---|---|
+| `product/list-units` | The app matches stored unit values (such as `PCS`) against the untranslated list. |
+| `product/executive/list-products` | Translated product names come from the `names` map inside each product (`names.en`, `names.ar`, ...). |
+
+Master data values also return a `translations` array and a `meta.available_languages` list, so the app can show labels such as بطاقة for CARD.
+
+## Store scoping (`store_id`)
+
+A company can have several stores (branches). The demo company FUNZCART has `متجر النجمة Store` (id 2), `funzcart2` (id 32) and `Funzcart Al Zahara` (id 35).
+
+- After sign-in the user picks a store on **Select Store**. The app saves it as `active_store_id`.
+- Most calls add `store_id=<active store id>` as a query parameter (or in the body for POST calls).
+- A few list endpoints take arrays, for example `store_id[]=2` on `daily-sales-close/list`.
+- Switching store from the profile card (**Active Store** switcher) changes `active_store_id`; later calls use the new id.
+- Reports that offer a **Store** filter send the picked store instead of the active one.
+
+## Response envelopes
+
+Most endpoints use the standard envelope.
+
+Success:
+
+```json
+{
+  "status": "success",
+  "message": "Roles retrieved successfully",
+  "data": {}
+}
+```
+
+Failure:
+
+```json
+{
+  "status": "failed",
+  "message": "Invalid tenant API key",
+  "data": []
+}
+```
+
+`data` on a failure holds the error details: a string, a list, or a validation map. The app shows `message`; if that is empty it shows `data` (when it is text) or the first validation message.
+
+Other shapes you will meet:
+
+| Shape | Used by | Example |
+|---|---|---|
+| `{ "success": true/false, "message", "data" }` | Day close (`daily-sales-close/*`), quotations, ZATCA print/resync, `sync/changes`, `offers/pos-sync`, translate | `{"success": false, "message": "Validation failed", "errors": {...}}` |
+| `{ "status": 200, "data": {...} }` | `find-domain` only | see above |
+| `{ "status": "success", "document_configurations": {...}, "options": {...} }` | `document/document-configs` | see Settings page |
+| `{ "status": "error", "message": "..." }` | Some report permission checks | `sales-executive-report-admin` |
+| `{ "message": "Unauthenticated." }` | Any authenticated route with a missing or revoked token | Laravel default |
+
+## Pagination
+
+List endpoints accept `page` (1-based) and usually `per_page`. Two response shapes exist.
+
+**Laravel paginator inside `data`** (orders, invoices, receipts, transactions, non-stock report and others):
+
+```json
+{
+  "status": "success",
+  "message": "data found",
+  "data": {
+    "current_page": 1,
+    "data": [ "...rows..." ],
+    "first_page_url": "{{server}}/api/v1/non-stock-report?page=1",
+    "from": 1,
+    "last_page": 202,
+    "last_page_url": "{{server}}/api/v1/non-stock-report?page=202",
+    "links": [
+      { "url": null, "label": "&laquo; Previous", "active": false },
+      { "url": "{{server}}/api/v1/non-stock-report?page=1", "label": "1", "active": true }
+    ],
+    "next_page_url": "{{server}}/api/v1/non-stock-report?page=2",
+    "path": "{{server}}/api/v1/non-stock-report",
+    "per_page": 20,
+    "prev_page_url": null,
+    "to": 20,
+    "total": 4024
+  }
+}
+```
+
+**Separate `pagination` block** (roles, consumed stocks report, some product and report endpoints):
+
+```json
+{
+  "status": "success",
+  "message": "Consumed Stocks Report",
+  "data": {
+    "data": [ "...rows..." ],
+    "pagination": {
+      "current_page": 1,
+      "last_page": 5,
+      "per_page": 25,
+      "total": 125,
+      "next_page_url": "{{server}}/api/v1/consumed-stocks-report?page=2",
+      "prev_page_url": null
+    }
+  }
+}
+```
+
+Some newer endpoints use a `meta` block with the same keys. The app reads all three forms. When no pagination block is present, everything came on one page.
+
+## HTTP status codes and error bodies
+
+| Code | Meaning | Typical body |
+|---|---|---|
+| 200 / 201 | Success (201 for some creates, such as opening a shift) | success envelope |
+| 400 | Required input missing (no `X-Tenant` at sign-in, no `code` on master data, no `id` on ZATCA calls) | `{"status":"failed","message":"X-Tenant header is required","data":[]}` |
+| 401 | Wrong email or password, or token missing/revoked | `{"message":"Unauthorized"}` or `{"message":"Unauthenticated."}` |
+| 403 | Signed in but not allowed: wrong company, no POS role, missing permission | `{"status":"failed","message":"Forbidden. You do not have the required role for this tenant.","data":[]}` |
+| 404 | Unknown tenant key, unknown master data code, record not found | `{"error":"Tenant not found"}` |
+| 409 | Conflict: a draft day close is already open for this store | `{"success":false,"message":"A draft day close is already open for this store.","data":{...}}` |
+| 422 | Validation failed | `{"success":false,"message":"Validation failed","errors":{"store_id":["The selected store id is invalid."]}}` |
+| 500 | Server error. Some older order and quotation calls also return validation errors with 500 | `{"status":"failed","message":"...","data":"..."}` |
+
+Rate limit: the API allows **60 requests per minute** per client. Bursts above that return 429 until the minute passes.
+
+## Sign-in flow in short
+
+1. `POST https://cloudposai.com/api/v1/find-domain` with `X-Tenant-Key` (first run only).
+2. `POST {{server}}/api/v1/user/signin` with `{email, password}` and `X-Tenant`.
+3. Save `access_token`, `user_role`, `company_id`, `stores[]`, `time_zone`, ZATCA numbers.
+4. Check the company subscription (from the sign-in payload, or `GET company/subscription-status`).
+5. User picks a store; the app loads roles (`roles/list`), settings and master data for that store and runs the startup sync.
+6. If **COMPULSORY_DAY_CLOSE_REGISTER** is on, the app calls `daily-sales-close/pending-status` and, if a past business day is still open, asks whether to close it now (Yes opens Day Close, No continues).
+7. Normal work. On **Logout**, `POST user/signout` revokes the token.
+
+Details: [Authentication and session](/docs/api/auth-and-session).
+
+## Endpoint index
+
+| Area | Page | Main endpoints |
+|---|---|---|
+| Sign-in, sign-out, password, subscription, roles | [Auth and session](/docs/api/auth-and-session) | `find-domain`, `user/signin`, `user/signout`, `user/forgot`, `user/reset`, `company/subscription-status` |
+| Products, categories, units, properties | [Products and categories](/docs/api/products-and-categories) | `product/executive/list-products`, `product/create-product`, `category/list-category` |
+| Stock | [Stock](/docs/api/stock) | `product/list-stocks`, `stocks/adjust`, `stocks/move`, `stocks/withdraw` |
+| Cart and orders | [Cart and orders](/docs/api/cart-and-orders) | `order/add-to-order`, `order/update-order`, `order/executive/list-orders`, `order/executive/order-details` |
+| Payments, delivery, discounts | [Payments, delivery and discounts](/docs/api/payments-delivery-discounts) | `logistics/list-delivery-methods`, `discount/apply-coupon`, `calculate-tax` |
+| Customers | [Customers](/docs/api/customers) | `customer/customer-searchbar`, `customer/add-customer` |
+| Suppliers and purchases | [Suppliers and purchases](/docs/api/suppliers-and-purchases) | `get-suppliers`, `purchase/add-purchase-order`, `purchase/returns` |
+| Sales returns | [Sales returns](/docs/api/sales-returns) | `order/sales-return`, `order/complete-return-order` |
+| Quotations and proforma | [Quotations and proforma](/docs/api/quotations-and-proforma) | `quotations`, `quotations/convert-to-order` |
+| Invoices, receipts, vouchers, expenses | [Transactions, invoices and receipts](/docs/api/transactions-invoices-receipts) | `invoice/list-invoices`, `receipt/list-receipts`, `voucher/vouchers-list` |
+| Reports and day close | [Reports and day close](/docs/api/reports-and-day-close) | `sales-report`, `stock-report`, `daily-sales-close/*` |
+| Dashboard | [Dashboard](/docs/api/dashboard) | `dashboard`, `dashboard/*` |
+| Settings and master data | [Settings and master data](/docs/api/settings-and-master-data) | `website-settings`, `general`, `master-data-values`, `document/document-configs`, `roles/list` |
+| ZATCA | [ZATCA](/docs/api/zatca) | `zatca/phase1/invoice/print`, `zatca/phase2/*`, `zatca/bulk-send` |
+| Sync and realtime | [Sync and realtime](/docs/api/sync-and-realtime) | `sync/changes`, `offers/pos-sync`, Reverb websocket |
+
+## Related
+
+- [Getting started with the POS app](/docs/pos-app/getting-started)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles)
+- [Settings and sync](/docs/pos-app/settings-and-sync)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Troubleshooting FAQ](/docs/pos-app/troubleshooting-faq)
+- [Auth and session API](/docs/api/auth-and-session)

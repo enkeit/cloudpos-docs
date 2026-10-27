@@ -1,0 +1,453 @@
+---
+title: Customers API
+description: Endpoints the POS app uses to search, create and edit customers, manage their addresses, read their ledger and look up location lists.
+---
+
+# Customers API
+
+These endpoints power the **Customers** screen, the customer picker in **Billing** (F3 in **Finalize Order**), the **Add New Customer** form and the **Customer Profile** tabs.
+
+All paths are relative to `{{server}}` (your tenant domain). Every call sends:
+
+| Header | Value |
+|---|---|
+| `X-Tenant` | `<your-tenant-key>` |
+| `Authorization` | `Bearer <access-token>` |
+| `Content-Type` | `application/json` |
+| `Accept-Language` | `en`, `ar` or `ml` (most calls also add `?locale=`) |
+
+Most calls also add `store_id` = the active store (for example `2` for "متجر النجمة Store").
+
+See [API overview](/docs/api) for the envelope, pagination and error codes.
+
+## Endpoint summary
+
+| Method | Path | Used by |
+|---|---|---|
+| GET | `/api/v1/customer/customer-searchbar` | Customers list, customer picker, phone lookup |
+| GET | `/api/v1/customer/customer-list` | Lightweight paginated list (not used by the POS screens) |
+| POST | `/api/v1/customer/add-customer` | **Add New Customer** form |
+| POST | `/api/v1/customer/customer-edit` | Customer Profile > **Edit Details** |
+| POST | `/api/v1/customer/executive-add-address` | Customer Profile > **Customer Address** (add) |
+| POST | `/api/v1/customer/executive-update-address/{id}` | Customer Profile > **Customer Address** (edit) |
+| POST | `/api/v1/customer/customer-last-purchases` | Billing cart history icon (last purchase price) |
+| GET | `/api/v1/user/get-user-details/{customerId}` | Load one customer by id |
+| GET | `/api/v1/user/users` | Paginated list of user accounts |
+| GET | `/api/v1/location/get-states` | State picker in the customer form |
+| GET | `/api/v1/location/get-district` | City (district) picker |
+| GET | `/api/v1/location/list-pincodes` | Pincode picker |
+| GET | `/api/v1/transaction/customer-transactions` | Customer Profile > **Transactions**, Customer Transactions report |
+
+## GET /api/v1/customer/customer-searchbar
+
+Returns the customers of the company with their current balance, loyalty card, KYC (CR/VAT numbers) and addresses.
+
+**Used by:** **Customers** list (search as you type), the customer picker in Billing, and the app's offline customer cache (Settings > **Offline Data** > Customers).
+
+### Query parameters
+
+| Name | Type | Notes |
+|---|---|---|
+| `filter_name` | string | Partial match on the customer name |
+| `filter_phone` | string | Partial match on phone **or** alternate phone |
+| `filter_email` | string | Partial match on email |
+| `filter_age_range` | string | `from-to` in years, for example `20-35` (uses date of birth) |
+| `filter_alt_phone` | string | Accepted by the server |
+| `customer_id` | integer | Return one customer |
+| `sort_asc` | boolean | `true` (default) sorts by name A→Z |
+| `page`, `per_page` | integer | The app sends `page=1&per_page=100` and keeps requesting pages until a short page arrives |
+| `store_id` | integer | Active store |
+
+### Response
+
+`data` is a flat array (not a paginator). `balance` is computed from the ledger at request time. A positive balance means the customer owes the store.
+
+```json
+{
+  "status": "success",
+  "message": "success",
+  "data": [
+    {
+      "id": 2767,
+      "user_id": 1497,
+      "name": "Layla Al-Harbi",
+      "email": "layla.demo@funzcart.in",
+      "phone": "0551234567",
+      "alt_phone": null,
+      "dob": null,
+      "gender": null,
+      "profile_image": null,
+      "balance": 0,
+      "payment_type": "to_receive",
+      "customer_type": "B2C",
+      "profile_verified": false,
+      "store_id": 2,
+      "store_name": "متجر النجمة Store ",
+      "company_id": 2,
+      "card_number": null,
+      "loyalty_points": null,
+      "valid_from": null,
+      "valid_until": null,
+      "card_status": null,
+      "membership_name": null,
+      "membership_code": null,
+      "min_redeemable_points": null,
+      "price_per_point": null,
+      "kyc": [],
+      "addresses": [],
+      "transactions": [],
+      "orders": [],
+      "created_at": "2026-10-27 15:10:42",
+      "updated_at": "2026-10-27 15:10:42"
+    }
+  ]
+}
+```
+
+*Shape from a captured response; the demo customer's values are filled in. The real list has many more rows.*
+
+### Notes
+
+- A B2B customer's CR and VAT numbers come back inside `kyc` (key/value rows).
+- When the app is offline, the customer list and picker read the last cached copy of this response.
+
+## GET /api/v1/customer/customer-list
+
+A lighter, paginated list (15 per page by default, maximum 100) with only name, email, balance, phone, alt phone and type. The POS screens use `customer-searchbar` instead; this endpoint is useful for integrations.
+
+| Name | Type | Notes |
+|---|---|---|
+| `filter_name`, `filter_email`, `filter_phone` | string | Partial matches |
+| `store_id` | integer | Limit to one store |
+| `per_page` | integer | Default 15, maximum 100 |
+| `page` | integer | Page number |
+
+```json
+{
+  "status": "success",
+  "message": "success",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "name": "Layla Al-Harbi",
+        "email": "layla.demo@funzcart.in",
+        "balance": 0,
+        "phone": "0551234567",
+        "alt_phone": null,
+        "customerType": "B2C"
+      }
+    ],
+    "per_page": 15,
+    "last_page": 15,
+    "total": 225
+  }
+}
+```
+
+*Trimmed: paginator link fields removed.*
+
+## POST /api/v1/customer/add-customer
+
+Creates a customer (and its user account) in the company.
+
+**Used by:** **Add New Customer** (from the Customers list, from the customer picker in Billing, and from Finalize Order). After success the app selects the new customer automatically.
+
+### Request body
+
+| Field | Required | Notes |
+|---|---|---|
+| `phone` | yes | Digits only, 8–15 digits. Must be unique within the company. The form auto-formats `055-123-4567`; the app strips the dashes before sending. |
+| `name` | no | The form joins first and last name |
+| `email` | no | Valid email |
+| `store_id` | no | Active store; the first store of the company if missing |
+| `payment_type` | yes | `to_pay` or `to_receive` (UI: **To Pay** / **To Receive**) |
+| `balance` | yes | Opening balance, number (send `0` for none) |
+| `customer_type` | yes | `B2C` or `B2B`. The app always sends `B2C` unless the business fields are shown (ZATCA Phase 1 on) |
+| `cr_number`, `vat_number` | no | Business (B2B) registration numbers, stored as KYC |
+| `alt_phone` | no | 8–15 digits |
+| `gender` | no | `male` or `female` |
+| `dob` | no | `yyyy-MM-dd`, before today |
+| `address` | no | The form joins building, street and area into one line |
+| `city` | no | The app sends the district (city) **id** as a string |
+| `state` | no | The app sends the state **id** as a string |
+| `pin_code` | no | Pincode text |
+| `country` | no | Country name |
+
+Example (the demo customer):
+
+```json
+{
+  "phone": "0551234567",
+  "name": "Layla Al-Harbi",
+  "email": "layla.demo@funzcart.in",
+  "store_id": "2",
+  "address": "",
+  "pin_code": "21442",
+  "city": "<district-id-for-Jeddah>",
+  "state": "<state-id-for-Makkah>",
+  "country": "Saudi Arabia",
+  "balance": "0",
+  "payment_type": "to_receive",
+  "customer_type": "B2C"
+}
+```
+
+### Response
+
+```json
+{
+  "status": "success",
+  "message": "Customer added successfully",
+  "data": {
+    "user": { "id": 1497, "name": "Layla Al-Harbi", "email": "layla.demo@funzcart.in", "phone": "0551234567" },
+    "customer": { "id": 2767, "user_id": 1497, "store_id": 2, "customer_type": "B2C", "payment_type": "to_receive", "balance": 0 },
+    "address": null
+  }
+}
+```
+
+*Trimmed to the main fields.*
+
+### Rules and side effects
+
+- **Opening balance sign.** `to_receive` stores the balance as a negative number (the store owes the customer); `to_pay` stores it as positive (the customer owes the store).
+- If `balance` > 0 an "Initial balance" ledger line is created: `to_pay` → Credit / Receipt, `to_receive` → Debit / Voucher.
+- Duplicate phone in the same company → **422** `"This phone already exists in this company."`
+- Validation errors → **422** `{"status":"error","errors":{...}}`.
+
+## POST /api/v1/customer/customer-edit
+
+Updates a customer. The app sends **only the fields that changed** plus `customer_id`. An empty string clears a field.
+
+**Used by:** Customer Profile > **Edit Details**.
+
+```json
+{
+  "customer_id": 2767,
+  "email": "layla.demo@funzcart.in",
+  "customer_type": "B2B",
+  "cr_number": "<cr-number>",
+  "vat_number": "<vat-number>"
+}
+```
+
+Accepted fields are the same as add-customer (`name`, `email`, `phone`, `alt_phone`, `gender`, `dob`, `store_id`, `balance`, `payment_type`, `customer_type`, `cr_number`, `vat_number`, address fields), all optional. If nothing changed the app does not send a request.
+
+Response: `{"status":"success","message":"...","data":{...customer}}`. Unknown customer → `"Customer not found"`.
+
+## POST /api/v1/customer/executive-add-address
+
+Adds a delivery address to a customer.
+
+**Used by:** Customer Profile > **Customer Address** > add.
+
+| Field | Required | Notes |
+|---|---|---|
+| `customer_id` | yes | Customer id |
+| `name` | yes | Defaults to the customer's name |
+| `phone` | yes | Defaults to the customer's phone |
+| `address` | yes | Street address |
+| `pincode_id` | yes | Id from `list-pincodes` |
+| `type` | yes | `Home`, `Office` or `Other` |
+| `city` | no | City text |
+| `state_id`, `district_id` | no | Ids from the location lists |
+| `landmark` | no | Landmark |
+
+```json
+{
+  "customer_id": 2767,
+  "name": "Layla Al-Harbi",
+  "phone": "0551234567",
+  "address": "King Abdulaziz Road",
+  "city": "Jeddah",
+  "state_id": "<state-id>",
+  "district_id": "<district-id>",
+  "pincode_id": "<pincode-id>",
+  "landmark": "Near Al Hamra Mall",
+  "type": "Home"
+}
+```
+
+## POST `/api/v1/customer/executive-update-address/{id}`
+
+Same body as add, for the address with id `{id}`. Used when you edit an address on the **Customer Address** tab.
+
+## POST /api/v1/customer/customer-last-purchases
+
+Returns the last 5 orders in which this customer bought this product, newest first.
+
+**Used by:** the history icon on a cart line in Billing (shows the customer's last purchase price). The icon appears when the website setting `SHOW_CUSTOMER_LAST_BUYED_PRICE_LIST` is on.
+
+```json
+{ "customer_id": 2767, "product_id": 15485 }
+```
+
+```json
+{
+  "success": true,
+  "data": [
+    { "price": 220.0, "quantity": 2, "total": 440.0, "date": "2026-10-27", "order_number": "ORD-004851" }
+  ]
+}
+```
+
+*Illustrative values from the demo order.* Missing ids → **400** `{"success":false,"message":"customer_id and product_id are required"}`; unknown customer → **404**.
+
+## GET `/api/v1/user/get-user-details/{customerId}`
+
+Loads one customer by **customer id** (despite the path name).
+
+```json
+{
+  "status": "success",
+  "message": "Customer details fetched successfully.",
+  "data": {
+    "id": 2767,
+    "customer_id": 2767,
+    "user_id": 1497,
+    "store_id": 2,
+    "name": "Layla Al-Harbi",
+    "email": "layla.demo@funzcart.in",
+    "phone": "0551234567",
+    "alt_phone": null,
+    "customer_type": "B2C",
+    "payment_type": "to_receive",
+    "addresses": []
+  }
+}
+```
+
+*Trimmed.* Not found → **404** `"Customer not found"`.
+
+## GET /api/v1/user/users
+
+Paginated list of user accounts in the tenant (20 per page). Returns `id, name, email, phone, phone_verified, is_admin, created_at`.
+
+```json
+{
+  "status": "success",
+  "message": "Success",
+  "data": {
+    "current_page": 1,
+    "data": [
+      { "id": 1497, "name": "Layla Al-Harbi", "email": "layla.demo@funzcart.in", "phone": "0551234567", "phone_verified": 1, "is_admin": false }
+    ],
+    "per_page": 20,
+    "last_page": 60,
+    "total": 1192
+  }
+}
+```
+
+*Shape from a captured response; row values replaced with demo data.*
+
+## GET /api/v1/location/get-states
+
+Returns all states as an `id → name` map. Used by the **State** picker in Add New Customer (for example "Makkah").
+
+```json
+{ "status": "success", "data": { "45": "Riyadh", "46": "Makkah" } }
+```
+
+*Illustrative ids.*
+
+## GET /api/v1/location/get-district
+
+| Name | Required | Notes |
+|---|---|---|
+| `state_id` | yes | State id |
+| `store_id` | no | Sent by the app |
+
+Returns districts (the form calls them **City**, for example "Jeddah") as `id → name`.
+
+```json
+{ "status": "success", "data": { "629": "Jeddah" } }
+```
+
+## GET /api/v1/location/list-pincodes
+
+| Name | Required | Notes |
+|---|---|---|
+| `district_id` | no | Limit to one district (the app always sends it) |
+
+Each label is `"<area name> (<pin code>)"`.
+
+```json
+{ "status": "success", "message": "Pincodes list", "data": { "4858": "Al Hamra (21442)" } }
+```
+
+*Illustrative ids.* When you use **Pick on Map**, the app matches the picked place name to these lists (ignoring words like "province" or "district").
+
+## GET /api/v1/transaction/customer-transactions
+
+The customer ledger: invoices (debit), receipts (credit), sales returns, vouchers, COGS lines and opening balances.
+
+**Used by:** Customer Profile > **Transactions** and the **Customer Transactions Report** detail.
+
+| Name | Type | Notes |
+|---|---|---|
+| `customer_id` | integer | One customer |
+| `transaction_type` | string | `Invoice`, `Receipt`, `Voucher`, `Sales Return`, `COGS`… |
+| `type` | string | `Debit` or `Credit` |
+| `date_from`, `date_to` | date | `yyyy-MM-dd`, inclusive |
+| `per_page` | integer | App default 20 |
+| `page` | integer | Page number |
+| `store_id` | integer | Active store |
+
+```json
+{
+  "status": "success",
+  "message": "Customer transactions listed successfully",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 20039,
+        "order_id": 7036,
+        "order_number": "ORD-004850",
+        "payment_method": "7973",
+        "date": "2026-10-27",
+        "type": "Credit",
+        "reference_id": "RCP1001952",
+        "transaction_type": "Receipt",
+        "amount": "200.000",
+        "currency": "SAR",
+        "reference": "249567",
+        "transaction_comment": "Receipt #RCP1001952",
+        "tax_amount": "30.510",
+        "balance": "-1887.040",
+        "status": "SUCC",
+        "store_id": 2,
+        "customer_name": "Test Default",
+        "customer_id": 2527
+      },
+      {
+        "id": 20038,
+        "order_number": "ORD-004850",
+        "date": "2026-10-27",
+        "type": "Debit",
+        "reference_id": "INV-OR1002059",
+        "transaction_type": "COGS",
+        "amount": "200.000",
+        "transaction_comment": "Cost of Goods Sold — Order #ORD-004850"
+      }
+    ],
+    "per_page": 20,
+    "last_page": 699,
+    "total": 13972
+  }
+}
+```
+
+*Trimmed from a captured response (walk-in "Test Default" customer). `payment_method` here is the master-data id of the method.*
+
+## Related
+
+- [Customers (POS app)](/docs/pos-app/customers)
+- [Billing](/docs/pos-app/billing)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Reports](/docs/pos-app/reports)
+- [Transactions, invoices and receipts API](/docs/api/transactions-invoices-receipts)
+- [Cart and orders API](/docs/api/cart-and-orders)
+- [Settings and master data API](/docs/api/settings-and-master-data)

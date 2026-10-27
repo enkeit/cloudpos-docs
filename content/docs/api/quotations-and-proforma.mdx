@@ -1,0 +1,369 @@
+---
+title: Quotations and Proforma API
+description: Create, list, view, update, convert and delete quotations, and read the proforma invoices created with them.
+---
+
+# Quotations and Proforma API
+
+Quotations are created from **Billing in quotation mode** (menu **Quotations > Quotations**, buttons **Create Quotation** and **Create & Print Quote**). They are listed in **Quotations > Quotation List**, where staff can view, print and **convert to order**. Every quotation also creates a linked **proforma invoice**, listed under **Transactions > Proforma Invoice**.
+
+All paths are relative to `{{server}}`. Send `X-Tenant: <your-tenant-key>`, `Authorization: Bearer <access-token>` and `Content-Type: application/json`. All quotation routes require sign-in.
+
+## Endpoint summary
+
+| Method | Path | Used by |
+|---|---|---|
+| POST | `/api/v1/quotations` | **Create Quotation** / **Create & Print Quote** |
+| GET | `/api/v1/quotations` | **Quotation List** |
+| GET | `/api/v1/quotations/{id}` | Quotation details (view, print) |
+| POST | `/api/v1/quotations/update-status` | Change status from the list |
+| POST | `/api/v1/quotations/convert-to-order` | **Convert to order** |
+| DELETE | `/api/v1/quotations/{id}` | Delete (admin panel / integrations; needs `quotation.delete`) |
+| GET | `/api/v1/invoice/proforma-invoices` | **Proforma Invoices** list |
+| GET | `/api/v1/invoice/proforma-invoices/{id}` | Proforma invoice details |
+
+## Statuses
+
+| Quotation status | Meaning |
+|---|---|
+| `Pending` | New quotation (default) |
+| `Confirmed` | Customer accepted |
+| `Cancelled` | Customer declined; cannot be converted |
+| `order created` | Converted to an order; status can no longer change |
+
+| Proforma status | Meaning |
+|---|---|
+| `pending` | Created with the quotation |
+| `paid` | Paid |
+| `overdue` | Past due date |
+| `order created` | Its quotation was converted |
+
+## The demo quotation
+
+**QTN-00133** for Layla Al-Harbi: 5 × family chicken bucket at 210.00 = **1050.00** (sub total 889.83, tax 160.17 at 18% inclusive), delivery **Store Takeaway**, terms "Valid for 7 days. Catering order for 5 family buckets.", status **Pending**, created 2026-10-27 and expiring **2026-11-26** (30 days later).
+
+## POST /api/v1/quotations
+
+Creates a quotation from the current cart.
+
+### Body
+
+| Field | Required | Notes |
+|---|---|---|
+| `customer_type` | no | `existing` (send `customer_id`) or `new` (send `customer_name`, optional `customer_phone`) |
+| `customer_id` | for existing | Customer id |
+| `customer_name`, `customer_phone` | for new | Inline customer; no customer record is created yet |
+| `store_id` | yes | Active store |
+| `address_id` | no | Customer address |
+| `delivery_method_id` | no | Delivery method |
+| `shipping_cost` | no | Sent only when the delivery charge is above 0 |
+| `quotation_date` | no | `yyyy-MM-dd`; today if missing |
+| `expiry_date` | no | `yyyy-MM-dd`; **quotation date + 30 days** if missing. The app blocks an expiry before the quotation date. |
+| `discount` | no | Sent only when above 0 |
+| `terms` | no | Up to 500 characters |
+| `comment` | no | Note (sent by the app) |
+| `items` | yes | At least one line |
+| `items.*.product_id` | yes | Product |
+| `items.*.quantity` | yes | ≥ 0.001 (sale-unit quantity when a pack/box unit is used) |
+| `items.*.price` | no | Unit price (tax-inclusive) |
+| `items.*.product_stock_id` | no | Stock batch |
+| `items.*.product_sale_unit_id` | no | Sale unit (pack/box) |
+| `items.*.product_variant_id` | no | Variant |
+| `items.*.warranty_enabled` | no | Boolean |
+
+```json
+{
+  "customer_type": "existing",
+  "customer_id": 2767,
+  "store_id": 2,
+  "delivery_method_id": "<store-takeaway-id>",
+  "quotation_date": "2026-10-27",
+  "expiry_date": "2026-11-26",
+  "comment": "",
+  "terms": "Valid for 7 days. Catering order for 5 family buckets.",
+  "items": [
+    { "product_id": "<family-bucket-product-id>", "quantity": 5, "price": 210.0 }
+  ]
+}
+```
+
+### Response
+
+```json
+{
+  "status": "success",
+  "message": "Quotation created",
+  "data": {
+    "quotation_id": 190,
+    "quotation_number": "QTN-00133",
+    "grand_total": "1050.000",
+    "terms": "Valid for 7 days. Catering order for 5 family buckets.",
+    "invoice_id": 6815
+  }
+}
+```
+
+*Ids are illustrative.*
+
+### Side effects
+
+- The quotation number is `QTN-` plus a 5-digit sequence.
+- A **proforma invoice** (type `proforma`, status `pending`) is created with the same total, tax, discount, invoice date = quotation date and due date = expiry date. Its lines are the quotation lines plus a "Delivery Charge" line when there is a shipping cost.
+- No stock is reserved and no ledger entry is made.
+
+## GET /api/v1/quotations
+
+Paginated list, 15 per page.
+
+| Name | Type | Notes |
+|---|---|---|
+| `quotation_number` | string | Quotation # |
+| `customer_id` | integer | Customer |
+| `store_id` | integer | Store (the app sends the active store) |
+| `status` | string | `Pending`, `Confirmed`, `Cancelled`, `order created`; omitted for **All** |
+| `quotation_date_from`, `quotation_date_to` | date | The app sends the same day for both (exact-day filter) |
+| `expiry_date_from`, `expiry_date_to` | date | Same, for the expiry date |
+| `page` | integer | Page |
+
+```json
+{
+  "status": "success",
+  "message": "List of quotations",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 190,
+        "quotation_number": "QTN-00133",
+        "customer_id": 2767,
+        "customer": "Layla Al-Harbi",
+        "customer_phone": "0551234567",
+        "address": null,
+        "kyc_info": { "cr_number": null, "vat_number": null },
+        "store": "متجر النجمة Store ",
+        "quotation_date": "2026-10-27 00:00:00",
+        "expiry_date": "2026-11-26 00:00:00",
+        "terms": "Valid for 7 days. Catering order for 5 family buckets.",
+        "sub_total": "889.830",
+        "discount": null,
+        "tax": "160.170",
+        "grand_total": "1050.000",
+        "status": "Pending",
+        "invoice_id": 6815,
+        "created_at": "2026-10-27T12:30:00.000000Z"
+      }
+    ],
+    "per_page": 15
+  }
+}
+```
+
+*Shape from a captured response; the row is the demo quotation.*
+
+## GET `/api/v1/quotations/{id}`
+
+Full quotation with lines. Used by **View** and **Print** (the print uses the "Quotation" document configuration and the Quotation printer).
+
+```json
+{
+  "status": "success",
+  "message": "Quotation details",
+  "data": {
+    "id": 190,
+    "quotation_number": "QTN-00133",
+    "status": "Pending",
+    "customer": { "id": 2767, "name": "Layla Al-Harbi", "phone": "0551234567", "is_inline": false },
+    "kyc_info": { "cr_number": null, "vat_number": null },
+    "store": { "id": 2, "name": "متجر النجمة Store " },
+    "address_id": null,
+    "address": null,
+    "address_details": null,
+    "quotation_date": "2026-10-27 00:00:00",
+    "expiry_date": "2026-11-26 00:00:00",
+    "terms": "Valid for 7 days. Catering order for 5 family buckets.",
+    "delivery_method_id": "<store-takeaway-id>",
+    "delivery_method_name": "Store Takeaway",
+    "shipping_cost": null,
+    "sub_total": "889.830",
+    "discount": null,
+    "tax": "160.170",
+    "grand_total": "1050.000",
+    "invoice_id": 6815,
+    "items": [
+      {
+        "id": 15201,
+        "product_id": "<family-bucket-product-id>",
+        "product_name": "family chicken bucket",
+        "unit": "PCS",
+        "unit_price": "210.000",
+        "quantity": "5.000",
+        "tax_rate": "18.000",
+        "tax_amount_unit": 32.034,
+        "tax_amount": "160.170",
+        "total_price": "1050.000",
+        "product_stock_id": null,
+        "product_sale_unit_id": null,
+        "sale_unit_name": null,
+        "sale_unit_conversion_rate": null,
+        "warranty_enabled": false
+      }
+    ]
+  }
+}
+```
+
+*Shape from a captured response; values are the demo quotation (ids and unit illustrative).* `is_inline: true` means the customer was typed in (new customer) and has no record yet.
+
+## POST /api/v1/quotations/update-status
+
+```json
+{ "quotation_id": 190, "status": "Confirmed" }
+```
+
+| Field | Required | Values |
+|---|---|---|
+| `quotation_id` | yes | Quotation id |
+| `status` | yes | `Pending`, `Confirmed` or `Cancelled` |
+
+Response: `{"status":"success","message":"Quotation status updated","data":{...quotation}}`. A converted quotation returns `"Quotation already converted to an order"`.
+
+## POST /api/v1/quotations/convert-to-order
+
+Turns the quotation into an order (status `new`) using the quotation's lines and prices.
+
+| Field | Required | Notes |
+|---|---|---|
+| `quotation_id` | yes | Quotation |
+| `customer_type` | no | `existing` or `new` |
+| `customer_id` | no | Use an existing customer |
+| `customer_name`, `customer_phone` | no | For an inline customer: the customer record is found or created by phone |
+| `payment_method` | no | Payment method |
+| `payment_type` | no | Default `manual` |
+| `discount` | no | Default: the quotation's discount |
+| `shipping_cost` | no | Default 0 |
+| `delivery_method_id` | no | Delivery method |
+| `source_type` | no | Default `executive` |
+
+```json
+{
+  "quotation_id": 190,
+  "customer_type": "existing",
+  "customer_id": 2767,
+  "payment_method": "CASH",
+  "delivery_method_id": "<store-takeaway-id>"
+}
+```
+
+```json
+{
+  "status": "success",
+  "message": "Quotation converted to order",
+  "data": {
+    "order_id": 7050,
+    "order_number": "ORD-004860",
+    "quotation_id": 190,
+    "quotation_number": "QTN-00133"
+  }
+}
+```
+
+*Illustrative ids.*
+
+Rules:
+
+- Already converted → `"Quotation already converted to an order"`.
+- Cancelled → `"Cancelled quotations cannot be converted"`.
+- No lines → `"Quotation cart has no items"`.
+- Inline customer without a name → `"customer_name is required to create a new customer"`.
+- On success the quotation and its proforma invoice both get status `order created`.
+
+## DELETE `/api/v1/quotations/{id}`
+
+Deletes a quotation. The signed-in user's role needs the `quotation.delete` permission; no seeded role has it by default.
+
+| Status | Body |
+|---|---|
+| 200 | `{"status":"success","message":"Quotation deleted successfully","data":{...}}` |
+| 401 | `"Unauthenticated."` |
+| 403 | `"You do not have permission to delete quotations."` |
+| 404 | `"Quotation not found."` |
+
+The POS app has no delete button for quotations.
+
+## GET /api/v1/invoice/proforma-invoices
+
+**Used by:** Transactions > **Proforma Invoice** (search by invoice number, name or phone; status Pending / Paid / Overdue / Order Created).
+
+| Name | Type | Notes |
+|---|---|---|
+| `invoice_number` | string | Partial match |
+| `customer_search` | string | Customer name or phone |
+| `customer_id` | integer | One customer |
+| `status` | string | `pending`, `paid`, `overdue`, `order created` |
+| `date_from`, `date_to` | date | Invoice date |
+| `due_date_from`, `due_date_to` | date | Due date |
+| `per_page` | integer | App sends 20 (1000 for export) |
+| `page` | integer | Page |
+
+```json
+{
+  "status": "success",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 6815,
+        "invoice_number": "<proforma-number>",
+        "type": "proforma",
+        "status": "pending",
+        "amount": "1050.000",
+        "total_tax": "160.170",
+        "total_discount": "0.000",
+        "invoice_date": "2026-10-27",
+        "due_date": "2026-11-26",
+        "customer": { "id": 2767, "name": "Layla Al-Harbi", "phone": "0551234567", "is_inline": false },
+        "quotation": { "id": 190, "quotation_number": "QTN-00133", "status": "Pending" },
+        "items_count": 1
+      }
+    ],
+    "per_page": 20
+  }
+}
+```
+
+*Illustrative row built from the server's field list.*
+
+## GET `/api/v1/invoice/proforma-invoices/{id}`
+
+Same header fields as the list plus `items`:
+
+```json
+{
+  "status": "success",
+  "data": {
+    "id": 6815,
+    "invoice_number": "<proforma-number>",
+    "type": "proforma",
+    "status": "pending",
+    "amount": "1050.000",
+    "total_tax": "160.170",
+    "invoice_date": "2026-10-27",
+    "due_date": "2026-11-26",
+    "customer": { "id": 2767, "name": "Layla Al-Harbi", "phone": "0551234567", "is_inline": false },
+    "items": [
+      { "id": 9001, "item_name": "family chicken bucket", "quantity": "5.000", "unit_amount": "177.966", "tax": 160.17, "tax_rate": 18, "tax_amount": 160.17, "total_amount": "1050.000" }
+    ]
+  }
+}
+```
+
+*Illustrative.* Not found → `"Proforma invoice not found"` in the app.
+
+## Related
+
+- [Quotations and proforma (POS app)](/docs/pos-app/quotations-and-proforma)
+- [Billing](/docs/pos-app/billing)
+- [Printing](/docs/pos-app/printing)
+- [Cart and orders API](/docs/api/cart-and-orders)
+- [Transactions, invoices and receipts API](/docs/api/transactions-invoices-receipts)
+- [Customers API](/docs/api/customers)

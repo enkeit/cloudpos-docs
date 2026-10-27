@@ -4,7 +4,8 @@
 
 import type { LiveSession } from "./sources/live.ts";
 
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+/** The browser remembers the session, so it lasts a month rather than a working day. */
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 

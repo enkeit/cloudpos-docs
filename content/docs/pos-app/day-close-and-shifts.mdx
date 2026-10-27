@@ -1,0 +1,214 @@
+---
+title: Day Close and Shifts
+description: Open a shift with your opening cash, close the day with a cash count, read the Daily Sales Closes list and print the day close report.
+---
+
+# Day Close and Shifts
+
+A **shift** starts when you count the cash in the drawer. A **day close** ends it: the app totals every sale, payment, return and expense since your last close, and you count the cash again.
+
+You find both under **Sales → Day Sale Closing**. You need `menu.sales.day_closing.access`.
+
+| Action | When | Result |
+|---|---|---|
+| **Open Shift** | Start of work | A draft day close with your opening cash |
+| **Day Close** | End of work | The close is saved with the totals and your closing cash |
+
+## The Daily Sales Closes list
+
+![Daily Sales Closes list](media:day-close-list)
+*Daily Sales Closes: one row per sales executive and business date with total orders, total sales and online sales; Open Shift and Day Close buttons*
+
+**Daily Sales Closes** lists your closes, newest first: "Review daily sales and shift closures."
+
+| Column | Meaning |
+|---|---|
+| **Sales Executive** | Who closed |
+| **Phone** | Their phone |
+| **Store** | The store |
+| **Business Date** | The trading day the close belongs to |
+| **Shift Name** | The shift label |
+| **Total Orders** | Orders in the close |
+| **Total Sales** | Sales value |
+| **Online Sales** | Card and other non-cash sales |
+| **Cash Sales** | Cash sales |
+| **Credit Amount** | Sold on credit |
+| **Status** | **DRAFT** (shift open) or **CLOSED** |
+| **Action** | **View Details** |
+
+- Filter by **Business Date** with **Show Filters**.
+- **Export** saves the list to Excel.
+- **Open Shift** and **Day Close** buttons are at the top.
+
+## Open a shift
+
+![Open Shift form](media:open-shift)
+*Open Shift: store, shift name, business date, opening time, opening cash balance with a denomination breakdown, notes, and Save Opening Draft*
+
+"Capture opening time and opening cash before starting sales."
+
+1. Tap **Open Shift**.
+2. **Store** is filled in with your active store.
+3. Enter a **Shift Name**, for example "Morning". If you leave it empty the server uses its default name.
+4. Check the **Business Date**.
+5. Set **Opening Time\*** (required).
+6. Count the drawer. In **Opening Cash Breakdown**, pick a **Denomination**, enter the **Count**, and use **Add Row** for the next note or coin. The total fills **Opening Cash Balance (SAR)**.
+7. Add **Notes** if needed.
+8. Tap **Save Opening Draft**. You see "Shift opened successfully".
+
+Denominations come from the master-data list `CASH_DENOMINATIONS`. The seeded values are 500, 200, 100, 50, 20, 10, 5 and 1.
+
+You can have only one open shift per user per store. If one is already open, the server replies "A draft day close is already open for this store." Close that one first.
+
+## Close the day
+
+Before you start, check **Sales → Confirmed Orders**. If any sale on this device has not reached the server, Day Close warns you:
+
+> **Sync orders before Day Close?** 1 order has not been synced to the server yet. Sync them on the Confirmed Orders page before closing the day, otherwise they will be missing from this day close.
+
+Choose **Go to Confirmed Orders** (recommended), **Close anyway** or **Cancel**.
+
+### Step 1: Day Close
+
+![Day Close step 1](media:day-close-step1)
+*Day Close step 1: session information, business date, shift name, opening/closing time and the transaction overview since the last close*
+
+"Summary of today's activities."
+
+1. Tap **Day Close**.
+2. Check **Session Information**: **User**, **Opening** time and **Closing** time.
+3. Check **Business Date** and **Shift Name**. Set **Opening Time** and **Closing Time** if needed.
+4. Read the **Transaction Overview**. It covers everything since your last close.
+5. Count the drawer in **Closing Cash Breakdown**. This fills **Closing Cash In Hand**.
+6. Enter any **Cash Drop Amount** (cash taken out of the drawer to the safe or bank) and **Cash Refunds**.
+7. Add **Notes**.
+8. Tap **Next**.
+
+The **Transaction Overview** cards:
+
+| Card | Meaning |
+|---|---|
+| **TOTAL ORDERS** | Number of orders |
+| **TOTAL SALES** | Value of the orders |
+| **PAYMENT RECEIVED** | All money received, including old balances |
+| **COLLECTED ON SALE** | Money received on these sales |
+| **CASH SALES** / **ONLINE SALES** | Split by payment type |
+| **CREDIT AMOUNT** | Sold on credit (not yet paid) |
+| **CREDIT COLLECTED** | Old customer balances paid in this period |
+| **CASH EXPENSES** / **BANK EXPENSES** / **TOTAL EXPENSE** | Expenses entered in **Transactions → Expense** |
+| **TOTAL RETURNS** / **TOTAL REFUNDS** | Under **Returns & Refunds** |
+
+**Demo values.** After Layla's sale (card 400, cash 258 net of change):
+
+| Card | Value |
+|---|---|
+| **TOTAL ORDERS** | 1 |
+| **TOTAL SALES** | 658 |
+| **PAYMENT RECEIVED** | 658 |
+| **COLLECTED ON SALE** | 658 |
+
+### Step 2: Confirm Close
+
+![Day Close confirm step](media:day-close-confirm)
+*Day Close step 2 (Confirm Close): expected closing cash and today's cash collection, then Confirm & Close Day*
+
+"Review expected closing cash and today's collection before final closure."
+
+| Figure | Demo value |
+|---|---|
+| **Expected Closing Cash** | SAR 258.00 |
+| **Today Cash Collection** | SAR 258.00 |
+
+Compare **Expected Closing Cash** with the cash you counted. Then tap **Confirm & Close Day**. You see "Day close created successfully". Use **Back** to fix a figure first.
+
+## Read and print a close
+
+Tap **View Details** on a row. The detail page (**Daily Sales Close - period**) shows:
+
+- **Closing Period Details**: **Opening Date**, **Closing Date**, opening and closing times.
+- **Sales Summary** and **Collection Summary**: **Total Cash Sales**, **Total Online Sales**, **Total Credit Amount**, **Total Credit Collected (Prev Balance)**.
+- **Return & Refund**: **Total Returns (Sales Return)**, **Total Refunds (Vouchers)**, **Refund — Cash**, **Refund — Online**.
+- **Payment Method Breakdown**.
+- **Expenses Breakdown**: **Cash Expenses**, **Bank Expenses**, **Total Expense**.
+- **Cash Summary**: **Opening Cash In Hand**, **Cash Drop Amount**, **Expected Closing Cash**, **Today Cash Collection**, **Closing Cash In Hand**, **Short Cash**, **Excess Cash**.
+- **Cash Denomination Breakdown** for opening and closing.
+- **Transactions** and the product summary (**SL No**, **Particulars**, **Qty**, **MRP**, **Rate**, **Total**).
+
+To print, tap print and choose thermal or standard paper. The app asks **Print Transaction List?** "Do you want to include transaction details in this Print?" Answer **Yes** for the full list or **No** for totals only.
+
+## Admin Day Sale Records
+
+Company admins see **Sales → Admin Day Sale Records** (**Admin: Daily Sales Records**). It needs the `company_admin` role and the day-closing permission.
+
+- Filter by **Date** and by sales executive (**All sales executives** or one person).
+- Columns: **ID**, **Sales Executive**, **Phone**, **Store**, **Closing Period**.
+- Open a record to see the same detail page.
+
+## Compulsory shift and day close
+
+Two company settings make shifts mandatory. Both are off by default.
+
+| Setting | What happens |
+|---|---|
+| `COMPULSORY_SHIFT_OPEN` | When you open Billing with no open shift, the app shows **Shift Not Opened**: "You must open a shift before starting sales." It takes you to **Open Shift**. |
+| `COMPULSORY_DAY_CLOSE_REGISTER` | At **Select Store**, if a day before today was not closed, the app shows **Day Close Pending**: "You did not close your last day sales for 2026-10-26. Do you want to close it now?" **Yes** opens the Day Close form for that date. |
+
+## How it works
+
+### Expected closing cash
+
+```
+Expected Closing Cash = Opening Cash In Hand
+                      + Cash collected
+                      − Cash refunds
+                      − Cash expenses
+                      − Cash drop amount
+
+Today Cash Collection = Expected Closing Cash − Opening Cash In Hand
+```
+
+Cash collected is net of change. In the demo the customer paid 300 cash on a 658 bill with 400 by card, so 42.00 went back as change and 258 counts as cash.
+
+When you enter a closing cash count, the server stores the difference:
+
+- Counted less than expected → **Short Cash** = expected − counted.
+- Counted more → **Excess Cash** = counted − expected.
+
+### Period covered
+
+- A close covers transactions after the previous close's last transaction.
+- For a first close, or after a long gap, the server looks back only **7 days**. Older unclosed transactions are skipped, and the server returns a notice.
+- If you leave **Shift Name** empty, the server uses its default shift name.
+
+### Statuses
+
+| Status | Meaning |
+|---|---|
+| `draft` | Shift opened, not yet closed |
+| `closed` | Day close confirmed |
+
+### API calls
+
+| Step | Call |
+|---|---|
+| List | `GET /api/v1/daily-sales-close/list?date=&store_id[]=` |
+| Detail | `GET /api/v1/daily-sales-close/view/{id}` |
+| Shift check | `GET /api/v1/daily-sales-close/pending-status` returns `pending_day_close`, `can_open_shift`, `requires_confirmation`, `open_draft` |
+| Totals for the form | `GET /api/v1/daily-sales-close/summary?store_id=` |
+| Open Shift | `POST /api/v1/daily-sales-close/open` (409 if a draft is already open) |
+| Day Close | `POST /api/v1/daily-sales-close/create` |
+| Executives (admin filter) | `GET /api/v1/list-sales-executives` |
+| Denominations | `GET /api/v1/master-data-values?code=CASH_DENOMINATIONS` |
+
+These endpoints answer with `success: true/false` instead of `status`. Validation errors come back as 422 with an `errors` object.
+
+## Related
+
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Sales returns](/docs/pos-app/sales-returns)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Reports](/docs/pos-app/reports)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Troubleshooting FAQ](/docs/pos-app/troubleshooting-faq)
+- [API: Reports and day close](/docs/api/reports-and-day-close)
+- [API: Settings and master data](/docs/api/settings-and-master-data)

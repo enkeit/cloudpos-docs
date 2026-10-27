@@ -1,0 +1,550 @@
+---
+title: Products and Categories API
+description: Endpoints the CloudPOS POS app uses to list, create, edit and delete products and categories, generate barcodes, load units and properties, and calculate tax.
+---
+
+# Products and Categories API
+
+These endpoints feed the product grid in **Billing**, the **Product List**, **Create New Product**, **Category List** and **Add New Category** screens, and the offline product cache.
+
+All paths are relative to `{{server}}` (your tenant domain, found with `find-domain`, see [API overview](/docs/api)). Unless a section says otherwise, send:
+
+| Header | Value |
+|---|---|
+| `X-Tenant` | `<your-tenant-key>` |
+| `Authorization` | `Bearer <access-token>` (required on write endpoints and on `generate-barcode`) |
+| `Content-Type` | `application/json` (multipart for category create and edit) |
+| `Accept` | `application/json` (the app sends it on product create and edit so validation errors come back as JSON) |
+
+The app adds `store_id` (the active store, for example `2` for "متجر النجمة Store") to almost every call.
+
+## Quick reference
+
+| Method | Path | Used by |
+|---|---|---|
+| GET | `/api/v1/product/executive/list-products` | Billing grid, Product List, barcode scan, offline sync, quick-access tiles |
+| POST | `/api/v1/product/create-product` | **Create New Product** (Save F9 / Save and Create F8), mobile **Add Product** |
+| POST | `/api/v1/product/edit-product/{id}` | Edit product dialog from Product List and Billing |
+| POST | `/api/v1/product/delete-product` | Delete action on Product List |
+| GET | `/api/v1/product/generate-barcode` | Barcode generate button on Create New Product |
+| GET | `/api/v1/product/list-units` | Unit picker (product, purchase) and offline cache |
+| GET | `/api/v1/product/list-product-properties` | Product properties and variant attributes |
+| GET | `/api/v1/product/offer-products` | Products that currently have an active offer |
+| GET | `/api/v1/category/list-category` | Category panel in Billing, Category List, offline cache |
+| GET | `/api/v1/category/slug/{slug}` | View category |
+| POST | `/api/v1/category/add-category` | **Add New Category** |
+| POST | `/api/v1/category/edit-category/{id}` | Edit category |
+| GET | `/api/v1/tax/list-tax` | Taxes picker on Add New Category |
+| GET | `/api/v1/calculate-tax` | Tax preview while adding stock |
+
+## GET /api/v1/product/executive/list-products
+
+**Purpose:** returns sellable products with prices, taxes, stock batches, sale units and variants. This is the main product feed of the POS.
+
+**Screens:** Billing product grid (desktop and phone), Product List, barcode scan in Billing, quick-pick tiles (`quick_access=true`), Settings > **Resync Products** and the **Offline Data** "Products" row.
+
+**Authentication:** `X-Tenant` is enough. No bearer token is needed.
+
+### Query parameters
+
+| Param | Example | Effect |
+|---|---|---|
+| `store_id` | `2` | Stock rows and `number_of_products_available` are limited to this store. If the store has mapped categories, only products in those categories are returned. |
+| `type` | `sellable` | `sellable` = only products whose category is sellable. `not_sellable` = purchasable categories. Default `all`. Offline sync uses `type=sellable`. |
+| `page` | `7` | Page number. |
+| `per_page` | `500` | Page size. Default 500, clamped to 1–500. |
+| `list_all` | `true` | Returns every product without paging. |
+| `name` | `bucket` | Matches product name, item code, SKU, HSN code and translated names. |
+| `barcode` | `6271028081119` | Resolves the barcode (main, sale-unit, variant or scale barcode) to one product. An unknown barcode returns no products. For weighed barcodes the product carries `weight_info`. |
+| `category_id` | `19` | Products of one category. |
+| `quick_access` | `true` | Only products marked for quick access (the tiles that open **Select Price**). |
+| `updated_at_range` | `2026-10-27T00:00:00,2026-10-27T15:00:00` | Delta sync: products (or their stock in this store) changed in the range. Also fills `deleted_product_ids`. A bad range returns `422`. |
+| `price_range` | `100,300` | Products whose base price is in the range. |
+| `sort_by` | `name` | One of `name`, `price`, `mrp`, `sort_order`, `created_at`, `updated_at`. Default `sort_order` then name. |
+| `sort_order` | `asc` | `asc` or `desc`. |
+
+The Product List screen also sends `filter_price`, `filter_created_by`, `filter_store` and `filter_supplier` from its filter panel.
+
+### Response
+
+This endpoint does not use the usual `status` envelope. It returns `product`, `deleted_product_ids` and `pagination`. Captured from the demo (2 of 500 products shown; long fields trimmed):
+
+```json
+{
+  "product": [
+    {
+      "product_id": 15489,
+      "category_id": 182,
+      "product_name": "milibar",
+      "variant_mode": false,
+      "has_variants": false,
+      "matched_variant_id": null,
+      "product_slug": "milibar",
+      "barcode": "11100051",
+      "sku": null,
+      "item_code": null,
+      "hsn_code": null,
+      "reorder_level": 5,
+      "sort_order": 3001,
+      "is_online_product": true,
+      "taxes": [
+        { "id": 28, "name": "CGST 26", "code": "CGST26", "rate": "9", "source": "category" },
+        { "id": 27, "name": "SGST2026", "code": "SGST", "rate": "9", "source": "category" }
+      ],
+      "category": { "name": "snacks", "slug": "snacks" },
+      "sellable": 1,
+      "purchasable": 1,
+      "number_of_products_available": 47,
+      "unit": "PC",
+      "currency": "INR",
+      "mrp": null,
+      "purchase_price": "4.000",
+      "credit_price": null,
+      "min_margin_percentage": null,
+      "min_margin_price": null,
+      "price": {
+        "old_price": null,
+        "standard_unit_price": "4.000",
+        "base_price": "4.000",
+        "total_price": "4.000",
+        "percentage": null
+      },
+      "attachment": [
+        { "product_id": 15489, "title": "snacks", "is_primary": 1, "file_path": "https://…/storage/….jpg", "alt": "snacks" }
+      ],
+      "names": { "en": "milibar", "ar": "ميليبار" },
+      "product_props": [],
+      "offer_price": null,
+      "weight_info": null,
+      "stock": [
+        {
+          "id": 13283,
+          "product_id": 15489,
+          "product_variant_id": null,
+          "store_id": 2,
+          "store_name": "متجر النجمة Store ",
+          "supplier": "Supplier 1FUNZCART",
+          "quantity": "20.000",
+          "price": "4.000",
+          "sku": null,
+          "mrp": null,
+          "unit": "PC",
+          "tax_rate": "18.00",
+          "purchase_price": "4.000",
+          "date": "2026-06-03",
+          "expiry_date": null,
+          "pkg_mfg": null,
+          "rack": null,
+          "purchase_unit_id": null,
+          "purchase_qty": "20.000",
+          "wholesale_price": "0.000",
+          "wholesale_min_unit": 0,
+          "tax_include": 1,
+          "tax_include_purchase": 1,
+          "unit_prices": []
+        }
+      ],
+      "sale_units": [],
+      "variants": [],
+      "product_location": ""
+    }
+  ],
+  "deleted_product_ids": [],
+  "pagination": { "current_page": 7, "last_page": 10, "per_page": 500, "total": 4874 }
+}
+```
+
+The demo catalogue has 4874 products (the same number the dashboard shows), so a full download is 10 pages of 500.
+
+### Product fields
+
+| Field | Meaning |
+|---|---|
+| `product_id`, `category_id` | Ids. |
+| `product_name`, `names` | Default name and translated names by language code (`en`, `ar`, …). |
+| `barcode`, `sku`, `item_code`, `hsn_code` | Codes. `item_code` is shown only when **ITEM_CODE_ENABLED** is on. SKU is what the weigh-machine PLU export uses. |
+| `price.base_price`, `price.total_price`, `price.standard_unit_price` | Selling price. Prices are tax-inclusive. `standard_unit_price` is the reference price before any offer. |
+| `offer_price` | Price after the active offer for this store, when there is one. |
+| `mrp`, `purchase_price`, `credit_price` | MRP, purchase price (shown only to users with purchase access), credit price. |
+| `min_margin_percentage`, `min_margin_price` | Despite the names, these are the **maximum discount** caps (percent and amount) shown as "Max discount %" and "Max discount amount" on Create New Product. |
+| `taxes[]` | Taxes that apply. `source` tells whether the tax came from the product or its category. |
+| `sellable`, `purchasable` | From the category. |
+| `number_of_products_available` | Total stock in the requested store. |
+| `reorder_level` | Low-stock threshold used by stock lists and the Non-Stock Report. |
+| `product_props[]` | Property values (`props_code`, `master_value`, `type`), for example `FOOD_TYPE` (VEG / NON_VEG) or `WARRANTY_IN_MONTH`. |
+| `weight_info` | Filled only when the request was a scale barcode: `weight`, `total_price`, `is_weighted`. |
+| `matched_variant_id` | The variant a scanned barcode belongs to, so the POS can preselect it. |
+| `stock[]` | One row per stock batch in the store (see below). |
+| `sale_units[]` | Extra sale units (pack, box). `conversion_rate` is how many base units one sale unit holds. `price` is an optional fixed price for that unit. |
+| `variants[]`, `variant_mode`, `has_variants` | Product variants (only when **PRODUCT_VARIANT_ENABLED** is on). Each variant has its own SKU, barcode, price, MRP and `variant_attributes`. |
+| `deleted_product_ids` | Products deleted in the `updated_at_range`; the app removes them from its cache. |
+
+### Stock row fields
+
+| Field | Meaning |
+|---|---|
+| `id` | Stock id. Sent as `stock_id` on each order line. |
+| `product_variant_id` | `null` = general stock, otherwise the variant this batch belongs to. |
+| `quantity` | Quantity on hand (3 decimals). |
+| `price`, `mrp`, `purchase_price` | Retail price, MRP and purchase price of this batch. |
+| `tax_rate` | Tax rate used for this batch, for example `18.00`. A stock rate above 0 wins over product and category taxes. |
+| `tax_include`, `tax_include_purchase` | Whether the selling price and the purchase price include tax. |
+| `wholesale_price`, `wholesale_min_unit` | Wholesale price that applies when the line quantity is at least `wholesale_min_unit`. |
+| `rack`, `expiry_date`, `pkg_mfg`, `date` | Rack, expiry, manufacture date and stock date. |
+| `purchase_unit_id`, `purchase_qty` | The sale unit the batch was bought in, and how many. |
+| `unit_prices` | Per-sale-unit prices for this batch: `{ "<sale_unit_id>": price }`. |
+
+**Notes**
+
+- Billing groups stock rows by the fields in master data `STOCK_GROUPING_FIELDS` (default price and unit). See [Stock API](/docs/api/stock).
+- With **POS_HIDE_NONSTOCK_PRODUCT** on and stock tracking on, the app hides products, batches and variants with zero stock.
+- The app sends locale only as a header for this endpoint (no `?locale=`).
+
+## POST /api/v1/product/create-product
+
+**Purpose:** creates a product and, when a quantity is given, its opening stock in the active store.
+
+**Screens:** **Create New Product** quick form (Product List > **Add Product**), Billing **Add Product** on phones. **Save (F9)** saves and closes; **Save and Create (F8)** saves and clears the form for the next product.
+
+### Request body
+
+```json
+{
+  "name": "classic chicken bucket",
+  "price": "220",
+  "category_id": "19",
+  "mrp": "250",
+  "barcode": "111000465",
+  "quantity": "50",
+  "unit": "PC",
+  "purchase_rate": 150.0,
+  "conversion_rate_base": 1,
+  "item_code": "CCB-01",
+  "sku": "1001",
+  "min_margin_percentage": 10,
+  "min_margin_price": 20,
+  "product_names": [
+    { "language_id": 4, "name": "دلو دجاج كلاسيك" }
+  ],
+  "sale_units": [
+    { "unit_id": 10599, "conversion_rate": 6, "price": 1200, "barcode": "111000466" }
+  ],
+  "store_id": 2
+}
+```
+
+Values above are an example built from the demo menu (classic chicken bucket sells at 220.00 with MRP 250). Optional keys are only sent when filled.
+
+| Field | Rule |
+|---|---|
+| `name` | Required. |
+| `category_id` | Required, must exist. |
+| `price` | Required. Tax-inclusive selling price. |
+| `unit` | Required (unit name, from `list-units`). |
+| `barcode` | Optional. Must be unique among active products **and** sale-unit barcodes of the company. |
+| `item_code` | Optional, unique per company. |
+| `purchase_rate`, `quantity` | Optional, ≥ 0. A quantity above 0 creates opening stock. |
+| `supplier_id` | Optional. Used for the opening stock. If there is opening stock and no supplier exists in the company, the server returns `422` "No supplier found for opening stock". |
+| `min_margin_percentage`, `min_margin_price` | Optional max-discount caps (≥ 0). |
+| `product_names[]` | Optional translated names: `{ "language_id", "name" }`. Language ids come from `GET /api/v1/languages` (Arabic is `4` in the demo). The default name is always stored too. |
+| `sale_units[]` | Optional. Each needs `unit_id` and `conversion_rate` > 0; `price` and `barcode` optional. A sale-unit barcode cannot equal the main barcode. Shown in the **Multi Sale Unit** section (only when **MULTI_SALE_UNIT_ENABLED** is on). |
+| `variants[]` | Optional (with **PRODUCT_VARIANT_ENABLED**). Each: `sku`, `barcode`, `price`, `mrp`, `purchase_price`, `quantity`, `reorder_level`, `active`, `attributes[{product_prop_id, value}]`. A blank SKU is generated. |
+| `sort_order` | Optional, integer ≥ 1. `0` is treated as "not set". |
+| `store_id` | The active store. Opening stock goes here. |
+
+### Response
+
+`200` with `{ "status": "success", "message": "Product created successfully", "data": { … } }`. `data` has the same shape as one product in `list-products` (ids, names, props, stock, sale units, variants).
+
+### Errors
+
+| Code | When |
+|---|---|
+| 422 | `Validation failed` with field errors, for example `"barcode": ["The barcode has already been taken in sale units."]`, or `"quantity": ["Enter a quantity valid for the base unit."]` for a fractional quantity on a piece unit. |
+| 401 | Missing or expired token. |
+
+## POST `/api/v1/product/edit-product/{id}`
+
+**Purpose:** updates a product. Every field is optional ("sometimes").
+
+**Screens:** Edit product dialog from Product List and from Billing (needs permission `billing.product.edit`, or legacy `update_product`).
+
+### Request body
+
+```json
+{
+  "name": "classic chicken bucket",
+  "slug": "classic-chicken-bucket",
+  "price": 220,
+  "mrp": 250,
+  "purchase_price": 150,
+  "category_id": 19,
+  "barcode": "111000465",
+  "unit": "PC",
+  "unit_id": "3310",
+  "store_id": 2,
+  "sku": null,
+  "min_margin_percentage": 0,
+  "min_margin_price": 0,
+  "sale_units": [],
+  "variants": []
+}
+```
+
+**Notes**
+
+- An empty `sale_units` list removes all sale units. The app sends it only when it means that.
+- A cleared max-discount field is sent as `0` ("no cap"). A cleared SKU is sent as `null`.
+- Variants: omit `id` to create, pass `id` to update, pass `id` with `"_delete": true` to remove. Attributes are replaced on every save.
+- Quantity cannot be edited here in a way that changes stock; use Adjust Stock instead (see [Stock API](/docs/api/stock)).
+
+**Response:** `{ "status": "success", "message": "…", "data": { … product … } }`. Errors come back as `{ "status": "failed", "message": "…" }` with 422 for validation.
+
+## POST /api/v1/product/delete-product
+
+**Purpose:** soft-deletes a product and its stock rows.
+
+**Screen:** delete action in Product List.
+
+```json
+{ "product_id": 25011 }
+```
+
+| Result | Response |
+|---|---|
+| Deleted | `200` `{ "status": "success", "message": "Product deleted successfully", "data": { "product_id": 25011 } }` |
+| Not found | `404` `Product not found` |
+| Product still has stock on hand | `422` with the server's "stock on hand" message. Adjust or withdraw the stock first. |
+
+Deleted ids appear in `deleted_product_ids` of the next delta sync, so other counters drop the product too.
+
+## GET /api/v1/product/generate-barcode
+
+**Purpose:** returns the next free barcode built from the company's barcode prefix (company prop **CUSTOM_BARCODE_PREFIX**, default `111000`).
+
+**Screen:** generate button next to **Barcode** on Create New Product.
+
+**Auth:** bearer token required. The app adds `store_id`.
+
+Captured response:
+
+```json
+{
+  "status": "success",
+  "message": "Barcode generated",
+  "data": { "barcode": "111000465" }
+}
+```
+
+If no prefix is configured the server answers `400` "Barcode prefix not configured or inactive".
+
+## GET /api/v1/product/list-units
+
+**Purpose:** unit names for product and purchase forms. Values come from master data `PRODUCT_UNITS`.
+
+**Screens:** unit picker on Create New Product and Create New Purchase Order, Offline Data "Units".
+
+Captured response (trimmed). `data` is an object of `id: name`:
+
+```json
+{
+  "status": "success",
+  "message": "Units found",
+  "data": {
+    "1989": "KG",
+    "1990": "LT",
+    "1991": "DZ",
+    "3310": "PC",
+    "6953": "PCS",
+    "9572": "NOS",
+    "10599": "BOX",
+    "10600": "BAG"
+  }
+}
+```
+
+The app sends locale as a header only for this endpoint.
+
+## GET /api/v1/product/list-product-properties
+
+**Purpose:** all product properties (and their options) the company has defined. Used for product properties and variant attributes.
+
+Captured response (trimmed):
+
+```json
+{
+  "status": "success",
+  "message": "All product properties retrieved successfully",
+  "data": [
+    { "id": 17, "name": "MANUFACTURER", "code": "MANUFACTURER", "type": "TXT", "options": { "NULL": "NULL" }, "label": "MANUFACTURER" },
+    { "id": 18, "name": "COLOR", "code": "PRODUCT_COLOR", "type": "MLT", "options": { "black": "black", "blue": "blue", "…": "…" }, "label": "COLOR" }
+  ]
+}
+```
+
+`type` is `TXT` (free text) or a list type such as `MLT` with `options`. The app caches the list for the session.
+
+## GET /api/v1/product/offer-products
+
+**Purpose:** products that currently have an active product or category offer (20 per page).
+
+Captured response from the demo (no active offers at that time):
+
+```json
+{ "status": "success", "message": "List of all offer products", "data": [] }
+```
+
+The POS applies offers from `offers/pos-sync` instead (see [Payments, delivery and discounts API](/docs/api/payments-delivery-discounts)).
+
+## GET /api/v1/category/list-category
+
+**Purpose:** category list with translated names, images and SEO fields.
+
+**Screens:** category chips in Billing and Restaurant, **Category List**, parent picker on Add New Category, Offline Data "Categories".
+
+| Param | Example | Effect |
+|---|---|---|
+| `type` | `sellable` | `sellable` (Billing), `purchasable` (purchase screens), or omit for all. |
+| `store_id` | `2` | Limits to the store's mapped categories, when the store has any. |
+| `page` | `1` | Page number. The app loops until `last_page`. |
+| `filter_name`, `filter_slug`, `filter_parent` | `bucket` | Search by name, slug, or parent id. |
+
+Captured response (2 of 134 shown):
+
+```json
+{
+  "data": [
+    {
+      "id": 19,
+      "name": "Chicken Buckets 2",
+      "slug": "chicken-buckets-2",
+      "sellable": true,
+      "purchasable": true,
+      "parent_id": null,
+      "image_url": "https://…/storage/….jpg",
+      "icon_url": "https://…/storage/….jpg",
+      "parent": null,
+      "names": [
+        { "language": "English", "code": "en", "name": "Chicken Buckets 2" },
+        { "language": "Arabic", "code": "ar", "name": "Chicken Buckets" }
+      ],
+      "seo": { "meta_title": null, "meta_description": null, "meta_keywords": [] }
+    }
+  ],
+  "meta": { "current_page": 1, "from": 1, "last_page": 1, "path": "…/api/v1/category/list-category", "per_page": 1000, "to": 134 },
+  "links": { "first": "…?page=1", "last": "…?page=1", "prev": null, "next": null }
+}
+```
+
+This is a Laravel resource collection: `data`, `meta` and `links` at the top level, no `status` field.
+
+## GET `/api/v1/category/slug/{slug}`
+
+**Purpose:** one category by slug (view category). Returns the category resource, or `404` "Category not found".
+
+Example: `GET {{server}}/api/v1/category/slug/chicken-buckets-2`
+
+## POST /api/v1/category/add-category
+
+**Purpose:** creates a category. **Screen:** **Add New Category** (Category List > **Add Category**).
+
+**Body:** `multipart/form-data`.
+
+| Field | Example | Rule |
+|---|---|---|
+| `name` | `Chicken Buckets` | Required. |
+| `slug` | `chicken-buckets` | Required, unique in the company. Shown as **URL slug**. |
+| `is_sellable` | `1` | **Sellable** switch. |
+| `is_purchasable` | `1` | **Purchasable** switch. |
+| `parent_category` | `12` | Optional parent category id. |
+| `description` | | Optional. |
+| `category_lang_name[en]` | `Chicken Buckets` | English name. |
+| `category_lang_name[ar]` | `دلاء الدجاج` | Arabic name (the translate button fills it). |
+| `category_lang_name[<code>]` | | Any other language, for example `ml` (Malayalam). |
+| `product_properties[0]` | `18` | Optional property ids attached to the category. |
+| `tax_ids[0]` | `28` | Optional tax ids. The category is added to each tax's category mapping. |
+| `store_id` | `2` | Active store. |
+| `sort_order` | | Optional, ≥ 1. |
+
+**Response:** `201`
+
+```json
+{ "status": "success", "data": { "id": 135, "name": "Chicken Buckets", "…": "…", "category_taxes": [] }, "message": "Category added successfully." }
+```
+
+Validation errors: `422` `{ "status": "failed", "data": [], "message": { "slug": ["The slug has already been taken."] } }`.
+
+## POST `/api/v1/category/edit-category/{id}`
+
+Same multipart fields as add (`name`, `slug`, `is_sellable`, `is_purchasable`, `parent_category`, `category_lang_name[...]`). Returns `{ "status": "success", "message": "Category updated successfully", "data": { … } }`.
+
+## GET /api/v1/tax/list-tax
+
+**Purpose:** company taxes for the **Taxes** picker on Add New Category.
+
+| Param | Example | Effect |
+|---|---|---|
+| `active_only` | `true` | Only active taxes. The app always sends it. |
+
+Response: `{ "status": "success", "message": "Tax List", "data": [ { "id": 28, "name": "CGST 26", "code": "CGST26", "rate": "9", "…": "…" } ] }` (tax ids and names from the demo product list).
+
+## GET /api/v1/calculate-tax
+
+**Purpose:** the server's tax result for one price. The app calls it while adding stock to fill the tax amount fields.
+
+| Param | Example | Rule |
+|---|---|---|
+| `price` | `220` | Required. |
+| `product_id` | `3` | Required. |
+| `tax_include` | `1` | Required. `1` = the price already includes tax, `0` = tax is added on top. |
+| `category_id` | `2` | Optional. |
+
+Captured response (tax disabled for that product, so the rate is 0):
+
+```json
+{
+  "status": "success",
+  "message": "Tax Calculated",
+  "data": {
+    "initial_price": 200,
+    "tax_rate": 0,
+    "tax_amount": 0,
+    "price_excluding_tax": 200,
+    "price_including_tax": 200
+  }
+}
+```
+
+### How the rate is chosen
+
+1. If company setting **TAX_ENABLED** is off, tax is 0.
+2. The stock row's `tax_rate`, when it is above 0.
+3. Tax ids passed with the request.
+4. Product taxes valid on that date.
+5. Category tax, only when the product has no tax of its own.
+
+A parent tax's rate is added to its child's rate. Amounts are rounded to 3 decimals by the server.
+
+### Tax-inclusive formula, with the demo numbers
+
+For a tax-inclusive price: `tax = price × rate / (100 + rate)` and `price without tax = price − tax`.
+
+| Line | Price | Rate | Line total | Tax in line |
+|---|---|---|---|---|
+| classic chicken bucket × 2 | 220.00 | 18% | 440.00 | 440 × 18 / 118 = **67.12** |
+| crispy chicken bucket × 1 | 218.00 | 18% | 218.00 | 218 × 18 / 118 = **33.25** |
+| **Order** | | | **658.00** | **100.37** (net without tax 557.63) |
+
+So `calculate-tax?price=220&tax_include=1` for an 18% product gives `tax_amount` 33.559 and `price_excluding_tax` 186.441 (the server keeps 3 decimals; the POS rounds money to 2 decimals).
+
+## Related
+
+- [Products and stock (POS app)](/docs/pos-app/products-and-stock)
+- [Billing](/docs/pos-app/billing)
+- [Payments and tax](/docs/pos-app/payments-and-tax)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Stock API](/docs/api/stock)
+- [Cart and orders API](/docs/api/cart-and-orders)
+- [Payments, delivery and discounts API](/docs/api/payments-delivery-discounts)
+- [Settings and master data API](/docs/api/settings-and-master-data)
+- [Sync and realtime API](/docs/api/sync-and-realtime)

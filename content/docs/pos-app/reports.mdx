@@ -1,44 +1,251 @@
 ---
 title: Reports
-description: Sales, stock, and supplier reports available in the POS app
+description: Every report in the CloudPOS POS app, who can open it, its filters, columns, totals and how to export or print it.
 ---
 
 # Reports
 
-Reports are accessible from the sidebar. All reports support date range filtering.
+The **Reports** menu holds ten reports. Each one answers one question: how much did I sell, which products moved, who owes money, what is in stock.
+
+All reports share the same layout:
+
+- A header with the report title, a short subtitle and **Export** and **Refresh** buttons.
+- A **Filters** panel. Tap **Filters** to show it and **Hide** to fold it away. **Reset** clears every filter.
+- A table on desktop and tablet, or cards on a phone.
+- Paging at the bottom. The page shows a count such as "@count orders on this page".
+
+## Which reports you can see
+
+Each report has its own permission. The admin sets these in **Admin Panel → Roles**. If you do not have a permission, the report is not in your menu.
+
+| Menu item | Screen | Permission |
+|---|---|---|
+| **Sales Executive Reports** | My Sales Report | `menu.reports.sales_executive.access` |
+| **Sales Report** | Sales Report | `menu.reports.sales_report.access` |
+| **Discount Sale Report** | Discount Sale Report | `menu.reports.discount_sales.access` |
+| **Product Sales Report** | Product Sales Report | `menu.reports.product_sales.access` (or the older `page_ProductSalesReport`) |
+| **Executive Reports** | Sales Executive Reports (admin) | role `company_admin`, or `menu.reports.executive_summary.access` for roles other than `sales_executive` |
+| **Customer Transaction Reports** | Customer Transactions Report | `menu.reports.customer_transactions.access` |
+| **Supplier Transaction Reports** | Supplier Transactions Report | `menu.reports.supplier_transactions.access` |
+| **Stock Report** | Stock Report | `menu.reports.stock.access`, or role `company_admin` |
+| **Non-Stock Report** | Non-Stock Report | `menu.reports.non_stock.access` |
+| **Consumed Stocks Report** | Consumed Stocks Report | `menu.reports.consumed_stock.access` |
+
+Tapping the **Reports** header itself opens Executive Reports for a company admin, My Sales Report for a user with the sales-executive report permission, and otherwise the first report you are allowed to see.
+
+## Exporting a report
+
+1. Set the filters you want.
+2. Tap **Export**.
+3. The app reads every page that matches your filters, not only the page on screen. A progress message shows "Fetching page @page of @total…".
+4. On Windows a **Save As** window opens. On other platforms the share sheet opens.
+
+The file is an Excel workbook. Amounts stay as numbers, so you can add them up in Excel. If you change a filter while the export runs, the export stops and you need to refresh first.
+
+## My Sales Report
+
+![My Sales Report](media:report-my-sales)
+*My Sales Report (Sales Executive Reports): today's totals for the signed-in executive: orders, total, online (card), cash and credit sales*
+
+**Purpose:** your own sales, payments and collections. Sales executives use it to check the day before closing.
+
+**Filters:**
+
+- **From Date** and **To Date**. Leave both empty to see today's sales. The hint says "Leave dates empty to show today's sales."
+- **From Date** cannot be after **To Date**.
+
+**Columns:** **Executive Name**, **Phone**, **Total Orders**, **Total Sales**, **Online Sales**, **Cash Sales**, **Credit Sales**, **Collected Sales**, **Actions**.
+
+Tap **View** in **Actions** to open **Sales Executive Details**. It has two sections:
+
+- **Executive Information:** **Name**, **Phone**, **Date Range**, **Total Orders**.
+- **Financial Summary:** **Total Sales**, **Total Payment Received**, **Total Amount Collected On Sale**, **Total Credit Collected (Prev Balance)**, **Total UPI Sales**, **Total Card Sales**, **Total Online Sales**, **Total Cash Sales**, **Total Credit Amount**.
+
+In the demo, the sales executive's day had one confirmed sale of SAR 658.00 (cash 258 + card 400). That is the same figure the Day Close screen shows as total sales.
+
+Data: `GET /api/v1/sales-executive-report`.
 
 ## Sales Report
 
-Shows total sales, returns, and net revenue for the selected period. Filter by:
-- Date range (daily, weekly, custom)
-- Payment method
-- Staff member
+![Sales Report filters](media:report-sales)
+*Sales Report: filters (stores and executive locked to your own for sales executives, payment methods, delivery modes, categories, products, customers, date range defaulting to this month, sort)*
+
+**Purpose:** a list of orders with their value, payment and delivery method.
+
+**Filters:**
+
+- **Date Range:** **This Month** (default), **Last Month**, **Last 3 Months** or **Custom**. With **Custom**, pick both **From Date** and **To Date**.
+- **Stores**, **Sales Executives**, **Payment Methods**, **Delivery Modes**, **Categories**, **Products**, **Customers**. Each is a multi-select. Nothing selected means **All**.
+- **Sort:** **Newest first** or **Oldest first**.
+
+**Locked filters for sales executives.** If your role is `sales_executive`, **Stores** is fixed to the store you signed in to and **Sales Executives** is fixed to you. You cannot change them. Other roles can pick any store and executive.
+
+**Columns:** **SL#**, **Order#**, **Order Date**, **Order Value**, **Payment Methods**, **Delivery Method**, **Sales Exe**.
+
+**Summary line:** "@orders orders · Total @amount" for everything that matches, not only the current page. An **Applied Filters** strip shows what is active.
+
+Data: `GET /api/v1/sales-report`. Executive names come from `GET /api/v1/list-sales-executives`.
+
+## Discount Sale Report
+
+![Discount Sale Report](media:report-discount)
+*Discount Sale Report: filters for discount type, order or offline receipt number, executive, customer, store and date range*
+
+**Purpose:** orders sold with a discount, and how much discount was given.
+
+**Filters:**
+
+- **Date Range:** **Today**, **This Week**, **This Month** (default) or **Custom**.
+- **Discount Type:** **All**, **Cart items level** or **Overall order level**.
+- **Order / Offline Receipt Number:** search by the backend order number (for example ORD-004851) or the offline receipt number (for example 2-11-261027-0003).
+- **Executive**, **Customer**, **Store**. Sales executives get the same locked store and executive as in the Sales Report.
+
+**Columns:** **SL#**, **Date**, **Order Number**, **Offline Receipt No.**, **Executive**, **Customer**, **Discount Type**, **Cart Items Discount**, **Overall Order Discount**, **Discount Amount**, **Store**.
+
+**Cart Items Discount** is the sum of (standard unit price − sold unit price) × quantity for lines sold below their standard price. It includes offers and manual price reductions. **Overall Order Discount** is the flat, percentage or coupon discount on the whole order.
+
+**Summary line:** "@orders orders · Discount @amount".
+
+Data: `GET /api/v1/discount-sales-report`.
 
 ## Product Sales Report
 
-Breakdown of quantity sold and revenue per product. Useful for identifying top-selling items.
+![Product Sales Report](media:report-product-sales)
+*Product Sales Report: filter by category, product, date range and customer; shows price, total amount and number sold per product*
+
+**Purpose:** which products sold, how many and for how much.
+
+**Filters:** **Category**, **Product**, **From**, **To**, **Customer**. **From** cannot be after **To**.
+
+**Columns:** **Product Name**, **Category Name**, **No. of Product Sold**, **Price**, **Total Amount**.
+
+**Totals:** **Total Revenue** and **Total Quantity** for the filtered result.
+
+Data: `GET /api/v1/product-sales-report`.
+
+## Executive Reports (admin)
+
+**Purpose:** sales totals across all sales executives. It is the admin version of My Sales Report. The page title is **Sales Executive Reports**.
+
+**Filters:**
+
+- **Date Filter:** **Today** or **Custom** (with **From Date** and **To Date**).
+- **Search Executive:** type part of a name.
+
+**Summary cards:** **Orders**, **Total Sales**, **Cash Sales**, **Online Sales**, **Credit Sales**, **Collected**, plus **UPI Sales** and **Card Sales**.
+
+**Columns:** **Executive Name**, **Phone**, **Total Orders**, money columns, **Actions**. **View** opens **Executive Details** with **Executive Information** and **Financial Summary**.
+
+The export includes **Loaded At**, so you know when the figures were read.
+
+Data: `GET /api/v1/sales-executive-report-admin`. A sales executive gets 403 from this endpoint.
+
+## Customer Transactions Report
+
+![Customer Transactions Report](media:report-customer-transactions)
+*Customer Transactions Report: total debit, total credit, balance (red = customer owes) and transaction count per customer, with View for the ledger*
+
+**Purpose:** who owes the store money and who has credit.
+
+**Filters:** **Customer** (or **All Customers**), **From Date**, **To Date**.
+
+**Columns:** **Customer Name**, **Total Debit**, **Total Credit**, **Balance**, **Transactions**, **Action**. A red balance means the customer owes money.
+
+Tap **View** to open **Transaction Details** for one customer:
+
+- Filters: **Transaction Type**, **Status** (**Success**, **Pending**, **Failed**), **Type**, **From Date**, **To Date**.
+- Columns: **Sl No**, **Order Number**, **Transaction Type**, **Amount**, **Type**, **Transaction Date**, **Status**.
+- **Print** builds a **Print Transaction Report** on the thermal or A4/A5 printer. It shows **Total Transactions:**, **Total Amount:**, **Discount:**, **You Saved:** and **Net Total:**.
+
+For Layla Al-Harbi (customer 2767) the ledger shows the invoice as a debit of 658.00, the receipt credits per payment method (cash 258 and card 400), the sales return credit of 220.00 and the refund voucher debit of 220.00.
+
+Data: `GET /api/v1/transaction/customer-transactions`.
+
+## Supplier Transactions Report
+
+**Purpose:** totals and balances per supplier.
+
+**Filters:** **Supplier** (or **All suppliers**), **From Date**, **To Date**.
+
+**Columns:** **Supplier Name**, **Total Debit**, **Total Credit**, **Balance**, **Transactions**, **Action**.
+
+Tap **View** to open **Supplier Transaction Details**:
+
+- Default dates: from the previous month to today.
+- Filters: **Transaction Type**, **Payment**, **Payment Method**, **Status**.
+- Columns: **Date**, **Reference**, **Type**, **Transaction Type**, **Amount**, **Payment Method**, **Status**.
+- **Print** opens **Print Supplier Transaction Report**. **Back to Report** returns to the list.
+
+Data: `GET /api/v1/suppliers/list-transactions`.
 
 ## Stock Report
 
-Current stock levels for all products. Highlights low-stock items.
+![Stock Report](media:report-stock)
+*Stock Report: view stock as of a date (blank = current), store, category, product, stock level, expiry filter and date range*
 
-## Consumed Stock Report
+**Purpose:** stock quantities, prices and values.
 
-Shows raw material or ingredient consumption (relevant for restaurants using recipe management).
+**Filters:**
+
+- **View Stock As Of:** a date. Leave it blank for current stock.
+- **Store** (**All Stores**), **Category** (**All Categories**), **Product** (**All Products**).
+- **Stock Level:** **All Levels** or **Below Reorder**.
+- **Expiry Filter:** **All Expiries**, **1 Month**, **3 Months**, **6 Months**, **1 Year**.
+- **From Date** and **Until Date**.
+
+**Columns:** **No**, **Product Name**, **Category**, **Stores**, **Barcode**, **Retail Price**, **Maximum Retail Price**, **Purchase Price**, **Current Stock**, **Stock Value**, **Retail Value**, **Expiry Date**. Tap a barcode to copy it.
+
+**Totals:** **Total Stocked Units**, **Total Stock Value (Cost)** and **Total Retail Value (Sale)**.
+
+Stock value uses the purchase price. Retail value uses the retail (selling) price.
+
+Data: `GET /api/v1/stock-report`.
 
 ## Non-Stock Report
 
-Lists items sold that are not tracked in inventory.
+![Non-Stock Report](media:report-non-stock)
+*Non-Stock Report: low-stock and out-of-stock products by store, category, product or barcode, with current stock and reorder level*
 
-## Supplier Sales Report
+**Purpose:** products that are low or out of stock, so you know what to reorder.
 
-Purchase summaries grouped by supplier.
+**Filters:** **Store**, **Category**, **Product**, **Barcode** (**Filter by Barcode**).
 
-## Daily Close
+**Columns:** **No**, **Product Name**, **Category**, **Store**, **Barcode**, **Current Stock**, **Reorder Level**, **Unit**, **Status**.
 
-At end of day, use **Daily Close** to:
-1. Reconcile cash in drawer vs. system total
-2. Print a close-of-day summary receipt
-3. Lock the session for the day
+The reorder level is set on the product. A product shows here when its stock is at or below that level, or at zero.
 
-The daily close report is printable on both thermal and standard printers.
+Data: `GET /api/v1/non-stock-report`.
+
+## Consumed Stocks Report
+
+![Consumed Stocks Report](media:report-consumed-stock)
+*Consumed Stocks Report: stock withdrawals with quantity withdrawn, new quantity, who withdrew it and when*
+
+**Purpose:** a log of stock taken out with **Withdraw Stock** (for example, for store use or wastage). It is not a sales report.
+
+**Filters:** **Product** (**All Products**), **Store** (**All Stores**), **From Date**, **Until Date**.
+
+**Columns:** **No**, **Product**, **Store**, **Quantity Withdrawn**, **New Quantity**, **Withdrawn By**, **Date & Time**.
+
+Data: `GET /api/v1/consumed-stocks-report`.
+
+## How it works
+
+- **Server-side figures.** Every report is calculated by the server. The app shows what the server returns and does not recalculate totals. A report reflects only orders that have reached the server. Offline sales still waiting in **Sales → Confirmed Orders** are not included until they sync.
+- **Store scope.** Requests carry the active store (`store_id`) and your sign-in token. Switching store with the store switcher changes what you see.
+- **Dates.** Date filters send date-only values. Preset ranges (**This Month**, **Last Month** and so on) are worked out by the server. Only **Custom** sends exact dates.
+- **Errors.** If a refresh fails, the last loaded rows stay on screen with an error bar and a **Retry** button. If only the filter lists fail to load, a separate message says "Some filter options could not be loaded." The report itself still works.
+- **Paging.** Results are paged by the server. Changing a filter or tapping **Reset** goes back to page one.
+- **Legacy reports.** Older screens (Account Book, the legacy Sales Report and Supplier Sales Report) still exist in the code but have no menu entry.
+
+## Related
+
+- [API: Reports and day close](/docs/api/reports-and-day-close)
+- [API: Transactions, invoices and receipts](/docs/api/transactions-invoices-receipts)
+- [API: Stock](/docs/api/stock)
+- [API: Overview](/docs/api)
+- [Dashboard](/docs/pos-app/dashboard)
+- [Day close and shifts](/docs/pos-app/day-close-and-shifts)
+- [Products and stock](/docs/pos-app/products-and-stock)
+- [Customers](/docs/pos-app/customers)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles)

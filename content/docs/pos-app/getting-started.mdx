@@ -1,35 +1,201 @@
 ---
 title: Getting Started
-description: How to log in, select a store, and begin using Enke POS
+description: Install CloudPOS, enter your company API key, sign in, choose a store, let the first sync finish and set the counter number.
 ---
 
 # Getting Started
 
-## 1. Installation
+This page takes you from a fresh install to your first bill. It takes about five minutes on a good connection.
 
-Download the Enke POS app from the Google Play Store, Apple App Store, or install the Windows desktop build from your administrator.
+You need three things from your manager or administrator:
 
-## 2. First Launch — API Key
+- Your company **API key** (also called the tenant key). It is at least 10 characters long.
+- Your **email** and **password** for CloudPOS.
+- The **counter number** for this device (for example 11). Each till in a store has its own number.
 
-On first launch you will be asked for an **API Key** or **Base URL**. This is provided by your system administrator and points the app to your business's server.
+## Step 1: Open the app
 
-## 3. Login
+When CloudPOS starts, it shows **Getting your counter ready…** while it loads the language settings and the data saved on the device.
 
-Enter your username and password. If you have forgotten your password, use the **Forgot Password** link to reset it via email.
+![Start-up screen](media:splash)
+*Start-up screen: Getting your counter ready… while the app loads language settings and cached data*
 
-## 4. Select a Store
+- On a first install, the app then asks for the API key.
+- If the API key is already saved, it goes straight to the login screen.
+- If you are still signed in, it opens the app directly.
 
-If your account has access to multiple stores, you will be prompted to select which store to open a session for.
+## Step 2: Enter the API key
 
-## 5. Home Screen
+The **API Key Required** screen appears only once per device.
 
-After login you land on the **Home Screen** where you can:
+1. Type the key into **Enter your API key**.
+2. Tap **Submit**.
+3. The app looks up your company's server address and saves it. You do not type any server address yourself.
 
-- Browse and search products by category
-- Open the billing/cart screen
-- View pending orders
-- Access the sidebar for settings and reports
+If you do not have a key, tap **Register Here** or **Contact your administrator for your API key**.
 
-## Keyboard Shortcuts (Desktop)
+Messages you may see:
 
-The Windows desktop version supports keyboard shortcuts for fast cashier workflows. Press **?** on the billing page to view available shortcuts.
+| Message | What it means |
+|---|---|
+| **API key is required** | The field is empty. |
+| **API key must be at least 10 characters** | The key is too short. Check for a missing character. |
+| **API key saved. Domain verification failed, so default server URL is being used.** | The key was saved but the server lookup failed. The app uses the default CloudPOS server. If login then fails, check the key and the internet, then use **Reset API Key**. |
+
+## Step 3: Log in
+
+![Login screen](media:login)
+*Login screen: email, password, Remember Me, Forgot Password and Reset API Key*
+
+1. Enter your email in **Enter email address**.
+2. Enter your password in **Enter password**.
+3. Tick **Remember Me** if this is your own device. The app then fills in your email next time.
+4. Tap **Continue**. You see **Logging in...** while the app checks your details.
+
+Other buttons on this screen:
+
+- **Forgot Password?** — enter your email and tap **Continue**. You get a code. On the **Reset Password** screen enter the code, a new password and **Repeat Password**, then tap **Verify**.
+- **Reset API Key** — removes the API key **and all saved data from this device**. The app asks **Reset API key?** first. Use it only when the device must connect to a different company, or the key was entered wrong. The counter number and today's bill sequence are kept.
+
+Common login errors:
+
+| What you see | Why |
+|---|---|
+| **Email is required** / **Enter a valid email address** | The email field is empty or not a valid email. |
+| Unauthorized | Wrong email or password. |
+| Forbidden. You do not have the required role for this tenant. | Your user exists but has no POS role in this company. Ask an admin to give you a role. |
+| **You have no permission to any store. Please contact your administrator.** | Your user is not linked to any store. |
+
+Only these roles can sign in to the POS: `sales_executive`, `restaurant_sales`, `attender`, `kitchen_master`, `company_admin`, `purchase_manager`, `delivery_executive`.
+
+## Step 4: Select the store
+
+After login, the **Select Store** screen lists every store (branch) you are allowed to use. It appears even if you have only one store.
+
+![Select Store screen](media:select-store)
+*Select Store after sign-in: choose which branch (store) this counter works with*
+
+1. Read the list under **Choose Your Store**. Each card shows the store name and **Store ID**.
+2. Tap your store. In the demo we pick **متجر النجمة Store** (Store ID 2).
+3. Wait while **Preparing your workspace...** runs. Then you see "[store name] ready. Loading dashboard...".
+
+You can change store later from the profile card in the sidebar. See [Navigation and roles](/docs/pos-app/navigation-and-roles).
+
+## Step 5: Let the first sync finish
+
+The app now downloads everything it needs to bill for this store. The status line shows each step:
+
+1. **Loading user permissions...** — your role and what you may open.
+2. **Syncing delivery methods...**
+3. **Loading general settings...**
+4. **Applying app preferences...** — the company settings that switch buttons and features on or off.
+5. **Syncing customer directory...**
+6. **Loading branding assets...** — the logo.
+7. **Syncing bank accounts...**
+8. **Preparing invoices...**
+9. **Syncing payment methods...** and **Refreshing checkout payment methods...**
+10. **Loading stock grouping configuration...**
+11. **Fetching voucher types...**
+12. **Updating user directory...**
+13. **Retrieving store details...**
+14. **Loading supplier catalog...** — shows "Suppliers synced: N available."
+15. **Syncing measurement units...**
+16. **Fetching rack metadata...**
+17. **Downloading document configurations...** — receipt and invoice layouts.
+18. **Refreshing product categories...** — shows "Categories ready: N sellable, N total."
+19. **Fetching product catalog (this may take a moment)...** — then "Products ready: N loaded."
+20. **Starting realtime synchronization...**
+21. **Finishing touches...**
+
+If you switch to a different store, the app first clears the cached products, categories and document layouts of the old store. Then it runs the same steps for the new store.
+
+The product download is the longest step. It loads in batches and shows "Loading products... N loaded". Do not close the app during this step.
+
+### Pending day close prompt
+
+If your company uses a compulsory day close (setting `COMPULSORY_DAY_CLOSE_REGISTER`), the app checks whether you left a past business day open.
+
+- If yes, you see **Day Close Pending**: "You did not close your last day sales for [date]. **Do you want to close it now?**"
+- Tap **Yes** to open the Day Close form for that date. Tap **No** to continue without closing.
+
+See [Day close and shifts](/docs/pos-app/day-close-and-shifts).
+
+## Step 6: Set the counter number
+
+Every device in a store needs its own counter number. It is printed in every receipt number.
+
+![POS Counter Identity card](media:settings-counter)
+*POS Counter Identity: counter number 1-999 (unique per store) becomes part of every offline receipt number; last bill today, optional last-bill override after a reinstall, next bill number and device ID*
+
+1. Open **Settings** from the menu.
+2. Find **POS Counter Identity**.
+3. Enter the **Counter number** (use 1–999). In the demo it is **11**.
+4. Save. You see "Counter 11 saved. Next bill No.: …".
+
+If no number is set, the app uses counter **1** and shows **Using default counter 1 • Tap to confirm**. Set the real number before the first sale.
+
+**Every counter in the same store must use a different number.** Changing it does not change receipts that were already issued.
+
+## Your first screen
+
+The app opens the screen that matches your role:
+
+| Role | First screen |
+|---|---|
+| `sales_executive` (and any other role not listed) | Billing |
+| `restaurant_sales` | Restaurant |
+| `attender` | Attender |
+| `kitchen_master` | Kitchen Master |
+| `company_admin` | Dashboard |
+
+Next: make your first sale in [Billing](/docs/pos-app/billing).
+
+## How it works
+
+### Tenant discovery
+
+- The API key identifies your company (the "tenant"). The app sends it to the CloudPOS directory service (`POST https://cloudposai.com/api/v1/find-domain` with header `X-Tenant-Key: <your-tenant-key>`).
+- The service answers with your company's server domain. That becomes the base address for every API call.
+- The key is saved on the device. Every later request sends it in the `X-Tenant` header.
+- See [API overview](/docs/api) for the exact request and response.
+
+### Sign-in
+
+- Login calls `POST /api/v1/user/signin` with email and password.
+- The answer contains an access token, your user id and name, your company, your role (`user_role`), your stores, the company time zone and country, and ZATCA details (VAT number, CR number, ZATCA company name).
+- The sign-in answer does not list permissions. The app loads them from the roles list in step 1 of the sync.
+- The app also reads the server clock from the response so receipts use the server time even if the device clock is wrong.
+- **Logout** (bottom of the menu) tells the server to end the session, then clears the session on the device.
+
+### Counter identity and receipt numbers
+
+- Receipt numbers look like `store-counter-YYMMDD-sequence`. Example: **2-11-261027-0003** = store 2, counter 11, 27 October 2026, third bill of the day on that counter.
+- The counter is shown with at least two digits (counter 3 prints as 03). The daily sequence uses four digits.
+- The device also has its own **Device ID**, shown in the counter card.
+- **Clear Local Storage** and **Reset API Key** keep the counter number and today's sequence. After a full reinstall the device forgets today's sequence. Use **Last bill sold today (optional)** in the counter card. Look up this counter's last bill today in the admin panel and enter its last digits (for 2-11-261027-0010 enter 10). Bill numbers can only move forward.
+
+### Offline-first or online-first
+
+Your company chooses how **Confirm Order** behaves with the setting `POS_OFFLINE_SALES` (on by default).
+
+| Mode | What happens on Confirm |
+|---|---|
+| Offline-first (`POS_OFFLINE_SALES` on) | The sale is saved on the device with its receipt number and printed at once. It is sent to the server in the background. Billing never waits for the internet. |
+| Online-first (`POS_OFFLINE_SALES` off) | The app waits for the server. If the server accepts, the cart clears and the receipt prints. If the server rejects, the cart stays so you can fix it. If the answer is unclear, the cart clears without printing and the sale is flagged for review. |
+
+Sales that did not reach the server are listed in **Sales → Confirmed Orders** (the **Sync attention** page). Nothing is retried automatically. Staff send them again from there. See [Settings and sync](/docs/pos-app/settings-and-sync) and [Troubleshooting and FAQ](/docs/pos-app/troubleshooting-faq).
+
+### Subscription
+
+If the company subscription is blocked, expired, suspended or inactive, order actions are blocked and the app shows the subscription message with **Manage Subscription** or **Contact Administrator**. Ask the account owner to renew.
+
+## Related
+
+- [Auth and session API](/docs/api/auth-and-session)
+- [API overview](/docs/api)
+- [Settings and master data API](/docs/api/settings-and-master-data)
+- [Sync and realtime API](/docs/api/sync-and-realtime)
+- [Navigation and roles](/docs/pos-app/navigation-and-roles)
+- [Settings and sync](/docs/pos-app/settings-and-sync)
+- [Billing](/docs/pos-app/billing)
+- [Day close and shifts](/docs/pos-app/day-close-and-shifts)

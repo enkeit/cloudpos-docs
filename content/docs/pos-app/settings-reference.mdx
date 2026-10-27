@@ -1,0 +1,293 @@
+---
+title: Settings Reference
+description: Every server setting, company prop, master-data code, document type, order and product prop and device preference that changes how the CloudPOS POS app behaves, with defaults and effects.
+---
+
+# Settings Reference
+
+This page lists every setting the POS app reads, where it comes from, its default and what it changes on screen. Use it when a button is missing, a charge is zero or a screen behaves differently from another store.
+
+Most settings are changed by the company admin in the Admin Panel (company props, onboarding, master data, document configuration). The POS app reads them; staff cannot change them from the counter.
+
+## How to read the tables
+
+- **Backend default** is the value seeded for a new company. "not seeded" means the backend does not create the code; the admin must add it as a company prop if they want it.
+- **App default** is what the app uses when the code is missing from the response.
+- A boolean setting is **on** when its `status` is `true`, `"true"`, `"1"` or `1`. Text settings use `value`.
+- After an admin change, the app picks it up on the next startup sync, store switch or **Settings → Offline Data → Sync** for "website settings".
+
+## 1. Website settings and company props
+
+Source: `GET /api/v1/website-settings?store_id=`. The server merges all company props with a few synthetic entries (`COMPANY_NAME`, `THEME`, `CURRENCY`, `DISCOUNT_AND_COUPON`, `ZATCA_PHASE_1`, `ZATCA_PHASE_2`). Each row looks like this:
+
+```json
+{
+  "name": "Show Cart Control",
+  "code": "SHOW_CART_CONTROL",
+  "value": "",
+  "status": "true"
+}
+```
+
+### Billing and checkout
+
+| Code | Backend default | App default | Effect in the app |
+|---|---|---|---|
+| `BARCODE_SALES` | on | off | Turns on barcode-scan sales mode in billing (desktop and phone). |
+| `ITEM_CODE_ENABLED` | off | off | Shows the item code column in the cart and the item code field on Add Product. |
+| `SHOW_TAX_POS` | off | off | Shows the **Tax Amt** column in the cart. |
+| `SHOW_TAXRATE_POS` | not seeded | off | Shows the **Tax%** column in the cart. |
+| `SHOW_MRP_POS` | off | off | Shows the **MRP** column in the cart. |
+| `SHOW_CUSTOMER_LAST_BUYED_PRICE_LIST` | off | off | Shows the history icon with the selected customer's last purchase price on cart lines. |
+| `SHOW_CONFIRM_ORDER_BUTTON` | not seeded | on | Shows **Confirm Order**. |
+| `SHOW_CONFIRM_ORDER_AND_PRINT_BUTTON` | on | on | Shows **Confirm and Print**. Off = no Confirm and Print button. |
+| `SHOW_CONFIRM_WHATSAPP_BUTTON` | not seeded | off | Shows **Confirm & Whatsapp** in Finalize Order. |
+| `SKIP_CHECKOUT_ON_CONFIRM` | not seeded | off | **Confirm Order** confirms directly without opening the Finalize Order dialog. |
+| `SKIP_CHECKOUT_ON_CONFIRM_AND_PRINT` | off | off | **Confirm and Print** confirms and prints without the dialog. |
+| `SKIP_CUSTOMER_SELECTION` | off | off | Skips the customer step in checkout. |
+| `AUTO_ASSIGN_DEFAULT_CUSTOMER` | set at onboarding (walk-in phone) | off | Value is a phone number. That customer is selected automatically for walk-in sales. |
+| `HIDE_DEFAULT_PHONE` | not seeded | on | Hides the default (walk-in) customer phone on prints and PDFs. |
+| `DEFAULT_PAYMENT_METHOD` | CASH | empty | Payment method preselected in checkout. |
+| `DEFAULT_DELIVERY_METHOD` | empty | empty | Delivery method preselected (for example Store Takeaway). |
+| `ASK_DELIVERY_DATE` | not seeded | off | Adds delivery date and time fields in checkout and the delivery dialog. |
+| `DISCOUNT_AND_COUPON` | on (general setting) | off | Shows the **Discount & Coupon** panel (flat, percentage, coupon). Off = no discount entry. |
+| `PRICE_ROUND_OFF` | off (general setting) | off | Rounds the net total to the nearest whole number before delivery is added; `round_off` is sent with the sale. Keep off for Saudi VAT invoices. |
+| `FREE_DELIVERY_MINIMUM_AMOUNT` | 0 (off) | off | Delivery charges apply **only while this is on**. When on, delivery is free when the net total is at or above `value`; below it the method's price applies. Off = delivery charge always 0. |
+| `CUSTOMER_MAX_CREDIT_LIMIT` | 1000 | – | Backend credit limit for customers. |
+| `B2B` | off | off | Shows the B2B/B2C customer type selector in billing and uses the B2B printer profile for B2B customers. |
+| `PINELAB_PAYMENT` | off | off | Enables Pine Labs card terminal payment. |
+| `POS_PRINT_DOUBLE_BILL` | off | off | Prints two copies of every bill. |
+| `POS_AUTHENTICATE_CLEARCART` | off | off | Value is a security key. Staff must enter it before clearing the cart or removing items. |
+| `CURRENCY` | INR (general setting) | empty | Currency label on all amounts and amount in words. SAR in the demo. |
+| `PRINT_TITLE` | on | empty | Fallback receipt title when the document configuration has none. |
+| `COMPANY_CUSTOMER_CARE_PHONE` / `COMPANY_CUSTOMER_CARE_EMAIL` | empty | empty | Printed on some receipt templates and shared PDFs. |
+| `ECOMMERCE_ENABLED` | off | off | Pincode becomes required on address deliveries. |
+
+### Stock and products
+
+| Code | Backend default | App default | Effect in the app |
+|---|---|---|---|
+| `ALLOW_OVERSELL` | on | on | Off = cart quantity is limited to stock, with an oversell approval dialog. |
+| `POS_HIDE_NONSTOCK_PRODUCT` | off | off | Hides zero-stock products, batches and variants. Works only when general `stock_enabled` is also true. |
+| `MULTI_SALE_UNIT_ENABLED` | on | on | Allows alternate sale units (pack, box) on products and in billing. |
+| `PRODUCT_VARIANT_ENABLED` | off | off | Shows variants on Add Product and in price display. |
+| `POS_OFFERS` | off | off | Downloads `offers/pos-sync` and applies automatic offer prices. |
+| `SHOW_PRICE_ON_BARCODE_PRINT` | on | – | Backend barcode print option. |
+| `CUSTOM_BARCODE_PREFIX` | 111000 | – | Backend prefix for generated barcodes. |
+
+### Sales mode and shifts
+
+| Code | Backend default | App default | Effect in the app |
+|---|---|---|---|
+| `POS_OFFLINE_SALES` | on | on | On = offline-first: the sale is saved and printed on the device and sent in the background. Off = online-first: the app waits for the server before clearing the cart and printing. |
+| `COMPULSORY_SHIFT_OPEN` | off | off | Billing is blocked with "Shift not opened" until **Open Shift** is done. |
+| `COMPULSORY_DAY_CLOSE_REGISTER` | off | off | At **Select Store**, if a past business day is still open, the app asks **Day Close Pending … Do you want to close it now?** (**Yes** opens Day Close, **No** continues). |
+| `DASHBOARD_DEFAULT_PERIOD` | not seeded | today | Starting period of the dashboard: `today`, `week`, `month` or `year`. |
+
+### Restaurant and KOT
+
+| Code | Backend default | App default | Effect in the app |
+|---|---|---|---|
+| `ENABLE_KOT_PRINT` | off | off (code paths treat a missing settings payload as on) | Prints the KOT on the kitchen printer when sending to the kitchen. |
+| `ENABLE_SEND_TO_KITCHEN_BUTTON` | on | on | Shows **Send Kitchen**. |
+| `ENABLE_KOT_BILL_BUTTON` | off | off | Shows **KOT + BILL** (send to kitchen and bill in one step). |
+| `KOT_BILL_AUTO_MARK_SERVED` | off | off | **KOT + BILL** marks the items SERVED at once. |
+| `KOT_BILL_ALLOWED_FOR_DINE_IN` | off | off | Allows **KOT + BILL** for table (dine-in) orders. |
+| `ORDER_TOKEN_NUM` | 100 | – | Starting order token number (printed when `showTokenNumber` is on). |
+
+### ZATCA
+
+| Code | Backend default | App default | Effect in the app |
+|---|---|---|---|
+| `ZATCA_PHASE_1` | off (general setting) | off | Local ZATCA QR on prints, Phase 1 print in the invoice actions, and the VAT/CR business fields on the customer form. |
+| `ZATCA_PHASE_2` | off; can be turned on only when Phase 1 is on | off | Phase 2 print, resync and bulk send in the invoice list, the failed-ZATCA banner and the ZATCA overview on the dashboard. |
+| `ZATCA_SYNC_B2C_QUEUE` / `ZATCA_SYNC_B2B_QUEUE` | not seeded | – | Backend: send invoices to ZATCA automatically when they are created. |
+
+### Subscription
+
+| Code | Backend default | App default | Effect in the app |
+|---|---|---|---|
+| `COMPANY_SUBSCRIPTION_STATUS` | active | off | Fallback status when sign-in does not return one: `active`, `warning`, `blocked`, `expired`, `suspended`, `inactive`. Blocked states stop order actions. |
+| `COMPANY_SUBSCRIPTION_MESSAGE` | – | – | Message shown with the status. |
+| `COMPANY_SUBSCRIPTION_VALID_UNTIL` | – | – | Expiry date shown. |
+| `COMPANY_SUBSCRIPTION_MANAGE_URL` | – | – | Link to manage the subscription. |
+
+### Read but not used by the app
+
+| Code | Backend default | Note |
+|---|---|---|
+| `WORKING_TIME` | "Mon - Sat: 08:00 - 22:00" | Parsed, not shown. |
+| `SHOW_CART_CONTROL` | on | Storefront and backend use. |
+
+### Other company props (not used by the POS app)
+
+These exist on the server for the website, e-commerce and documents. The POS app does not read them.
+
+| Group | Codes |
+|---|---|
+| Document prefixes | `INVOICE_PREFIX` (INV), `VOUCHER_PREFIX` (VCH), `RECEIPT_PREFIX` (RCP), `SUPPLIER_INVOICE_PREFIX` (SINV), `SUPPLIER_VOUCHER_PREFIX` (SVCH), `SUPPLIER_RECEIPT_PREFIX` (SRCP) |
+| Company content | `COMPANY_ADDRESS`, `TERMS_AND_CONDITIONS`, `PRIVACY_POLICY`, `ABOUT`, `REFUND_POINT`, `COMPANY_LOGO`, `COMPANY_FAVICON`, `DESCRIPTION` ("POS System by Enke"), `COMPANY_CUSTOMER_CARE_WHATSAPP` |
+| Loyalty | `PER_POINT_PRICE` (100) |
+| Returns | `RETURN_WINDOW_DAYS` (7) |
+| Documents | `DOCUMENT_LANGUAGE` (en) |
+| Storefront | `RECENT_PRODUCTS_SECTION`, `FEATURED_PRODUCTS_SECTION`, `BEST_SELLING_PRODUCTS_SECTION`, `BEST_OFFERS_SECTION`, `BANNERS_SECTION`, `TOP_CATEGORIES_SECTION`, `PRODUCT_CARD_NEW_BADGE`, `PRODUCT_CARD_STOCK_INFO`, `TOP_BAR`, `MENU`, `BOTTOM_MENU`, `SHOW_ADD_TO_CART_BUTTON`, `SHOW_SHARE_BUTTON`, `SHOW_PRODUCT_PRICE`, `SHOW_PRICE_PUBLIC` (all on) |
+| Login methods | `PHONE_NUMBER_LOGIN`, `EMAIL_LOGIN`, `PHONE_NUMBER_OR_EMAIL_LOGIN` (all on) |
+| WhatsApp | `WHATSAPP_ORDER_CONFIRMATION` (off), `WHATSAPP_TEMPLATE_NAME`, `WHATSAPP_TEMPLATE_LANG` |
+| Defaults | `DEFAULT_COMPANY_STATE`, `DEFAULT_COMPANY_DISTRICT`, `DEFAULT_COMPANY_PINCODE` |
+| Website texts | `ABOUT_US`, `REFUND_POLICY`, `COMPANY_DISPLAY_NAME` (CLOUDPOS), social URLs, `SHOW_CONTACT_SECTION` (false), `SHOW_ACCOUNT_ICONS` (true) |
+| ZATCA onboarding | `COMPANY_ID`, `COMPANY_TAX_ID`, `CR_NUMBER`, `COMPANY_CR_NUMBER` |
+
+## 2. General settings
+
+Source: `GET /api/v1/general?store_id=`. Response:
+
+```json
+{
+  "status": "success",
+  "message": "Success",
+  "data": { "stock_enabled": true }
+}
+```
+
+| Key | Backend code | Backend default | Effect in the app |
+|---|---|---|---|
+| `stock_enabled` | `STOCK_ENABLED` | 1 | Stock tracking on or off. Cached on the device as `general_stock_enabled`. `POS_HIDE_NONSTOCK_PRODUCT` works only when this is true. |
+| `confirm_oversell_on_zero_stock` | – | – | Parsed by the app, no screen uses it. |
+
+The backend keeps other general settings in the same table: `TAX_ENABLED` (0; when off, the server calculates tax as 0), `PRICE_ROUND_OFF` (0), `POS_CREDIT_PRICE_ENABLE` (0), `CURRENCY` (INR), `DISCOUNT_AND_COUPON` (1), `EMPLOYEE_ENABLED` (0), `ZATCA_PHASE_1` (0), `ZATCA_PHASE_2` (0). `CURRENCY`, `DISCOUNT_AND_COUPON`, `ZATCA_PHASE_1` and `ZATCA_PHASE_2` reach the app as entries in website settings.
+
+## 3. Admin settings
+
+Source: `GET /api/v1/admin-settings`. These are platform-wide, not per company.
+
+| Code | Type | Effect in the app |
+|---|---|---|
+| `SIDEBAR_LOGO` | file (URL) | Logo at the top of the side menu. Cached on the device. |
+| `FAVICON_ICON` | file (URL) | Not used by the POS app. |
+
+## 4. Master data codes
+
+Source: `GET /api/v1/master-data-values?code=<CODE>&store_id=`. Each value has `id`, `value`, `description`, and may have `code`, `label` and `translations`.
+
+| Code | Seeded values | Used in the app for |
+|---|---|---|
+| `PAYMENT_METHOD` | COD, ONLINE, CHEQUE, UPI, CASH, CARD | Payment methods in checkout. Optional fields: `enabled`, `sort_order`, `icon_key`, `behavior` (`collected`, `credit`, `terminal`), `requires_reference`. The app always adds **Credit** (DEBIT) for selling on credit. Orders store the value **id**. |
+| `STOCK_GROUPING_FIELDS` | PRICE on; MRP, PURCHASE_PRICE, UNIT, HSN_CODE, TAX_RATE, WHOLESALE_PRICE, WHOLESALE_MIN_UNIT, EXPIRING_DATE off | Which fields split stock batches into separate choices in billing. App default: price + unit. Only the app reads this. |
+| `CASH_DENOMINATIONS` | 500, 200, 100, 50, 20, 10, 5, 1 | Cash counting in **Open Shift** and **Day Close**. |
+| `KOT_ITEM_NOTE_OPTIONS` | not seeded (create per company) | Quick notes on restaurant items, for example NO ICE, EXTRA SPICY, LESS SUGAR. |
+| `RACKS` | RACK 1–10 | Rack picker in stock and purchase. |
+| `TABLE_LIST` | TABLE_ONE | Restaurant tables. |
+| `EXPENSE_CATEGORY` / `EXPENSE_CATEGORIES` | accounting list | Category in **Create Expense**. |
+| `SHIPPING_METHOD` | parcel, speed_post, registered_parcel, express | **Create Delivery** (external logistics) dialog. |
+| `TRANSPORT_MODE` | surface, air, ship | **Create Delivery** dialog. |
+| `DELIVERY_PAYMENT_MODE` | Prepaid, COD, Open Box Delivery | **Create Delivery** dialog. |
+| `PAYMENT_STATUS` | PENDING, PAID, FAILED, INPROGRESS | Payment status values. |
+| `DELIVERY_STATUS` | OUT FOR DELIVERY, DELIVERED | Delivery status values. |
+| `CART_ITEM_STATUS` | START, READY, SERVED | Kitchen item statuses. The ids differ per company. |
+| `CUSTOMER_KYC` / `SUPPLIER_KYC` | CR_NUMBER, VAT_NUMBER | Business fields on customers and suppliers. |
+| `PRODUCT_UNITS` | KG, LT, DZ | Not read by the app; units come from `product/list-units`. |
+
+Dining areas (rooms, tables, chairs) are not master data. They come from `GET /api/v1/restaurant-dining/list`.
+
+## 5. Document configuration types
+
+Source: `GET /api/v1/document/document-configs?store_id=&language=`. See [Printing](/docs/pos-app/printing) for fields and display flags.
+
+| Type | Used by the app for |
+|---|---|
+| Bill | thermal sales receipt; `number_prefix` such as `ORD-` |
+| Bill A4 | A4/A5 sales bill |
+| Return Bill | return receipt |
+| Sales and Return Bill / Sales and Return Bill A4 | sale and return on one print |
+| Credit Note | credit note after a return |
+| Invoice | invoice print and share |
+| Receipt | payment receipt |
+| Voucher | customer voucher |
+| Supplier Voucher | supplier voucher |
+| Quotation | quotation print and its terms |
+| Kitchen Order | KOT |
+| Barcode | barcode stickers |
+| Customer Statement / Supplier Statement | ledger statements |
+
+Server-only types: Delivery Note, Purchase Order, Supplier Invoice, General Payment Voucher, Payslip, Email, ZATCA Invoice, ZATCA Phase 2.
+
+Template options returned with the configs: `default`, `bill`, `bill-a4`, `quotation`, `sales_and_return_bill`, `sales_and_return_bill_a4`, `return_bill`, `credit_note`, `receipt`, `voucher`, `payslip`, `email`, `supplier_invoice`, `delivery_note`, `customer_statement`, `supplier_statement`, `kitchen_order`, `barcode`.
+
+## 6. Printer settings (server defaults)
+
+Source: `GET /api/v1/document/printer-settings`.
+
+| Key | Demo value | Device preference it fills |
+|---|---|---|
+| `b2c_paper_size` | A4 | `default_paper_size` |
+| `b2c_template` | bilingual_centered_tax_invoice | `billing_receipt_theme` |
+| `b2b_paper_size` | A5 | `default_paper_size_b2b` |
+| `b2b_template` | boxed_header_tax_invoice | `billing_receipt_theme_b2b` |
+
+Allowed paper sizes: `58mm`, `80mm`, `112mm`, `A4`, `A5`, `PDF`. Values apply only where the user has not chosen on this device, except right after **Select Store**.
+
+## 7. Order props
+
+Extra values stored on an order as `order_props` (`props_code`, `props_value`). The app reads:
+
+| Prop | Meaning |
+|---|---|
+| `CUSTOMER_PHONE`, `CUSTOMER_EMAIL`, `CUSTOMER_ADDRESS` | customer contact captured on the order |
+| `DELIVERY_ADDRESS`, `DELIVERY_PHONE`, `SHIPPING_PHONE`, `DELIVERY_CONTACT_PHONE` | delivery contact |
+| `DELIVERY_DATE`, `DELIVERY_TIME` | requested delivery date and time (`ASK_DELIVERY_DATE`) |
+| `ORDER_STATUS` | status text |
+| `ORDER_TOKEN_NUMBER` | restaurant token number |
+| `CAR_NUMBER` | car number for Car Delivery |
+| `BALANCE` | customer balance at the time of the order |
+
+## 8. Product props
+
+| Prop | Meaning |
+|---|---|
+| `WARRANTY_IN_MONTH`, `WARRANTY_CONDITIONS` | warranty printed on the bill (`showWarranty`) |
+| `FOOD_TYPE` | `VEG` or `NON_VEG`; drives the Veg/Non-veg filter in the restaurant menu |
+| `PRODUCT_COLOR`, `SHIRT_SIZE`, `SHIRT_SIZE_UK`, `SHOE_SIZE`, `SHOE_SIZE_UK` | product list filters and variant attributes |
+
+## 9. Delivery method codes
+
+Source: `GET /api/v1/logistics/list-delivery-methods`. Each method has `id`, `name`, `label`, `code`, `translations`, `requires_car_number`, `requires_address`, `icon_key`, `sort_order`, `status`, `prices[]`.
+
+| Code | Kind | Notes |
+|---|---|---|
+| `STORE_TAKEAWAY`, `TAKE_AWAY` | takeaway | used in the demo sale ("Store Takeaway") |
+| `STORE_PICKUP`, `SELF_PICKUP`, `CURBSIDE_PICKUP`, `DRIVE_THROUGH` | pickup | no address |
+| `CAR_DELIVERY` | car | asks for the car number |
+| `DOOR_DELIVERY`, `HOME_DELIVERY`, `STANDARD_DELIVERY` | address delivery | asks for an address; pincode required when `ECOMMERCE_ENABLED` is on |
+| `THIRD_PARTY`, `THIRD_PARTY_LOGISTICS` | third-party courier | |
+
+The demo store also lists Toyou, Hungerstation and Dine In as named methods. A method shows its price, or **Free**. The charge is applied only when `FREE_DELIVERY_MINIMUM_AMOUNT` is on.
+
+## 10. Device preferences
+
+Stored on the device only. A reinstall starts with none of them. They are never sent to other counters.
+
+| Group | Preferences |
+|---|---|
+| Session | `api_key`, `access_token`, `token_type`, `userRole`, `customerId`, `customerName`, `company_id`, `company_name`, `stores`, `active_store`, `active_store_id`, `time_zone`, `country_name`, `server_time_offset` |
+| ZATCA | `zatca_cr_number`, `zatca_vat_number`, `zatca_company_name` |
+| Sync | `last_product_sync_iso`, `manual_offline_mode` |
+| Counter | `pos_device_id`, `pos_counter_numbers_by_store`, `pos_receipt_sequences` |
+| Printing | `default_printer`, `default_printer_b2b`, `quotation_printer`, `barcode_printer`, `kot_printer`, `share_pdf_no_printer`, `default_paper_size`, `default_paper_size_b2b`, `kot_paper_size`, `share_pdf_paper_size`, `share_pdf_paper_size_b2b`, `default_font_style`, `quotation_font_style`, `kot_font_style`, `billing_receipt_theme`, `billing_receipt_theme_b2b`, `share_pdf_receipt_theme`, `share_pdf_receipt_theme_b2b`, `common_print_margin_mm`, plus `<key>_user_selected` flags |
+| Stock | `general_stock_enabled` |
+| Other | `developer_mode_enabled`, notification position, screen orientation mode |
+
+The counter number (1–999, unique per store) and the daily receipt sequence live here. After a reinstall, set the counter number again in **Settings → POS Counter Identity** and use the last-bill override so receipt numbers do not repeat. See [Settings and sync](/docs/pos-app/settings-and-sync).
+
+## Related
+
+- [API: Settings and master data](/docs/api/settings-and-master-data)
+- [API: Auth and session](/docs/api/auth-and-session)
+- [API: Payments, delivery and discounts](/docs/api/payments-delivery-discounts)
+- [API: ZATCA](/docs/api/zatca)
+- [API: Overview](/docs/api)
+- [Settings and sync](/docs/pos-app/settings-and-sync)
+- [Printing](/docs/pos-app/printing)
+- [Billing](/docs/pos-app/billing)
+- [Payments and tax](/docs/pos-app/payments-and-tax)
+- [Restaurant and kitchen](/docs/pos-app/restaurant-and-kitchen)
+- [Troubleshooting and FAQ](/docs/pos-app/troubleshooting-faq)

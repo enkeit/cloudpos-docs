@@ -1,0 +1,772 @@
+---
+title: Cart and Orders API
+description: How the CloudPOS POS app submits sales, saves held orders, lists and opens orders, changes order and payment status, cancels orders, drives the kitchen (KOT) item statuses, and handles packing, delivery documents and external delivery.
+---
+
+# Cart and Orders API
+
+This page covers every order endpoint the POS app calls, from the **Confirm Order** button in Billing to **Order Details**, **Kitchen Master** and **Create Delivery**.
+
+All paths are relative to `{{server}}`. Every call on this page needs:
+
+| Header | Value |
+|---|---|
+| `X-Tenant` | `<your-tenant-key>` |
+| `Authorization` | `Bearer <access-token>` |
+| `Content-Type` | `application/json` |
+| `Accept-Language` | `en` / `ar` / `ml` (also sent as `?locale=`) |
+
+All order routes require a signed-in user. The app adds `store_id` (active store) to list and detail calls.
+
+## Quick reference
+
+| Method | Path | Screen / action |
+|---|---|---|
+| POST | `/api/v1/order/add-to-order` | **Confirm Order**, **Confirm and Print**, **Confirm & Whatsapp**, **Save Order**, **Send Kitchen**, sync from **Confirmed Orders** |
+| POST | `/api/v1/order/update-order` | Edit a saved order, confirm a restaurant/attender order that already exists |
+| POST | `/api/v1/order/confirm-order` | Confirm an existing saved order |
+| GET | `/api/v1/order/list-saved-orders` | Saved Orders / Ongoing Orders, Kitchen Master |
+| GET | `/api/v1/order/executive/list-orders` | **Sales > Orders List**, **Online Orders** |
+| GET | `/api/v1/order/executive/order-details/{order_number}` | **Order Details** |
+| POST | `/api/v1/order/cancel-order` | **Cancel Order** |
+| POST | `/api/v1/order/order-change-status` | **Order Status** |
+| POST | `/api/v1/order/order-change-payment-status` | **Payment Status** |
+| GET | `/api/v1/cart/cart-item-statuses` | Kitchen item statuses |
+| POST | `/api/v1/cart/update-cart-item-status` | **Mark Ready** / **Mark Served** on one item |
+| POST | `/api/v1/order/update-order-items-status` | Start or serve all items of an order |
+| POST | `/api/v1/order/acknowledge-kot-print` | After a KOT is printed |
+| POST | `/api/v1/cart/add-to-cart` | Server cart (legacy cart screens) |
+| POST | `/api/v1/cart/remove-from-cart` | Server cart quantity / remove / clear |
+| GET | `/api/v1/cart/executive/list-cart-items` | Server cart contents |
+| POST | `/api/v1/cart/change-cart-item-price` | Change a server cart line price |
+| GET | `/api/v1/order/documents/delivery-note/{order_number}` | **Order Documents** > Delivery Note PDF |
+| GET | `/api/v1/order/documents/delivery-invoice/{order_number}` | **Order Documents** > Delivery Invoice PDF |
+| GET / POST | `/api/v1/order/packing/{order_number}` | **Packing** (photos, packed at / by) |
+| GET | `/api/v1/order/packing-staff` | "Packed by" picker |
+| GET | `/api/v1/order/external-logistics` | **Create Delivery** carrier list |
+| GET | `/api/v1/order/external-logistics/{id}/warehouses` | Carrier pickup warehouses |
+| POST | `/api/v1/order/order-details/{order_number}/external-delivery` | **Create Delivery** submit |
+
+## How a sale reaches the server
+
+1. Items are added to a **local cart** on the device. Billing does not call the server cart API while you scan or tap products.
+2. **Confirm Order** opens Finalize Order (customer F3, delivery F4, discount F10, payment F5), then builds one `add-to-order` request.
+3. With **POS_OFFLINE_SALES** on (the default, "offline-first"), the app first stores the sale on the device with its receipt identity, prints it, and then sends `add-to-order` once in the background. With it off ("online-first"), the app waits for the server: accepted = clear cart and print; rejected = keep the cart; unclear = clear without printing and flag the sale for review.
+4. Sales that did not reach the server are listed in **Sales > Confirmed Orders** (Sync attention), where staff resend them with **Sync with Database**. There is no automatic retry.
+
+## POST /api/v1/order/add-to-order
+
+**Purpose:** creates an order from a list of items, with customer, delivery, discount and payment. It is used for confirmed sales, saved (held) orders and restaurant kitchen orders.
+
+**Screens:** Billing (**Confirm Order** F2, **Confirm and Print** F6, **Confirm & Whatsapp**, **Save Order**), Restaurant / Attender (**Send Kitchen**, **KOT + BILL**, **Save Order**), quotation conversion, and **Sync with Database** on Confirmed Orders.
+
+### Demo request: ORD-004851
+
+The sale from the demo story: Layla Al-Harbi (customer 2767) buys 2 × classic chicken bucket at 220.00 and 1 × crispy chicken bucket at 218.00, Store Takeaway, paid card 400 + cash 300. Cash is sent net of the 42.00 change, so the stored breakdown is card 400 + cash 258 = 658.00. Counter 11 of store 2 issued receipt `2-11-261027-0003`.
+
+```json
+{
+  "items": [
+    {
+      "product_id": 12417,
+      "quantity": 1,
+      "price": 218.0,
+      "mrp": 230.0,
+      "stock_id": "<stock-id>",
+      "warranty_enabled": false,
+      "standard_unit_price": 218.0,
+      "item_discount_amount": 0.0,
+      "tax_rate": 18.0,
+      "tax_amount": 33.25,
+      "total_price": 218.0
+    },
+    {
+      "product_id": 12419,
+      "quantity": 2,
+      "price": 220.0,
+      "mrp": 250.0,
+      "stock_id": "<stock-id>",
+      "warranty_enabled": false,
+      "standard_unit_price": 220.0,
+      "item_discount_amount": 0.0,
+      "tax_rate": 18.0,
+      "tax_amount": 67.12,
+      "total_price": 440.0
+    }
+  ],
+  "pricing_mode": "completed_sale",
+  "delivery_tax_amount": 0,
+  "grand_total": 658.0,
+  "round_off": 0.0,
+  "tax_total": 100.37,
+  "client_sale_id": "01a17de3-1cc3-7c31-974c-79e5b293255c",
+  "receipt_number": "2-11-261027-0003",
+  "issued_at": "2026-10-27T15:03:18.038Z",
+  "pos_device_id": "<device-uuid>",
+  "counter_number": 11,
+  "phone": "0551234567",
+  "customer_id": 2767,
+  "transaction_number": "",
+  "payment_method": ["CARD", "CASH"],
+  "paid_methods": [
+    { "method": "CARD", "amount": 400.0 },
+    { "method": "CASH", "amount": 258.0 }
+  ],
+  "source_type": "executive",
+  "balance": "42.0",
+  "coupon_id": null,
+  "comment": "",
+  "delivery_method_id": "149",
+  "status": "confirmed",
+  "to_customer_credit": false,
+  "delivery_charge": 0,
+  "store_id": 2
+}
+```
+
+Ids are the real demo ids (classic chicken bucket = product 12419, crispy chicken bucket = 12417, Store Takeaway = delivery method 149, CARD = 7973, CASH = 7974). Angle-bracket values are placeholders. Items are sent in **reverse cart order** (last added first); the server expects that order.
+
+### Request fields
+
+| Field | Meaning |
+|---|---|
+| `items[]` | One line per stock batch used. `product_id`, `quantity`, `price` (tax-inclusive unit price), `mrp`, `stock_id`, optional `product_variant_id`, `sale_unit_id` / `product_sale_unit_id` (pack or box), `warranty_enabled`, `offer_id` / `offer_version` when an offer applied. |
+| Line snapshot (completed sale only) | `standard_unit_price` (price before offer or manual change), `item_discount_amount`, `discount_origin` (`offer` or `manual`), `offer_name(s)`, `offer_discount_type`, `offer_discount_value`, `tax_rate`, `tax_amount`, `total_price`. |
+| `pricing_mode` | `completed_sale` for a printed, final sale. The server then keeps the submitted prices instead of re-pricing with today's offers. Sent only for a new executive order with a store and a full receipt identity. |
+| `grand_total`, `round_off`, `tax_total`, `delivery_tax_amount` | Totals as printed. `round_off` is non-zero only with **PRICE_ROUND_OFF**. Delivery tax is always 0 from the POS. |
+| `client_sale_id` | UUIDv7 made on the device. Idempotency key: resending the same sale returns the original order. |
+| `receipt_number` | `store-counter-YYMMDD-sequence`, for example `2-11-261027-0003` = store 2, counter 11, 27 Oct 2026, 3rd bill of the day on that counter. |
+| `issued_at`, `pos_device_id`, `counter_number` | When and where the receipt was issued. The counter number (1–999) is set in Settings > **POS Counter Identity**. |
+| `customer_id`, `phone` | Customer. Without an id the server finds or creates the customer by phone. |
+| `payment_method` | One method id/code, or an array for **Multi** payment. Ids from master data `PAYMENT_METHOD` (in the demo CARD = 7973, CASH = 7974) or their codes. |
+| `paid_methods[]` | Split payment: `{ method, amount }` each > 0. The change is taken off the first cash (or COD) entry, so the amounts add up to the bill. |
+| `paid_amount` | Single-method payments send this instead of `paid_methods`. |
+| `balance` | The balance figure from the payment panel. For **Sell on Credit** it is the amount left on the customer's account. |
+| `to_customer_credit` | `true` when **Excess Amount** is switched on: the overpayment is added to the customer's credit instead of returned as change. |
+| `coupon_id`, `coupon_code` | Coupon applied in **Discount & Coupon**. |
+| `flat_discount`, `percentage_discount`, `discount_amount` | Order discount. The discount is spread over lines in proportion, remainder on the last line. |
+| `delivery_method_id`, `delivery_charge`, `delivery_date`, `delivery_time` | Delivery (F4). Date/time only when **ASK_DELIVERY_DATE** is on. |
+| `address`, `address_id`, `pincode` | Delivery address for door delivery. Pincode is required when **ECOMMERCE_ENABLED** is on. |
+| `car_number` | For car delivery methods. |
+| `table_id`, `table` | Restaurant table. |
+| `comment` | Order comment. |
+| `status` | `confirmed` for Confirm; `saved` for **Save Order** (held order). |
+| `quotation_id` | When converting a quotation. |
+| `source_type` | Always `executive` from the POS. |
+| `whatsapp_receipt` | `true` only from **Confirm & Whatsapp**. The server then sends the invoice on WhatsApp if company prop **WHATSAPP_ORDER_CONFIRMATION** is on. |
+
+### Responses
+
+Completed sale, created (`201`):
+
+```json
+{
+  "success": true,
+  "order_id": 7043,
+  "order_number": "ORD-004851",
+  "client_sale_id": "01a17de3-1cc3-7c31-974c-79e5b293255c",
+  "receipt_number": "2-11-261027-0003",
+  "review": false,
+  "review_reasons": [],
+  "idempotent_replay": false
+}
+```
+
+How the server stored it (from `executive/list-orders`, trimmed):
+
+```json
+{
+  "id": 7043,
+  "cart_id": 7344,
+  "order_number": "ORD-004851",
+  "receipt_number": "2-11-261027-0003",
+  "issued_at": "2026-10-27 18:03:18",
+  "counter_number": 11,
+  "payment_id": ["7974", "7973"],
+  "payment_method": ["CASH", "CARD"],
+  "payment_status": "paid",
+  "status": "confirmed",
+  "sub_total": "557.630",
+  "discount": "0.000",
+  "grand_total": "658.000",
+  "round_off": "0.000",
+  "tax": "100.370",
+  "shipping_cost": "0.000",
+  "delivery_method_id": 149,
+  "customer_name": "Layla Al-Harbi",
+  "created_by": "salesexecutiv2",
+  "orderProps": {
+    "POS_PRICING": {
+      "pricing_mode": "completed_sale",
+      "pricing_review": false,
+      "completed_sale_snapshot": { "tax_total": 100.37, "grand_total": 658, "round_off": 0, "delivery_charge": 0, "discount_amount": 0 }
+    },
+    "ORDER_STATUS": "confirmed - 2026-10-27 15:03:19",
+    "BALANCE": "42.0",
+    "CUSTOMER_PHONE": "0551234567",
+    "CUSTOMER_EMAIL": "layla.demo@funzcart.in"
+  }
+}
+```
+
+`sub_total` is the net without tax (557.63) and `tax` is 100.37. `BALANCE` 42.0 is the change shown in red at checkout.
+
+The same sale sent again returns `200` with `"idempotent_replay": true` and the original order. `review: true` means the server stored the sale but flagged a pricing difference for an admin to check.
+
+Other orders (saved, kitchen) return `201` with `message: "Order created successfully"`, `order_id`, `order_number`, `customer_credit_amount`, `order_details` and `payment_notice` (set for COD: invoice created, payment pending until delivery).
+
+### What the server does on a confirmed sale
+
+- Creates the order (`ORD-…`) with status `confirmed` and payment status from the payments.
+- Creates the invoice automatically (in the demo `INV-OR1002060`, linked to receipt number `2-11-261027-0003`) and a receipt for the money collected (`RCP1001953`).
+- Deducts stock from the batches in `stock_id`.
+- If ZATCA automatic sync is set up, queues the invoice for ZATCA; otherwise its ZATCA status stays `NOT SENT`.
+
+### Errors
+
+| Code | Body | Meaning |
+|---|---|---|
+| 409 | `{ "success": false, "code": "client_sale_id_conflict", … }` | Same `client_sale_id` was already used with a different sale. |
+| 409 | `{ "success": false, "code": "receipt_identity_conflict", "message": "The receipt number or client sale ID is already in use." }` | Duplicate receipt number. Usually the counter number is shared by two devices or was reset after a reinstall; fix it in **POS Counter Identity**. |
+| 422 | `{ "status": "failed", "message": "Invalid payment allocation", "data": { "paid_methods": ["Payment allocations cannot exceed the order total."] } }` | Split amounts do not fit the bill (also: COD must cover the full remaining total; COD cannot create customer credit). |
+| 422 | stock error body | Not enough stock (only when stock rules require it). |
+| 500 | `{ "status": "failed", "message": "Validation error", "data": { … } }` | Field validation (for example an unknown payment method id). |
+
+## POST /api/v1/order/update-order
+
+**Purpose:** updates an existing order: add or change items of a saved order, or confirm and pay a restaurant / attender order that was sent to the kitchen earlier.
+
+**Screens:** Edit Order (**Save Order**, **Confirm Order**, **Create Order and Print**), Restaurant **Finalize Order** on an ongoing table order.
+
+```json
+{
+  "order_id": "<order-id>",
+  "client_sale_id": "<uuid-v7>",
+  "receipt_number": "2-11-261027-0004",
+  "issued_at": "2026-10-27T16:10:00.000Z",
+  "pos_device_id": "<device-uuid>",
+  "counter_number": 11,
+  "phone": "0551234567",
+  "transaction_number": "",
+  "payment_method": "CASH",
+  "paid_amount": "438.0",
+  "source_type": "executive",
+  "balance": "0.0",
+  "coupon_id": null,
+  "status": "confirmed",
+  "table_id": "<table-id>",
+  "delivery_charge": 0
+}
+```
+
+`order_id` is required and must exist. Items and customer are not sent: the order already has them. A completed sale cannot be changed (`409` `completed_sale_immutable`).
+
+## POST /api/v1/order/confirm-order
+
+**Purpose:** confirms an order that is still `init` or `new` (a saved order). Body: `{ "order_id": "<order-id>", … payment fields … }`. Returns `409` `completed_sale_immutable` for a completed sale, `403` `tenant_mismatch` if the order belongs to another company.
+
+## GET /api/v1/order/list-saved-orders
+
+**Purpose:** held and in-progress executive orders: **Saved Orders** and **Ongoing Orders** in Billing, Restaurant and Attender, and the Kitchen Master board.
+
+| Param | Example | Effect |
+|---|---|---|
+| `table` | `<table-id>` | Orders of one restaurant table. |
+| `delivery_method_id` | `149` | Orders of one delivery method (walk-in / delivery tabs). |
+| `status` | `confirmed` | Filter by status. **Default `new`.** |
+| `order_number` | `ORD-004852` | Order number, receipt number or client sale id. |
+| `customer_name` | `Layla` | Customer name contains. |
+| `date_from`, `date_to` | `2026-10-27` | Order date range. |
+| `payment_method` | `CASH` | Payment method contains. |
+| `per_page` | `15` | Default 15. |
+| `store_id` | `2` | Sent by the app. |
+
+Captured response (1 of 15 orders, trimmed):
+
+```json
+{
+  "status": "success",
+  "message": "List of init status orders from executive",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 5653,
+        "order_number": "ORD-004321",
+        "order_date": "2026-08-18",
+        "payment_method": [""],
+        "payment_status": "pending",
+        "status": "new",
+        "sub_total": "19.490",
+        "discount": "0.000",
+        "grand_total": "23.000",
+        "tax": "3.510",
+        "source_type": "executive",
+        "delivery_method_id": 149,
+        "orderProps": {
+          "ORDER_STATUS": "new - 2026-08-18 07:42:18",
+          "ORDER_TOKEN_NUMBER": "<token>",
+          "CUSTOMER_PHONE": "0011001100"
+        },
+        "cart_items": { "cart_items": [ { "product_name": " painting set", "quantity": "1.000", "total_price": "7.000", "…": "…" } ] },
+        "customer_name": "…",
+        "total_paid": 0,
+        "balance": 23
+      }
+    ],
+    "last_page": 7,
+    "per_page": 15,
+    "total": 99
+  }
+}
+```
+
+When nothing matches, the server answers with the error envelope "No init status orders found"; the app shows an empty list.
+
+## GET /api/v1/order/executive/list-orders
+
+**Purpose:** the paginated order list (10 per page) behind **Sales > Orders List**, and **Online Orders** with `filter_online_sales=true` (web orders instead of POS orders).
+
+### Query parameters
+
+| Param | Example | Effect |
+|---|---|---|
+| `store_id`, `filter_store` | `2` | Store. |
+| `number` | `2-11-261027-0003` | Order number, receipt number (spaces ignored) or client sale id. |
+| `filter_name` | `Layla` | Customer name contains. |
+| `filter_phone` | `0551234567` | Customer phone contains. |
+| `filter_email` | `layla.demo@funzcart.in` | Customer email. |
+| `filter_price` | `658` | Grand total contains. |
+| `filter_status` | `confirmed` | Order status. |
+| `filter_payment_status` | `paid` | Payment status (from the **Payment Status** filter). |
+| `filter_min_amount`, `filter_max_amount` | `100`, `1000` | Amount range (swapped by the app if entered the wrong way round). |
+| `filter_datetime[from]`, `filter_datetime[until]` | `2026-10-27 00:00:00` | Invoice date-time range (tenant time zone, Asia/Riyadh in the demo). |
+| `filter_date` | `2026-10-27` | One order date. |
+| `business_date` | `2026-10-27` | Orders whose transactions fall inside the closed day sale of that business date. |
+| `filter_customer_id` | `2767` | One customer (customer profile **All Orders** tab). |
+| `filter_product_search` | `bucket` | Any line's product name, barcode, item code or SKU contains. |
+| `filter_table` | `<table-id>` | Restaurant table. |
+| `filter_online_sales` | `true` | Web orders instead of POS orders. |
+| `page` | `1` | Page. |
+
+### Response
+
+Captured (1 of 10 orders, trimmed). This is the order before Layla's, from the same counter:
+
+```json
+{
+  "status": "success",
+  "message": "List of Orders",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 7036,
+        "order_number": "ORD-004850",
+        "order_date": "2026-10-27 05:47:08",
+        "client_sale_id": "01a17be5-e430-7aab-a4b9-e776ac3081c1",
+        "receipt_number": "2-11-261027-0002",
+        "issued_at": "2026-10-27 08:47:06",
+        "counter_number": 11,
+        "token_number": "<token>",
+        "payment_id": ["7973"],
+        "payment_method": ["CARD"],
+        "payment_status": "paid",
+        "delivery_status": null,
+        "status": "confirmed",
+        "sub_total": "169.490",
+        "discount": "10.000",
+        "grand_total": "200.000",
+        "round_off": "0.000",
+        "tax": "30.510",
+        "shipping_cost": "0.000",
+        "source_type": "executive",
+        "delivery_method_id": 149,
+        "customer_name": "Test Default",
+        "store_name": "متجر النجمة Store ",
+        "created_by": "salesexecutiv2",
+        "orderProps": {
+          "POS_PRICING": { "pricing_mode": "completed_sale", "pricing_review": false, "…": "…" },
+          "ORDER_STATUS": "confirmed - 2026-10-27 05:47:08",
+          "BALANCE": "0.0",
+          "CUSTOMER_PHONE": "0011001100"
+        },
+        "cart_items": { "cart_items": [ { "product_name": "family chicken bucket", "quantity": "1.000", "total_price": "210.000", "…": "…" } ], "status_summary": {} },
+        "invoice_hash": "<invoice-hash>"
+      }
+    ],
+    "first_page_url": "…?page=1",
+    "last_page": 362,
+    "next_page_url": "…?page=2",
+    "per_page": 10,
+    "total": 3614
+  }
+}
+```
+
+`payment_id` keeps the method ids; `payment_method` is translated to codes. `cart_items.status_summary` counts kitchen item statuses (for example `{ "READY": 1, "SERVED": 1 }`). No match returns the error envelope "No Orders Found", which the app treats as an empty list.
+
+## GET `/api/v1/order/executive/order-details/{order_number}`
+
+**Purpose:** one order with lines, totals, customer, payments, props, returns, packing and delivery. Feeds **Order Details** (Print, Share, Return, Order Status, Payment Status, Store & Delivery, Payment Details, Customer Information, Shipping Details, Packing, Order Documents) and printing.
+
+Example: `GET {{server}}/api/v1/order/executive/order-details/ORD-004851?store_id=2`
+
+Captured response for another demo order (trimmed):
+
+```json
+{
+  "status": "success",
+  "data": {
+    "orders_id": 3386,
+    "store_id": 2,
+    "order_date": "2026-05-26 18:57:31",
+    "delivery_date": null,
+    "delivery_time": null,
+    "delivery_charge": null,
+    "cart": {
+      "id": 3468,
+      "customer_id": 2439,
+      "item_count": 2,
+      "store_name": "متجر النجمة Store ",
+      "cart_items": [
+        {
+          "id": 8179,
+          "product_id": 12426,
+          "product_name": "Veg burger",
+          "category_name": "Burgers",
+          "quantity": "1.000",
+          "mrp": "100.000",
+          "product_unit": "PC",
+          "unit_price": "103.550",
+          "standard_unit_price": null,
+          "discount_origin": null,
+          "total_price": "103.550",
+          "sale_unit_name": "PC",
+          "conversion_rate": 1,
+          "currency": "SAR",
+          "tax_amount": 8.55,
+          "tax_rate": "9.000",
+          "line_discount": 0,
+          "discounted_total": 103.55,
+          "discounted_base_amount": 95,
+          "discounted_tax_amount": 8.55
+        }
+      ],
+      "price_summary": {
+        "sub_total": 107.84,
+        "total_tax": 9.71,
+        "discount": 0,
+        "total_mrp": 114,
+        "grand_total": 117.55,
+        "net_payable": "118.000",
+        "net_total": 117.55,
+        "net_exc_tax": 107.84,
+        "paid_amount": 118,
+        "order_balance": 0
+      }
+    },
+    "order_number": "ORD-002649",
+    "client_sale_id": null,
+    "receipt_number": null,
+    "return_state": { "has_returns": false, "has_completed_return": false, "has_draft_return": false, "items": [] },
+    "token_number": "<token>",
+    "order_status": "confirmed",
+    "packing": null,
+    "external_delivery_job": null,
+    "customer_details": {
+      "name": "Amruthesh",
+      "phone": "7887545465",
+      "customer_id": 2439,
+      "customer_type": "B2C",
+      "address": [],
+      "customer_balance": 0
+    },
+    "kyc_info": { "cr_number": null, "vat_number": null },
+    "payment_status": "paid",
+    "delivery_method_id": 199,
+    "delivery_method_name": "Dine In",
+    "payment_details": {
+      "payment_id": ["7973"],
+      "payment_status": "paid",
+      "transaction_id": 9229,
+      "payment_method": ["CARD"]
+    },
+    "order_props": [
+      { "props_id": 15112, "props_code": "ORDER_STATUS", "props_value": "confirmed - 2026-05-26 21:27:31" },
+      { "props_id": 15113, "props_code": "ORDER_TOKEN_NUMBER", "props_value": 137 }
+    ],
+    "order_returns": [],
+    "payments": { "CARD": 118 },
+    "invoice_hash": "<invoice-hash>",
+    "kot_cancel_queue": []
+  }
+}
+```
+
+| Field | Shown as |
+|---|---|
+| `cart.cart_items[]` | Lines with MRP vs rate, tax and totals. `line_discount` / `discounted_*` show the share of the order discount. |
+| `cart.price_summary` | Totals panel: sub total (without tax), tax, discount, total MRP and savings, net payable, paid, balance. |
+| `payment_details.transaction_id` | **Transaction ID** in Payment Details. |
+| `payments` | Payment breakdown by method. For Layla's order: `{ "CARD": 400, "CASH": 258 }`. |
+| `customer_details`, `kyc_info` | **Customer Information** (B2B shows VAT and CR numbers). |
+| `order_props[]` | `ORDER_STATUS` history, `ORDER_TOKEN_NUMBER`, and when present `CUSTOMER_PHONE`, `CUSTOMER_EMAIL`, `CUSTOMER_ADDRESS`, `DELIVERY_ADDRESS`, `DELIVERY_PHONE`, `DELIVERY_DATE`, `DELIVERY_TIME`, `CAR_NUMBER`, `BALANCE`. |
+| `return_state`, `order_returns` | Returned quantities; drive the **Return** button. |
+| `packing`, `external_delivery_job` | **Packing** and **Shipping Details**. |
+| `invoice_hash` | Used for the public invoice link. |
+| `kot_cancel_queue` | KOT cancellation events waiting to be printed. |
+
+## Order status, payment status and cancel
+
+### Allowed status changes
+
+| From | Can move to |
+|---|---|
+| init | new, confirmed, cancelled |
+| new | confirmed, cancelled |
+| confirmed | processing, shipped, cancelled |
+| processing | shipped, delivered, cancelled |
+| shipped | delivered |
+| delivered | (final) |
+| cancelled | (final) |
+
+Shipped or delivered orders cannot be cancelled: use a sales return. An order with a processed sales return cannot be cancelled. Shipping needs packing to be complete.
+
+### POST /api/v1/order/order-change-status
+
+**Screen:** **Order Status** action on the list and on Order Details.
+
+```json
+{
+  "order_id": "<order-id>",
+  "status": "processing",
+  "refund_amount": 0,
+  "payment_method": 7974,
+  "delivery_charge_refundable": false,
+  "delivery_logistics": "Door Delivery"
+}
+```
+
+| Field | Rule |
+|---|---|
+| `order_id` | Required. |
+| `status` | Required: `init`, `new`, `confirmed`, `processing`, `shipped`, `delivered`, `cancelled` (subject to the table above). |
+| `refund_amount`, `payment_method`, `delivery_charge_refundable` | When moving to `cancelled` with a refund. `payment_method` is a `PAYMENT_METHOD` id. |
+| `delivery_logistics` | Optional carrier text. |
+| `reason` | Optional, up to 500 characters. |
+| `cod_collected_amount` | Optional, when a COD order is delivered. |
+
+### POST /api/v1/order/order-change-payment-status
+
+**Screen:** **Payment Status** action.
+
+```json
+{ "order_id": "<order-id>", "status": "paid", "amount": 658, "payment_method": 7974 }
+```
+
+| Field | Rule |
+|---|---|
+| `status` | Required: `pending`, `paid` or `failed`. |
+| `amount` | Required unless `paid_methods` is sent. |
+| `payment_method` | Optional `PAYMENT_METHOD` id. |
+| `paid_methods[]` | Optional split: `{ method, amount }`. |
+
+### POST /api/v1/order/cancel-order
+
+**Screen:** **Cancel Order** row action.
+
+```json
+{ "order_id": "<order-id>", "refund_method": 7974, "refund_amount": 658, "delivery_charge_refundable": false }
+```
+
+Optional `reason`. Success: `{ "status": "success", "message": "Order cancelled successfully", "data": { …order… } }`. A transition that is not allowed returns `422` with the reason.
+
+## Kitchen (KOT) item statuses
+
+Kitchen item statuses come from master data `CART_ITEM_STATUS` and their **ids differ per company**, so always read them first.
+
+### GET /api/v1/cart/cart-item-statuses
+
+Captured response (trimmed):
+
+```json
+{
+  "status": "success",
+  "message": "Available cart item statuses",
+  "data": [
+    { "id": 2019, "value": "READY", "description": "Ready", "translations": [] },
+    { "id": 2020, "value": "SERVED", "description": "Served", "translations": [] }
+  ]
+}
+```
+
+The third status is `START` (started / preparing). An item with no status is **NEW** (pending). Kitchen Master tabs map to them: Pending = no status, Preparing = START, Ready = READY, Served = SERVED.
+
+### POST /api/v1/cart/update-cart-item-status
+
+**Screen:** **Mark Ready** per item in Kitchen Master > Order Details, and **Mark As Served**.
+
+```json
+{ "cart_item_id": "<cart-item-id>", "status_id": 2019 }
+```
+
+Both fields are required. Returns "Cart item status updated successfully", or an error if the status id is not an active `CART_ITEM_STATUS` value.
+
+### POST /api/v1/order/update-order-items-status
+
+**Purpose:** sets the status of many items at once (Start Cooking, mark the whole order served).
+
+```json
+{ "order_id": "<order-id>", "status_id": 2020, "all": true }
+```
+
+| Field | Rule |
+|---|---|
+| `order_id` | Required. |
+| `status_id` | Optional `CART_ITEM_STATUS` id. Without it the items go to `START`. |
+| `all` | `true` = every item. Otherwise only items that have no status yet. |
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "Order items status updated successfully",
+  "data": { "order_id": "<order-id>", "order_number": "ORD-004852", "items_updated": 2, "status": "SERVED", "updated_at": "…" }
+}
+```
+
+### POST /api/v1/order/acknowledge-kot-print
+
+**Purpose:** after the KOT (or a KOT cancellation) is printed, removes those events from the order's KOT queue so they are not printed twice.
+
+```json
+{ "order_id": "<order-id>", "event_ids": ["<event-id>"] }
+```
+
+Returns "Events acknowledged successfully", or "Nothing to acknowledge" when the queue is empty.
+
+## Server cart (legacy)
+
+Billing keeps the cart on the device. These cart endpoints are still used by the older cart and edit screens.
+
+### POST /api/v1/cart/add-to-cart
+
+```json
+{ "customer_id": "2767", "quantity": 1, "product_id": "<product-id>", "source_type": "executive", "cart_id": "<cart-id>", "price": "210", "comment": "" }
+```
+
+`cart_id`, `price` and `comment` are optional. Optional `product_variant_id` for variants.
+
+### POST /api/v1/cart/remove-from-cart
+
+```json
+{ "cart_item_id": "<cart-item-id>", "cart_id": "<cart-id>", "action": "update_quantity", "quantity": 2, "customer_id": "2767" }
+```
+
+`action` is `remove_item`, `clear_cart` or `update_quantity`. `cart_item_id` is required for `remove_item` and `update_quantity`; `quantity` for `update_quantity`.
+
+### GET /api/v1/cart/executive/list-cart-items
+
+Params `customer_id` (required), `cart_id`, `store_id`. Returns the cart: `id, customer_id, item_count, store_id, cart_items[{id, product_id, product_name, quantity, product_unit, unit_price, mrp, total_price, tax_rate, tax_amount}], price_summary{sub_total, total_tax, net_total, discount, net_payable}`. Errors: "Customer ID is required", "Cart not found/No incomplete cart".
+
+### POST /api/v1/cart/change-cart-item-price
+
+```json
+{ "cart_item_id": "<cart-item-id>", "unit_price": 200 }
+```
+
+Optional `tax_id[]`. Returns "Cart item price updated successfully!" with the line.
+
+## Packing, documents and external delivery
+
+These actions are on **Order Details** for roles `sales_executive` and `restaurant_sales`. Saving packing requires the sales-executive shipping permission (otherwise `403` "Sales Executive permission required.").
+
+### GET `/api/v1/order/packing/{order_number}`
+
+Returns the packing record: status, packed at, packed by, photo and video URLs.
+
+### POST `/api/v1/order/packing/{order_number}`
+
+`multipart/form-data`:
+
+| Field | Meaning |
+|---|---|
+| `packed_by_user_id` | Staff id from `packing-staff`. |
+| `packed_by_name` | Free-text name. |
+| `packed_at` | Date-time. |
+| `packing_photos[]` | Image files, up to 20 MB each. |
+| `photos_to_delete[0]`, `[1]`… | Paths of photos to remove. |
+
+Only `confirmed`, `processing` or `shipped` orders can be packed (`422` otherwise). Video is not accepted here.
+
+### GET /api/v1/order/packing-staff
+
+Users who can be chosen as **Packed by**.
+
+### GET `/api/v1/order/documents/delivery-note/{order_number}`
+### GET `/api/v1/order/documents/delivery-invoice/{order_number}`
+
+Return the PDF bytes of the Delivery Note ("Goods Delivery Receipt") and Delivery Invoice. They need the auth headers, so the app downloads them and opens the file; they cannot be opened as plain links.
+
+### GET /api/v1/order/external-logistics
+
+Active external carriers for **Create Delivery**.
+
+### GET `/api/v1/order/external-logistics/{external_logistic_id}/warehouses`
+
+Pickup warehouses of one carrier.
+
+### POST `/api/v1/order/order-details/{order_number}/external-delivery`
+
+Example body (illustrative values):
+
+```json
+{
+  "external_logistic_id": 3,
+  "warehouse_id": 5,
+  "shipping_service": "express",
+  "transport_mode": "surface",
+  "weight": 2.5,
+  "package_count": 1,
+  "length": 30,
+  "breadth": 20,
+  "height": 15,
+  "shipping_charge": 0,
+  "dispatch_date": "2026-10-28",
+  "expected_delivery_at": "2026-10-30",
+  "payment_mode": "Prepaid",
+  "tracking_url": "https://carrier.example/track/123",
+  "external_shipment_id": "SHP-123",
+  "remarks": ""
+}
+```
+
+| Field | Values |
+|---|---|
+| `shipping_service` | Master data `SHIPPING_METHOD`: parcel, speed_post, registered_parcel, express. |
+| `transport_mode` | Master data `TRANSPORT_MODE`: surface, air, ship. |
+| `payment_mode` | Master data `DELIVERY_PAYMENT_MODE`: Prepaid, COD, Open Box Delivery. `cod_amount` is required when `COD`. |
+
+## Public invoice links
+
+Shared from **Share** (WhatsApp, email, link):
+
+| Link | Meaning |
+|---|---|
+| `{{server}}/invoice-download/<invoice-hash>` | Public PDF download, using `invoice_hash` from the order. No login needed. |
+| `{{server}}/invoice/<order-number>` | Invoice page link used in WhatsApp and email share text. |
+
+## Related
+
+- [Billing](/docs/pos-app/billing)
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Restaurant and kitchen](/docs/pos-app/restaurant-and-kitchen)
+- [Payments and tax](/docs/pos-app/payments-and-tax)
+- [Troubleshooting FAQ](/docs/pos-app/troubleshooting-faq)
+- [Payments, delivery and discounts API](/docs/api/payments-delivery-discounts)
+- [Sales returns API](/docs/api/sales-returns)
+- [Transactions, invoices and receipts API](/docs/api/transactions-invoices-receipts)
+- [Sync and realtime API](/docs/api/sync-and-realtime)
+- [ZATCA API](/docs/api/zatca)

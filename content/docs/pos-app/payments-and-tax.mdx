@@ -1,0 +1,226 @@
+---
+title: Payments and tax
+description: How CloudPOS works out tax, rounding, offers, wholesale prices, discounts, coupons, delivery charges and payments, with the demo numbers.
+---
+
+# Payments and tax
+
+This page explains the money rules behind billing. Staff can read the short answers first. Owners and support can use the "How it works" parts for the exact rules.
+
+![Cart with tax amounts](media:billing-cart)
+*Billing with two items: tax-inclusive prices, per-line tax amount, totals panel (net, tax, total payable, paid, balance)*
+
+## Short answers
+
+- Prices in the POS **include tax**. The tax is already inside the price.
+- The cart shows the tax part of each line in **Tax Amt** (when `SHOW_TAX_POS` is on).
+- Only one offer applies to a line. Offers never stack.
+- A coupon does not apply to lines that already have an offer.
+- A wholesale price beats an offer when the quantity qualifies.
+- Delivery is charged only when the `FREE_DELIVERY_MINIMUM_AMOUNT` setting is enabled.
+- Cash is saved net of change. If the customer gives 300 cash for a 258 cash share, 258 is stored.
+
+## Tax-inclusive prices
+
+The selling price already contains tax. The app takes the tax out of the line total:
+
+`line tax = line total × rate ÷ (100 + rate)`
+
+`price without tax = line total − line tax`
+
+Each line is rounded to 2 decimals. The order tax is the sum of the line taxes.
+
+### Worked example (demo order)
+
+Tax rate 18%. Prices are tax-inclusive.
+
+| Line | Qty | Price | Line total | Tax calculation | Line tax |
+|---|---|---|---|---|---|
+| classic chicken bucket | 2 | 220.00 | 440.00 | 440 × 18 ÷ 118 = 67.1186… | **67.12** |
+| crispy chicken bucket | 1 | 218.00 | 218.00 | 218 × 18 ÷ 118 = 33.2542… | **33.25** |
+| **Order** | | | **658.00** | 67.12 + 33.25 | **100.37** |
+
+- Net total (tax included): **658.00**
+- Tax: **100.37**
+- Net without tax: 658.00 − 100.37 = **557.63**
+
+The MRPs were 250 and 230. The receipt can show the saving against MRP (`showMRPTotal` in the document configuration).
+
+### Where the tax rate comes from
+
+The server picks the rate from the first source that applies:
+
+1. The stock row's `tax_rate`, if it is above 0.
+2. Tax ids sent with the request.
+3. The product's taxes valid on that date.
+4. The category tax, only when the product has no tax of its own.
+
+More rules:
+
+- If the company has tax switched off (`TAX_ENABLED` off), tax is 0.
+- A parent tax's rate is added to its child's rate.
+- The server rounds tax to 3 decimals. The app rounds money to 2 decimals.
+
+### Tax on purchases
+
+Purchase orders have two switches per line: **Purchase price includes tax** and **Selling prices include tax**. When purchase tax is not included, the extra tax shows as "Additional Purchase Tax". See [Purchases](/docs/pos-app/purchases).
+
+### Tax on printed bills
+
+The document configuration decides how item tax is printed: per unit or per row total (`item_tax_display_mode`: `unit` or `row_total`). See [Printing](/docs/pos-app/printing).
+
+## Rounding
+
+- Money is rounded to 2 decimals.
+- Amounts on screen are cut (not rounded) to 2 decimals.
+- When `PRICE_ROUND_OFF` is on, the net total is rounded to the nearest whole number before the delivery charge is added. 2.4 becomes 2. 2.5 becomes 3. The difference is sent with the sale as `round_off`.
+
+Example: with `PRICE_ROUND_OFF` on, a net of 657.60 becomes 658. A net of 658.00 stays 658.
+
+Order total used for payment:
+
+`total payable = net total after discount (rounded if PRICE_ROUND_OFF is on) + delivery charge`
+
+## Offers
+
+Offers work only when `POS_OFFERS` is on. The app downloads the offer feed (`offers/pos-sync`) and applies offer prices at the till.
+
+Exactly one offer rule wins for a cart line. The winner is chosen in this order:
+
+1. A product offer beats a category offer.
+2. A store-specific offer beats a company-wide offer.
+3. For product offers: a batch offer beats a product-wide offer.
+4. For category offers: the nearest category wins (the product's own category before its parent).
+
+Other rules:
+
+- The winning offer price is used even if it is not lower. The next rule is not tried.
+- Offers apply only to base-unit lines. Packs and boxes are sold at their unit price.
+- A batch offer applies only when the line draws from that batch.
+- A percentage offer is capped at 100%. A fixed offer cannot take the price below zero.
+
+## Wholesale prices
+
+A stock batch can carry a `wholesale_price` and a `wholesale_min_unit`. When the line quantity is at least the minimum, the wholesale price is used. Wholesale beats any offer.
+
+Example: wholesale price 200 from 5 units. Selling 5 buckets uses 200 each instead of 220.
+
+## Discounts
+
+The **Discount & Coupon** panel (**F10** in Finalize Order) needs `DISCOUNT_AND_COUPON` on.
+
+![Discount and coupon panel](media:discount-coupon)
+*Discount & Coupon panel: flat discount, percentage discount or a coupon, with live total after discount*
+
+| Type | Rule |
+|---|---|
+| **Flat Discount** | Not negative. Not more than the cart total. |
+| **Percentage Discount (%)** | Not negative. Not more than 100%. |
+| Coupon | See coupon rules below. |
+
+### How an order discount is spread
+
+The order discount is shared across the lines in proportion to each line's total. Any rounding remainder goes on the last line. This matches the server. Taxes are then worked out on the discounted line totals.
+
+Example: a flat discount of 10.00 on the demo cart (658.00). Line 1 gets 10 × 440/658 = 6.69. Line 2 gets the rest, 3.31.
+
+### Coupon rules
+
+The app checks a coupon before sending it. The server confirms it through `discount/apply-coupon`.
+
+- The cart must have items.
+- A store coupon works only in its store.
+- Validity dates: not before the start ("This coupon is not active yet.") and not after the end ("Coupon has expired").
+- Minimum and maximum order amount.
+- Usage limit: when the count is reached, "This coupon has reached its usage limit."
+- Scope: a product coupon covers only that product. Otherwise a category coupon covers that category and its sub-categories. Product beats category.
+- Lines that already have an offer are excluded. If nothing is left: "No eligible items for this coupon. Items with offers are excluded."
+- Type `percent`: eligible total × value ÷ 100. Values above 100 are invalid.
+- Type `fixed`: the value itself.
+- The amount is capped by the coupon's limit amount, the eligible total and the cart total.
+
+## Delivery charge
+
+1. If `FREE_DELIVERY_MINIMUM_AMOUNT` is **disabled**, the delivery charge is always 0.
+2. If it is enabled and has a value above 0, and the net total is at least that value, delivery is free.
+3. Otherwise the charge is the delivery method's first price, or a price you choose.
+
+Example: `FREE_DELIVERY_MINIMUM_AMOUNT` enabled with value 500. The demo net is 658.00, so Door Delivery would be free. With a net of 300, Door Delivery would cost its first price (50.00 in the demo data).
+
+The demo order used **Store Takeaway**, so there was no charge.
+
+## Payment methods
+
+Payment methods come from the `PAYMENT_METHOD` master data for the store. The demo has CARD and CASH among others. The app adds **Sell on Credit** (DEBIT) to the list.
+
+Each method has a behaviour:
+
+| Behaviour | Methods | What you do |
+|---|---|---|
+| Collected | Cash, Card, UPI, COD and any other method from master data | Type the amount received |
+| Credit | **Sell on Credit** (DEBIT) | Nothing to type. The unpaid amount goes to the customer's account |
+| Terminal | Pine Labs (when `PINELAB_PAYMENT` is on) | The terminal approves the amount |
+
+`DEFAULT_PAYMENT_METHOD` (default CASH) is preselected.
+
+![Split payment](media:payment-split)
+*Payment dialog: split payment (card 400 + cash 300) with keyboard shortcuts, sell-on-credit remainder and 42.00 excess that can be kept as customer credit*
+
+### Validation
+
+- At least one amount must be entered: "Please enter at least one payment amount".
+- Collected amounts plus any credit sale must cover the amount due: otherwise "Payment amount is less than the amount due".
+- Paying more is allowed. The extra is change or customer credit.
+- "Credit sale and customer credit cannot be used together".
+
+### Excess: change or customer credit
+
+| Choice | Label | Result |
+|---|---|---|
+| Off | **Return As Change** | The excess is handed back. Cash is stored net of change. |
+| On | **Add To Customer Account** (**Excess Amount** switch) | The excess is saved as credit on the customer's account (`to_customer_credit`). |
+
+You need a saved customer to keep credit ("Select a customer to store account credit").
+
+### Using an existing customer credit
+
+If the customer already has credit (positive balance) and customer credit is on, the amount due is reduced by that credit. The **Net Due** line shows what is left to pay. This does not apply to the default walk-in customer.
+
+### Demo split payment
+
+- Total 658.00. Card 400 + cash 300 = 700.00 received.
+- Excess 42.00, returned as change.
+- Stored payments: card **400.00**, cash **258.00** (300 − 42). Total 658.00.
+- The order details page shows this breakdown under Payment Details.
+
+## Customer credit limit
+
+The company prop `CUSTOMER_MAX_CREDIT_LIMIT` (default 1000) marks customers whose dues pass that amount. It feeds the customer statistics on the dashboard. It does not block a sale at the till.
+
+## Settings on this page
+
+| Setting | Default | Effect |
+|---|---|---|
+| `TAX_ENABLED` | off | Server tax on or off |
+| `PRICE_ROUND_OFF` | off | Round net total to a whole number |
+| `POS_OFFERS` | off | Use product and category offers |
+| `DISCOUNT_AND_COUPON` | on (server seed) | Show the Discount & Coupon step |
+| `FREE_DELIVERY_MINIMUM_AMOUNT` | off, 0 | Turn delivery charges on, and the free-delivery threshold |
+| `DEFAULT_PAYMENT_METHOD` | CASH | Preselected method |
+| `PINELAB_PAYMENT` | off | Pine Labs terminal |
+| `CUSTOMER_MAX_CREDIT_LIMIT` | 1000 | Dashboard credit threshold |
+
+See [Settings reference](/docs/pos-app/settings-reference) for all settings.
+
+## Related
+
+- API: [Payments, delivery and discounts](/docs/api/payments-delivery-discounts)
+- API: [Cart and orders](/docs/api/cart-and-orders)
+- API: [Products and categories](/docs/api/products-and-categories)
+- API: [Settings and master data](/docs/api/settings-and-master-data)
+- [Billing](/docs/pos-app/billing)
+- [Customers](/docs/pos-app/customers)
+- [Sales and orders](/docs/pos-app/sales-and-orders)
+- [Purchases](/docs/pos-app/purchases)
+- [Printing](/docs/pos-app/printing)
+- [Settings reference](/docs/pos-app/settings-reference)

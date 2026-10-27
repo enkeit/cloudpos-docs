@@ -1,4 +1,9 @@
 {
   "title": "Documentation",
-  "pages": ["pos-app", "admin-panel", "ecom"]
+  "pages": [
+    "pos-app",
+    "api",
+    "admin-panel",
+    "ecom"
+  ]
 }

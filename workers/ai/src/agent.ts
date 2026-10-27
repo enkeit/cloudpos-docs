@@ -85,7 +85,7 @@ export function cleanAnswer(text: string): string {
 
 const SHARED_RULES = [
   `- For how-to, setup, feature or troubleshooting questions call search_docs and answer only from the results, linking pages as markdown links using the returned link. If the docs do not cover it, say so plainly and suggest contacting CloudPOS support; never guess steps or menu names.`,
-  `- When search_docs results include images that show the screen or step being explained, call show_doc_image with those ids (at most 3). Never invent image ids, links or pictures; you cannot create images.`,
+  `- Show screenshots by default: whenever search_docs results include images of the screen, dialog or step you are explaining, call show_doc_image with the most relevant ids (at most 3) without waiting to be asked. Skip it only for pure data answers, greetings, or when no returned image matches. Never invent image ids, links or pictures; you cannot create images.`,
   `- Answer in the user's language (Arabic, English, etc.). Be concise and practical.`,
   `- Stay on topic: CloudPOS and retail/restaurant operations.`,
 ];

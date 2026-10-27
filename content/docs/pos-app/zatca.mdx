@@ -1,0 +1,170 @@
+---
+title: ZATCA e-Invoicing
+description: How CloudPOS handles Saudi ZATCA e-invoicing - Phase 1 QR codes, Phase 2 reporting and clearance, invoice ZATCA statuses, resync and bulk sync, and the dashboard ZATCA cards.
+---
+
+# ZATCA e-Invoicing
+
+ZATCA (the Saudi Zakat, Tax and Customs Authority) requires electronic tax invoices. CloudPOS supports both phases:
+
+- **Phase 1 (generation):** every printed tax invoice carries a QR code with the seller, VAT number, time, total and VAT.
+- **Phase 2 (integration):** invoices and credit notes are signed and sent to ZATCA. B2C invoices are **reported**; B2B invoices are **cleared**.
+
+Your company owner turns these on in the admin panel. In the app you see the results on receipts, in the **Invoice List**, in **Customer Voucher**, and on the **Dashboard**.
+
+## Settings that control ZATCA
+
+| Setting | Default | Effect in the app |
+|---|---|---|
+| `ZATCA_PHASE_1` | off | Prints the Phase 1 QR code. Shows **Phase 1 Print** on invoices. Shows the business fields (**CR Number**, **VAT Number**) on the customer form. |
+| `ZATCA_PHASE_2` | off | Shows the **ZATCA Status** column and filter, the bulk sync bar, Phase 2 print and resync actions, and the failed-invoice banner. It can only be turned on when Phase 1 is on. |
+| `ZATCA_SYNC_B2C_QUEUE` / `ZATCA_SYNC_B2B_QUEUE` | not set | When set, the server sends new B2C / B2B invoices to ZATCA automatically right after they are created. |
+| `COMPANY_ID` (company prop) | not set | Marks the company as onboarded with ZATCA. Automatic sending needs it. |
+
+The app reads the ZATCA seller details at sign-in: VAT number, CR number and ZATCA company name. They come from the company's ZATCA settings.
+
+The app checks that settings are loaded before any Phase 2 action. If not, you see "ZATCA settings are not verified. Please wait for settings to load successfully."
+
+## Phase 1: the QR code
+
+With Phase 1 on, receipts and A4/A5 invoices print a QR code (when the document's **showQRCode** flag is on). The app builds it itself, so it works offline.
+
+The QR holds five values (TLV, Base64):
+
+| Tag | Value | Demo |
+|---|---|---|
+| 1 | Seller name | ZATCA company name |
+| 2 | VAT registration number | Company VAT number (15 digits) |
+| 3 | Invoice time (ISO 8601) | 2026-10-27 sale time |
+| 4 | Invoice total with VAT | 658.00 |
+| 5 | VAT amount | 100.37 |
+
+To reprint an invoice with the Phase 1 QR: **Transactions → Invoice** → row action → **Phase 1 Print**.
+
+## Phase 2: sending to ZATCA
+
+### B2C and B2B
+
+| | B2C (simplified) | B2B (standard) |
+|---|---|---|
+| Customer | No VAT number | Customer has a VAT number (KYC `VAT_NUMBER`) |
+| ZATCA flow | **Reported** (after the sale) | **Cleared** (ZATCA approves the invoice) |
+| Needs | Seller details | Buyer VAT number and CR number too |
+
+The server decides B2B by the customer's VAT number. Enter **VAT Number** and **CR Number** on the customer (they appear when Phase 1 is on, under business details with customer type B2B). See [Customers](/docs/pos-app/customers).
+
+### When an invoice is sent
+
+- **Automatically**, if your company has the auto-queue setting for that customer type. The server sends the invoice soon after the sale syncs.
+- **By hand**, from the Invoice List: one invoice (**Send to ZATCA**) or many (bulk sync).
+
+Sending is queued on the server. The badge shows **PENDING** while ZATCA processes it, then **SENT** or **FAILED**.
+
+## ZATCA status in the Invoice List
+
+Open **Transactions → Invoice**. With Phase 2 on, each row has a **ZATCA Status** badge.
+
+![Invoice List with ZATCA status](media:invoice-list)
+*Invoice List: every confirmed sale creates an invoice (INV-OR1002060 for Layla's order, linked to offline receipt 2-11-261027-0003); filters incl. ZATCA status and Today; ZATCA bulk actions Sync ALL / Sync Failed / Sync Not Send / Sync Selected*
+
+An invoice has two ZATCA fields. The badge combines them:
+
+| Badge | Colour | When |
+|---|---|---|
+| **SENT** | Green | `zatca_status` is `pass`, `success` or `sent` |
+| **FAILED** | Red | `zatca_request_status` is `failed` |
+| **PENDING** | Blue | `zatca_request_status` is `pending` or `processing` |
+| **NOT SENT** | Amber | Never requested (`zatca_request_status` empty or `not_sent`) |
+
+`zatca_status` is ZATCA's answer (pass, warning, …). `zatca_request_status` is the state of our request (not_sent, pending, processing, success, failed).
+
+In the demo, Layla's invoice **INV-OR1002060** shows **NOT SENT** right after the sale.
+
+### Filter by ZATCA status
+
+Use **All ZATCA Status**: **Sent**, **Not Sent** or **Failed**. Add **Today** to see only today's invoices.
+
+### Actions per invoice
+
+Tap the row action to open **More Options**. **Share** is always there. **Phase 1 Print** is there when Phase 1 is on. The Phase 2 action depends on the state:
+
+| Invoice state | Action shown | What it does |
+|---|---|---|
+| Sent (pass / success) | **Phase 2 Print** | Prints the signed invoice with the Phase 2 QR. |
+| ZATCA returned a warning | **Resync Invoice (Warning)** | Sends it again to clear the warning. |
+| Request succeeded but no status yet | **Resync Invoice** | Fetches / resends to get the final status. |
+| Request failed | **Resync Invoice (Failed)** | Sends it again after you fix the cause. |
+| Pending / processing | **Resync Invoice (Pending)** | Checks again. |
+| Never sent | **Send to ZATCA** | Sends it now. |
+
+If you try to send an invoice that is already accepted you see "This invoice #… has already been successfully sent to ZATCA."
+
+### Bulk sync from the Invoice List
+
+The bulk bar sits above the table when Phase 2 is on.
+
+1. Pick the button:
+   - **Sync ALL**: all NOT SENT and FAILED invoices.
+   - **Sync Failed**: all FAILED invoices.
+   - **Sync Not Send**: all NOT SENT invoices.
+   - **Sync Selected**: only the rows you ticked. Use **Select Page** to tick the whole page, **Unselect** to clear.
+2. Read the confirmation (for example "This will sync all FAILED invoices.") and confirm.
+3. The server queues the invoices and replies with a message such as "Queued 3 invoices for ZATCA submission". Invoices already accepted are skipped.
+4. The list refreshes. Queued invoices show **PENDING**, then **SENT** or **FAILED**.
+
+## Credit notes (customer vouchers)
+
+Refunds and returns create customer vouchers. Under Phase 2 these are credit notes and also go to ZATCA.
+
+Open **Transactions → Customer Voucher**, tap a row's action:
+
+- **ZATCA Phase 2**: process and print the voucher under Phase 2.
+- **Send Credit Note to ZATCA**: send it now.
+
+## Dashboard ZATCA cards
+
+With Phase 2 on, the dashboard shows ZATCA counts.
+
+![Dashboard ZATCA overview](media:dashboard-zatca)
+*Dashboard: ZATCA overview for invoices and vouchers, and your own cash/bank overview*
+
+**ZATCA Overview** has two groups, **Invoice ZATCA** and **Voucher ZATCA**, each with four cards:
+
+| Card | Subtitle |
+|---|---|
+| **Successfully sent** | Accepted invoices / vouchers |
+| **Not sent** | Pending submission |
+| **Failed** | Needs attention |
+| **Warning** | Review required |
+
+In the demo the invoice **Not sent** card shows 3.
+
+At the top of the dashboard, a **Failed Zatca Invoice** banner ("Tap to review and resend.") appears when any invoice failed. It shows the failed count (323 in the demo). Tap it to open the Invoice List already filtered to **Failed**. The banner is hidden when the count is 0, when Phase 2 is off, or when you lack `menu.transactions.invoice.access`. Each card also needs its own dashboard widget permission (for example the ZATCA failed card for invoices).
+
+## Daily routine for ZATCA
+
+1. Open the dashboard. If the **Failed Zatca Invoice** banner shows, tap it.
+2. Open **More Options** on a failed invoice to see the error when you resync.
+3. Fix the cause. Common causes: a B2B customer without a valid VAT or CR number, or missing company ZATCA details.
+4. Use **Resync Invoice (Failed)**, or **Sync Failed** for all.
+5. Use **Sync Not Send** at the end of the day if your company does not auto-send.
+
+## How it works
+
+- ZATCA happens on the server. The till never talks to ZATCA directly, so offline sales are sent after they sync.
+- Phase 1 QR is built on the device from the seller name, VAT number, time, total and VAT.
+- Phase 2 print, resync and bulk send call the server's ZATCA endpoints. The server signs and submits, then stores ZATCA's status per invoice.
+- An invoice is "B2B" when its customer has a VAT number in KYC.
+- Receipts, expenses and proforma invoices are not sent to ZATCA.
+
+## Related
+
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Customers](/docs/pos-app/customers)
+- [Dashboard](/docs/pos-app/dashboard)
+- [Printing](/docs/pos-app/printing)
+- [Settings reference](/docs/pos-app/settings-reference)
+- [Troubleshooting and FAQ](/docs/pos-app/troubleshooting-faq)
+- [API: ZATCA](/docs/api/zatca)
+- [API: Transactions, invoices and receipts](/docs/api/transactions-invoices-receipts)
+- [API: Dashboard](/docs/api/dashboard)

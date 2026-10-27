@@ -3,7 +3,9 @@
   // IT Consult account (Itconsultuae@gmail.com), where the cloudposai.com zone lives.
   "account_id": "48073c198a3baff8cd9878190dc8101b",
   "main": ".open-next/worker.js",
-  "routes": [{ "pattern": "docs.cloudposai.com", "custom_domain": true }],
+  // docs.cloudposai.com is served by the EmDash docs now (cloudpos-docs-proxy →
+  // cloudpos-docs-cms). This Keystatic build keeps only its workers.dev address.
+  "workers_dev": true,
   "name": "cloudpos-docs",
   "compatibility_date": "2024-12-30",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],

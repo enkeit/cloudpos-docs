@@ -1,0 +1,600 @@
+---
+title: Suppliers and Purchases API
+description: Supplier directory, supplier ledger and vouchers, purchase orders (create and receive), purchase returns and the store list.
+---
+
+# Suppliers and Purchases API
+
+These endpoints power **Suppliers** (list, **Supplier Transactions**, **Supplier Voucher**), **Purchase > Purchase Orders**, **Create New Purchase Order**, **Receive Purchase Order** and **Purchase > Purchase Returns**.
+
+All paths are relative to `{{server}}`. Send `X-Tenant: <your-tenant-key>`, `Authorization: Bearer <access-token>` and `Content-Type: application/json`. Most calls add `store_id` = the active store.
+
+## Endpoint summary
+
+| Method | Path | Used by |
+|---|---|---|
+| GET | `/api/v1/get-suppliers` | Suppliers list, supplier picker in purchase forms |
+| POST | `/api/v1/add-supplier` | **Add New Supplier** |
+| POST | `/api/v1/update-suppliers` | Edit supplier |
+| GET | `/api/v1/suppliers/list-transactions` | Supplier Transactions, Supplier Transaction report |
+| GET | `/api/v1/suppliers/supplier-transactions` | Party Accounts > Supplier Transactions (flat ledger) |
+| GET | `/api/v1/suppliers/list-supplier-voucher` | Supplier Voucher list |
+| POST | `/api/v1/suppliers/create-supplier-voucher` | Create supplier voucher |
+| GET | `/api/v1/purchase/list-purchase-order` | Purchase Orders list |
+| POST | `/api/v1/purchase/add-purchase-order` | **Create New Purchase Order** |
+| POST | `/api/v1/purchase/receive-purchase-order/{id}` | **Receive Purchase Order** |
+| GET | `/api/v1/purchase/returns` | Purchase Returns list |
+| GET | `/api/v1/purchase/returns/{id}` | Purchase return details |
+| GET | `/api/v1/purchase/{purchaseVoucherId}/returnable-items` | Create purchase return (item picker) |
+| POST | `/api/v1/purchase/returns` | Create purchase return |
+| GET | `/api/v1/stores/get-stores` | Store picker on purchase forms |
+
+## GET /api/v1/get-suppliers
+
+Returns all suppliers with balance, KYC, recent ledger lines and purchases.
+
+| Name | Type | Notes |
+|---|---|---|
+| `supplier_name` | string | Partial name match |
+| `store_id` | integer | Sent by the app |
+
+```json
+{
+  "status": "success",
+  "message": "Return Successfully",
+  "data": [
+    {
+      "id": 2,
+      "name": "Supplier 1FUNZCART",
+      "email": "supplier@example.com",
+      "phone": "<phone>",
+      "tax_number": null,
+      "payment_type": "to_pay",
+      "kyc": [],
+      "cr_number": null,
+      "vat_number": null,
+      "balance": 40712.595,
+      "transactions": [
+        { "id": 281, "date": "2025-12-26", "type": "Credit", "transaction_type": "Invoice", "amount": "3100.000", "reference": "2061", "status": "SUCC" }
+      ],
+      "purchases": [
+        {
+          "id": 92,
+          "purchase_number": "2061",
+          "status": "Y",
+          "amount_total": "3100.000",
+          "items": [
+            { "id": 124, "product_name": "cheese veg burger", "quantity": "20.000", "unit_price": "155.000", "total_price": "3100.000" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+*Trimmed from a captured response; contact details replaced.* A positive `balance` means the store owes the supplier.
+
+## POST /api/v1/add-supplier
+
+| Field | Required | Notes |
+|---|---|---|
+| `name` | yes | Supplier name |
+| `phone` | yes | Phone |
+| `email` | no | Email |
+| `payment_type` | yes | `to_pay` or `to_receive` (opening balance direction) |
+| `balance` | no | Opening balance (number) |
+| `type` | yes | The app sends `1` |
+| `address` | no | Up to 500 characters |
+| `alt_phone` | no | Alternate phone |
+| `tax_number` | no | Tax number |
+| `kyc` | no | List of `{key, value}`, for example `CR_NUMBER`, `VAT_NUMBER` (master data `SUPPLIER_KYC`) |
+| `product_categories` | no | Category ids |
+
+```json
+{
+  "name": "Al Hamra Poultry Supplies",
+  "email": "orders@example.com",
+  "phone": "0559876543",
+  "balance": 0.0,
+  "type": 1,
+  "address": "Jeddah",
+  "alt_phone": "",
+  "tax_number": "",
+  "payment_type": "to_pay",
+  "kyc": [
+    { "key": "CR_NUMBER", "value": "<cr-number>" },
+    { "key": "VAT_NUMBER", "value": "<vat-number>" }
+  ]
+}
+```
+
+*Illustrative supplier.* An opening balance creates an "Initial balance - To pay" (Credit / Invoice) or "Initial balance - To receive" (Debit / Voucher) ledger line with reference `INIT-<supplierId>`.
+
+## POST /api/v1/update-suppliers
+
+Same fields as add, plus `id`. `name`, `phone` and `balance` are always sent; the rest only when present.
+
+```json
+{ "id": 2, "name": "Supplier 1FUNZCART", "phone": "<phone>", "balance": 0, "payment_type": "to_pay" }
+```
+
+## GET /api/v1/suppliers/list-transactions
+
+Supplier ledger grouped per supplier with totals.
+
+**Used by:** Suppliers > **Supplier Transactions** and Reports > **Supplier Transaction Reports**.
+
+| Name | Type | Notes |
+|---|---|---|
+| `supplier_name` | string | Name filter (takes priority over `supplier_id`) |
+| `supplier_id` | integer | One supplier |
+| `type` | string | Transaction type, for example `Invoice` or `Voucher` |
+| `from_date`, `to_date` | date | `yyyy-MM-dd` |
+| `list_all` | boolean | App sends `true` |
+| `page` | integer | Page |
+| `store_id` | integer | Active store |
+
+```json
+{
+  "status": "success",
+  "message": "Transaction listed successfully",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "supplier_id": 387,
+        "supplier_name": "test2",
+        "total_debit": 400,
+        "total_credit": 0,
+        "balance": -400,
+        "transactions": [
+          {
+            "id": 3808,
+            "date": "2026-10-27",
+            "type": "Debit",
+            "amount": 400,
+            "transaction_type": "Voucher",
+            "transaction_comment": "Initial balance - To receive",
+            "currency": "SAR",
+            "reference_id": "INIT-387",
+            "status": "SUCC",
+            "balance": -400
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+*Trimmed from a captured response.*
+
+## GET /api/v1/suppliers/supplier-transactions
+
+Flat, paginated supplier ledger (one row per transaction, with the supplier embedded).
+
+**Used by:** Party Accounts > **Supplier Transactions**.
+
+| Name | Type | Notes |
+|---|---|---|
+| `supplier_id` | integer | One supplier |
+| `transaction_type` | string | For example `Invoice`, `Voucher` |
+| `type` | string | `Debit` or `Credit` |
+| `date_from`, `date_to` | date | `yyyy-MM-dd` |
+| `per_page`, `page` | integer | Paging |
+
+```json
+{
+  "status": "success",
+  "message": "Supplier transactions listed successfully",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 3808,
+        "supplier_id": 387,
+        "supplier_voucher_id": null,
+        "date": "2026-10-27",
+        "type": "Debit",
+        "reference_id": "INIT-387",
+        "transaction_type": "Voucher",
+        "amount": "400.000",
+        "currency": "SAR",
+        "transaction_comment": "Initial balance - To receive",
+        "balance": "-400.000",
+        "status": "SUCC",
+        "supplier": { "id": 387, "balance": "400.000", "payment_type": "to_receive", "user": { "name": "test2" } }
+      }
+    ]
+  }
+}
+```
+
+*Trimmed.*
+
+## GET /api/v1/suppliers/list-supplier-voucher
+
+| Name | Type | Notes |
+|---|---|---|
+| `supplier_name` / `supplier_id` | string / integer | Supplier filter |
+| `voucher_number` | string | Voucher number |
+| `voucher_type` | string | `order`, `discount`, `other`… |
+| `voucher_status` | string | `paid`, `pending`, `overdue` |
+| `list_all` | boolean | When true the result is paginated (`per_page` up to 100) |
+| `page`, `per_page` | integer | The app sends `page=1&per_page=1000` and walks all pages |
+| `store_id` | integer | Active store |
+
+The response is either a flat `data` array or a paginator in `data`; the app accepts both.
+
+## POST /api/v1/suppliers/create-supplier-voucher
+
+Records a payment or credit note for a supplier.
+
+| Field | Required | Notes |
+|---|---|---|
+| `supplier_id` | yes | Supplier |
+| `type` | yes | `order`, `discount` or `other` |
+| `voucher_date`, `due_date` | yes | Dates |
+| `status` | yes | `paid`, `pending` or `overdue` |
+| `payment_method` | no | Master-data id from `PAYMENT_METHOD` |
+| `amount` | — | Sent by the app; the server totals the items |
+| `voucher_items` | yes | At least one: `item_name`, `unit_amount`, `quantity` (≥ 1), optional `tax` |
+
+```json
+{
+  "supplier_id": 2,
+  "type": "order",
+  "amount": 1500.0,
+  "voucher_date": "2026-10-27",
+  "due_date": "2026-10-27",
+  "status": "paid",
+  "payment_method": "<payment-method-id>",
+  "voucher_items": [
+    { "item_name": "Payment for PO 2061", "unit_amount": 1500, "quantity": 1, "tax": 0 }
+  ]
+}
+```
+
+Validation errors return `{"status":false,"message":"Validation error.","errors":{...}}`.
+
+## GET /api/v1/purchase/list-purchase-order
+
+**Used by:** Purchase > **Purchase Orders**.
+
+| Name | Type | Notes |
+|---|---|---|
+| `supplier_id` | integer | Supplier |
+| `store_id` | integer | Store (the app sends the active store unless "All stores" is picked) |
+| `date_from`, `date_to` | date | Purchase date range (the app also sends `filter_date` for older servers) |
+| `per_page` | integer | Default 15 |
+| `page` | integer | Page |
+
+```json
+{
+  "status": "success",
+  "message": "Purchase orders retrieved successfully.",
+  "data": {
+    "current_page": 1,
+    "data": [
+      {
+        "id": 1942,
+        "voucher_number": "2626",
+        "purchase_date": "2026-10-24",
+        "amount_total": "10000",
+        "paid_total": 0,
+        "outstanding_amount": 10000,
+        "payment_status": "unpaid",
+        "discount": "0.000",
+        "supplier": { "id": 18, "name": "Ktr suppliers" },
+        "store": { "id": 2, "name": "متجر النجمة Store " },
+        "items_received": "1 / 1",
+        "items": [
+          {
+            "id": 3793,
+            "product_id": 38988,
+            "product_name": "Test SKU",
+            "quantity": "100.000",
+            "unit_price": "100.000",
+            "total_price": "10000.000",
+            "calculated_purchase_rate": 100,
+            "retail_price": null,
+            "wholesale_price": null,
+            "mrp": null,
+            "rack": null,
+            "wholesale_min_unit": "0.000",
+            "tax_include": null,
+            "tax_include_purchase": null,
+            "purchase_unit_id": null,
+            "purchase_unit_conversion_rate": 1,
+            "status": "Y"
+          }
+        ],
+        "status": "fully_received",
+        "created_at": "2026-10-24T05:07:25.000000Z"
+      }
+    ]
+  }
+}
+```
+
+*Trimmed from a captured response.*
+
+| Field | Values |
+|---|---|
+| order `status` | `pending`, `partially_received`, `fully_received` |
+| item `status` | `N` = pending, `Y` = received |
+| `payment_status` | `unpaid`, `partially_paid`, `paid` |
+
+## POST /api/v1/purchase/add-purchase-order
+
+Creates a purchase order. Lines with `"receive": true` are received at once (stock is added).
+
+**Used by:** **Create New Purchase Order** (purchase date, voucher number, store, supplier, invoice reference, product lines, payment method).
+
+### Body
+
+| Field | Required | Notes |
+|---|---|---|
+| `purchase_date` | yes | `yyyy-MM-dd` |
+| `supplier_id` | yes | Supplier in this company |
+| `store_id` | yes | Store in this company |
+| `voucher_number` | no | Unique, up to 64 characters |
+| `invoice_ref` | no | Supplier's invoice number |
+| `discount` | no | Overall discount |
+| `payment_methods` | no | List of `PAYMENT_METHOD` **values**, for example `["CASH"]` |
+| `paid_amounts` | no | Map of method → amount, for example `{"CASH": 500}` |
+| `items` | yes | At least one line |
+
+Each item:
+
+| Field | Required | Notes |
+|---|---|---|
+| `product_id` | yes | Product |
+| `product_variant_id` | when the product has variants | Variant |
+| `quantity` | yes | Base-unit quantity, ≥ 0.001 |
+| `unit_price` | yes | Purchase rate |
+| `purchase_unit_id`, `purchase_qty` | no | Buy in a pack/box unit; must convert to whole base units |
+| `retail_price`, `wholesale_price`, `mrp` | required when `receive` is true | Selling prices for the new stock |
+| `wholesale_min_unit` | no | Minimum quantity for wholesale price |
+| `tax_include` | no | Selling prices include tax |
+| `tax_include_purchase` | no | Purchase price includes tax |
+| `rack` | no | Rack (master data `RACKS`) |
+| `expiry_date`, `pkg_mfg` | no | Expiry must be on or after the purchase date |
+| `batch_number` | no | Up to 100 characters |
+| `unit_prices` | no | `[{sale_unit_id, price}]` for multi sale units |
+| `receive` | no | `true` to receive the line now |
+
+```json
+{
+  "purchase_date": "2026-10-27",
+  "supplier_id": 2,
+  "store_id": 2,
+  "invoice_ref": "SUP-INV-778",
+  "discount": 0,
+  "items": [
+    {
+      "product_id": 15485,
+      "quantity": 20,
+      "unit_price": 150,
+      "retail_price": 220,
+      "wholesale_price": 210,
+      "mrp": 250,
+      "tax_include": true,
+      "tax_include_purchase": true,
+      "rack": "RACK 1",
+      "receive": true
+    }
+  ],
+  "payment_methods": ["CASH"],
+  "paid_amounts": { "CASH": 3000 }
+}
+```
+
+*Illustrative values.*
+
+### Response
+
+```json
+{
+  "status": "success",
+  "message": "Purchase order created and fully received.",
+  "data": {
+    "purchase_order": {
+      "id": 1943,
+      "voucher_number": "2627",
+      "purchase_date": "2026-10-27",
+      "amount_total": "3000",
+      "discount": 0,
+      "status": "fully_received",
+      "items": [
+        { "id": 3794, "product_id": 15485, "quantity": 20, "unit_price": 150, "total_price": 3000, "status": "received" }
+      ]
+    },
+    "invoice": { "id": 812 }
+  }
+}
+```
+
+*Illustrative; message is one of "Purchase order created.", "...and partially received." or "...and fully received.".*
+
+### Errors
+
+Validation and pricing errors return **422** `{"success":false,"errors":{...}}`, for example `"The items.0.mrp field is required when receive is true."` or `"Duplicate received lines for the same product, variant, and batch must be combined."`
+
+## POST `/api/v1/purchase/receive-purchase-order/{id}`
+
+Receives pending lines of purchase order `{id}`, adds stock and records payments.
+
+**Used by:** Purchase Orders > **Receive Purchase Order** (partially or fully).
+
+| Field | Required | Notes |
+|---|---|---|
+| `items` | yes | Lines to receive |
+| `items.*.purchase_item_id` | yes | Line id from the PO (each once) |
+| `items.*.quantity` | yes | Received quantity |
+| `items.*.unit_price` | yes | Purchase rate |
+| `items.*.retail_price`, `wholesale_price`, `mrp` | if not saved on the line earlier | Selling prices |
+| `items.*.rack`, `expiry_date`, `pkg_mfg`, `batch_number`, `purchase_unit_id`, `purchase_qty`, `wholesale_min_unit`, `tax_include`, `tax_include_purchase`, `unit_prices` | no | Same as create |
+| `invoice_ref` | no | Supplier invoice number |
+| `discount` | no | Overall discount |
+| `payment_methods`, `paid_amounts` | no | As in create |
+
+```json
+{
+  "discount": 0,
+  "invoice_ref": "SUP-INV-778",
+  "items": [
+    { "purchase_item_id": 3793, "quantity": 100, "unit_price": 100, "retail_price": 120, "wholesale_price": 115, "mrp": 130 }
+  ],
+  "payment_methods": ["CASH"],
+  "paid_amounts": { "CASH": 10000 }
+}
+```
+
+```json
+{
+  "status": "success",
+  "message": "Purchase order received successfully.",
+  "data": {
+    "voucher_id": 1942,
+    "total_received": 10000,
+    "discount": 0,
+    "total_paid": 10000,
+    "paid_total": 10000,
+    "outstanding_amount": 0,
+    "payment_status": "paid",
+    "invoice_id": 812,
+    "stocks_created": 1
+  }
+}
+```
+
+*Illustrative.*
+
+### Rules
+
+- A line already received (status `Y`) is rejected: **422** `"Item 3793 has already been received."`
+- A line from another PO is rejected: `"Item … does not belong to purchase order …"`.
+- Retail, wholesale and MRP prices are required if the line did not save them earlier.
+- Payment methods are checked against `PAYMENT_METHOD`.
+- The purchase order is row-locked, so a retry after a timeout is safe.
+
+## GET /api/v1/purchase/returns
+
+| Name | Type | Notes |
+|---|---|---|
+| `purchase_voucher_id` | integer | One purchase order |
+| `supplier_id` | integer | Supplier |
+| `date_from`, `date_to` | date | Return date range |
+| `per_page` | integer | 1–100 |
+| `page` | integer | Page |
+
+Each row has the shape shown under `GET /purchase/returns/{id}`.
+
+## GET `/api/v1/purchase/returns/{id}`
+
+```json
+{
+  "status": "success",
+  "message": "Purchase return retrieved successfully.",
+  "data": {
+    "id": 41,
+    "reference": "PR-41",
+    "purchase_voucher_id": 1942,
+    "voucher_number": "2626",
+    "supplier": { "id": 18, "name": "Ktr suppliers" },
+    "return_date": "2026-10-27",
+    "total_amount": 500.0,
+    "paid_amount": 0,
+    "status": "completed",
+    "created_by": { "id": 516, "name": "salesexecutiv2" },
+    "items": [
+      { "id": 77, "purchase_item_id": 3793, "product_id": 38988, "product_name": "Test SKU", "quantity": 5.0, "amount": 500.0, "reason": "Damaged packing" }
+    ]
+  }
+}
+```
+
+*Illustrative values; field list from the server code.* Not found → **404** `"Purchase return not found."`
+
+## GET `/api/v1/purchase/{purchaseVoucherId}/returnable-items`
+
+Lists received lines of a purchase order and how much can still be returned. `returnable_quantity` = purchased − already returned, capped by the stock still on hand from that purchase.
+
+```json
+{
+  "status": "success",
+  "message": "Returnable purchase items retrieved successfully.",
+  "data": {
+    "purchase_voucher_id": 1942,
+    "voucher_number": "2626",
+    "supplier": { "id": 18, "name": "Ktr suppliers" },
+    "store": { "id": 2, "name": "متجر النجمة Store " },
+    "items": [
+      { "purchase_item_id": 3793, "product_id": 38988, "product_name": "Test SKU", "purchased_quantity": 100, "returned_quantity": 5, "returnable_quantity": 95, "unit_price": 100 }
+    ]
+  }
+}
+```
+
+## POST /api/v1/purchase/returns
+
+| Field | Required | Notes |
+|---|---|---|
+| `purchase_voucher_id` | yes | Purchase order id |
+| `return_date` | no | Today or earlier |
+| `items` | yes | `[{purchase_item_id, quantity, reason}]`, each line once |
+| `has_payment` | no | `true` when the supplier refunds money now |
+| `paid_amount` | if `has_payment` | ≥ 0.01 |
+| `payment_method` | if `has_payment` | `PAYMENT_METHOD` id or value |
+
+```json
+{
+  "purchase_voucher_id": 1942,
+  "return_date": "2026-10-27",
+  "items": [ { "purchase_item_id": 3793, "quantity": 5, "reason": "Damaged packing" } ],
+  "has_payment": false
+}
+```
+
+Returns **201** with the created return (same shape as the details call). Validation errors → **422** `{"status":"failed","message":"Validation failed.","data":{...}}`.
+
+## GET /api/v1/stores/get-stores
+
+Lists the company's stores (used by the store picker on purchase forms and the store switcher).
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 2,
+      "name": "متجر النجمة Store ",
+      "code": "متجر-النجمة-STORE-",
+      "store_open_time": "09:00:00",
+      "store_close_time": "22:00:00",
+      "cash_open_time": "09:15:00",
+      "cash_close_time": "22:15:00",
+      "state_id": 45,
+      "district_id": 629,
+      "pincode_id": 4858,
+      "company_id": 2,
+      "zatca_onboarded": false
+    },
+    { "id": 32, "name": "funzcart2", "code": "FUNZCART2" }
+  ]
+}
+```
+
+*Trimmed from a captured response; phone numbers removed.*
+
+## Related
+
+- [Purchases (POS app)](/docs/pos-app/purchases)
+- [Products and stock](/docs/pos-app/products-and-stock)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Reports](/docs/pos-app/reports)
+- [Stock API](/docs/api/stock)
+- [Transactions, invoices and receipts API](/docs/api/transactions-invoices-receipts)
+- [Settings and master data API](/docs/api/settings-and-master-data)

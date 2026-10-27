@@ -1,0 +1,541 @@
+---
+title: Settings and Master Data API
+description: Endpoints that configure the POS app - website settings (company props), general and admin settings, master data values, document configurations, printer settings, roles, stores, languages, banks, units and translation - with parameters, responses and what each setting changes.
+---
+
+# Settings and Master Data API
+
+The POS app is configured almost entirely from the server. An owner changes a setting in the admin panel, and the POS picks it up on the next startup sync, store switch, or **Offline Data > Sync**. This page lists every configuration endpoint the app calls, with the response shape and what the app does with it.
+
+For the full list of setting codes, defaults and their effect on screens, see [Settings reference](/docs/pos-app/settings-reference).
+
+All calls send `X-Tenant`, and `Authorization: Bearer <access-token>` once signed in (see [API overview](/docs/api)). Localised calls also send `?locale=` and `Accept-Language`.
+
+## Startup sync order
+
+After **Select Store**, the app shows the startup sync steps. The configuration calls on this page run in these steps:
+
+| Startup step | Endpoint(s) |
+|---|---|
+| Permissions | `roles/list` |
+| Delivery methods | `logistics/list-delivery-methods` |
+| General settings | `general` |
+| Applying preferences | `website-settings` |
+| Branding | `admin-settings` (sidebar logo) |
+| Banks | `get-banks` |
+| Payment methods | `master-data-values?code=PAYMENT_METHOD` |
+| Stock grouping | `master-data-values?code=STOCK_GROUPING_FIELDS` |
+| Store | `stores/get-stores` |
+| Units | `product/list-units` |
+| Racks | `master-data-values?code=RACKS` |
+| Document configs | `document/document-configs`, `document/printer-settings` |
+
+Other steps (customers, invoices, voucher types, users, suppliers, categories, products, realtime sync) are covered on their own API pages.
+
+## GET /api/v1/website-settings
+
+**Purpose:** the company settings ("company props") that switch POS features on or off, plus a few synthetic values (company name, theme, currency, discount and ZATCA flags) and translated website texts.
+
+**Used by:** startup "general settings" step; **Offline Data > App / website settings**. Results are cached on the device.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `store_id` | integer | no | Active store (the app always sends it) |
+| `locale` | string | no | `en`, `ar`, `ml` - for translated texts |
+
+**Response (200)** (trimmed; 127 entries in the demo)
+
+```json
+{
+  "status": "success",
+  "message": "Filtered Website Settings",
+  "data": [
+    { "name": "Show Cart Control", "code": "SHOW_CART_CONTROL", "value": "", "status": "true" },
+    { "name": "Recent Products Section", "code": "RECENT_PRODUCTS_SECTION", "value": "", "status": "true" },
+    { "name": "Currency", "code": "CURRENCY", "value": "SAR", "status": "true" },
+    { "name": "Default Payment Method", "code": "DEFAULT_PAYMENT_METHOD", "value": "CASH", "status": "true" },
+    { "name": "Free Delivery Minimum Amount", "code": "FREE_DELIVERY_MINIMUM_AMOUNT", "value": "0", "status": "false" }
+  ]
+}
+```
+
+The first two rows are from the demo capture; the other three show the shape of value-type settings.
+
+**How to read an entry**
+
+- `status` switches a feature. The app treats `true`, `"true"`, `"1"` and `1` as on. Anything else is off.
+- `value` carries text or numbers, for example `CURRENCY` = `SAR`, `DEFAULT_PAYMENT_METHOD` = `CASH`, `AUTO_ASSIGN_DEFAULT_CUSTOMER` = a phone number, `POS_AUTHENTICATE_CLEARCART` = the security key.
+- Some settings use both: `FREE_DELIVERY_MINIMUM_AMOUNT` charges delivery only while `status` is on, and makes delivery free when the net total reaches `value`.
+- A code missing from the response uses the app default (for example `POS_OFFLINE_SALES` defaults to on, `SHOW_CONFIRM_ORDER_BUTTON` to on).
+
+**Most important codes for the POS** (full table in [Settings reference](/docs/pos-app/settings-reference)):
+
+| Code | Effect in the app |
+|---|---|
+| `POS_OFFLINE_SALES` | On (default): offline-first confirm. Off: wait for the server before printing |
+| `SHOW_CONFIRM_ORDER_BUTTON`, `SHOW_CONFIRM_ORDER_AND_PRINT_BUTTON`, `SHOW_CONFIRM_WHATSAPP_BUTTON` | Show **Confirm Order**, **Confirm and Print**, **Confirm & Whatsapp** |
+| `DISCOUNT_AND_COUPON` | Shows the **Discount** (F10) panel |
+| `FREE_DELIVERY_MINIMUM_AMOUNT` | Delivery charges apply only while enabled |
+| `PRICE_ROUND_OFF` | Rounds the net total to a whole number |
+| `ZATCA_PHASE_1`, `ZATCA_PHASE_2` | ZATCA QR, VAT/CR customer fields, Phase 2 actions |
+| `COMPULSORY_SHIFT_OPEN`, `COMPULSORY_DAY_CLOSE_REGISTER` | Force Open Shift / pending Day Close |
+| `ENABLE_KOT_PRINT`, `ENABLE_SEND_TO_KITCHEN_BUTTON`, `ENABLE_KOT_BILL_BUTTON` | Restaurant kitchen ticket behaviour |
+| `DASHBOARD_DEFAULT_PERIOD` | Default dashboard period |
+| `COMPANY_SUBSCRIPTION_STATUS` (+ `_MESSAGE`, `_VALID_UNTIL`, `_MANAGE_URL`) | Fallback subscription status |
+
+## GET /api/v1/general
+
+**Purpose:** general (tenant-wide) settings. Today the endpoint returns only stock tracking.
+
+**Used by:** startup "general settings" step; **Offline Data > General settings**.
+
+**Query parameters:** `store_id` (optional).
+
+**Response (200)**
+
+```json
+{
+  "status": "success",
+  "message": "Success",
+  "data": {
+    "stock_enabled": true
+  }
+}
+```
+
+- `stock_enabled` turns stock tracking on or off. The app caches it as `general_stock_enabled`.
+- The website setting `POS_HIDE_NONSTOCK_PRODUCT` hides zero-stock products **only** when `stock_enabled` is also true.
+- No authentication is required on the server for this endpoint.
+
+## GET /api/v1/admin-settings
+
+**Purpose:** platform-wide branding (not per tenant).
+
+**Used by:** startup "branding" step. The app reads only `SIDEBAR_LOGO` and caches the image for the side menu.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `code` | comma list | no | Limit to codes, for example `SIDEBAR_LOGO,FAVICON_ICON` |
+
+**Response (200)**
+
+```json
+{
+  "status": "success",
+  "message": "Admin Settings retrieved successfully",
+  "data": [
+    { "name": "Sidebar Logo", "code": "SIDEBAR_LOGO", "type": "file", "value": "{{server}}/storage/admin-settings/<file>.jpg" },
+    { "name": "Favicon Icon", "code": "FAVICON_ICON", "type": "file", "value": "" }
+  ]
+}
+```
+
+File values are returned as full URLs.
+
+## GET /api/v1/company/prop-names
+
+**Purpose:** read raw company props by code. The POS app does **not** call this endpoint; it gets the same values through `website-settings`. It is listed for integrators.
+
+**Query parameters:** `propCode` (optional, one code, for example `TERMS_AND_CONDITIONS`).
+
+**Response:** `{"status":"success","message":"Success","data":[{"name","code","value","status":"true"|"false"}]}`. `COMPANY_LOGO` and `COMPANY_FAVICON` come back as URLs.
+
+## GET /api/v1/master-data-values
+
+**Purpose:** the company's lookup lists (payment methods, racks, tables, denominations and more).
+
+**Used by:** checkout, stock, purchase, restaurant, day close, expenses and delivery dialogs.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `code` | string | yes | Master data code, see table below |
+| `store_id` | integer | no | Active store |
+| `locale` | string | no | Language for labels |
+
+**Response (200)** (PAYMENT_METHOD, trimmed: one value shown, translation rows shortened)
+
+```json
+{
+  "status": "success",
+  "message": "Filtered Master Data Values",
+  "meta": {
+    "available_languages": ["ar", "en", "..."],
+    "requested_language": "*"
+  },
+  "data": [
+    {
+      "id": 7973,
+      "master_data_id": 16,
+      "value": "CARD",
+      "description": "card",
+      "code": "CARD",
+      "label": "card",
+      "translations": [
+        { "locale": "ar", "key": "description", "value": "بطاقة" },
+        { "locale": "ml", "key": "description", "value": "കാർഡ്" }
+      ],
+      "master_data": {
+        "id": 16,
+        "name": "Payment Methods",
+        "code": "PAYMENT_METHOD",
+        "type": "LST"
+      }
+    },
+    {
+      "id": 7974,
+      "value": "CASH",
+      "description": "cash",
+      "code": "CASH",
+      "label": "cash",
+      "translations": [ { "locale": "ar", "key": "description", "value": "نقدًا" } ]
+    }
+  ]
+}
+```
+
+**Errors**
+
+| Case | HTTP | Body |
+|---|---|---|
+| `code` missing | 400 | `{"success":false,"message":"Code parameter is required","data":[]}` |
+| Unknown code for this company | 404 | `{"success":false,"message":"Master data not found","data":[]}` |
+
+Only active values (`status` true) are returned.
+
+**Codes the app uses**
+
+| Code | Used for | Notes |
+|---|---|---|
+| `PAYMENT_METHOD` | Payment dialog methods (cash, card, ...) | Orders store the value **id** (7973 = CARD, 7974 = CASH in the demo). Optional fields `enabled`, `sort_order`, `icon_key`, `behavior` (`collected`, `credit`, `terminal`), `requires_reference`. The app always adds **Credit** (sell on credit) |
+| `STOCK_GROUPING_FIELDS` | How stock batches are grouped into one billing line | Values PRICE, MRP, PURCHASE_PRICE, UNIT, HSN_CODE, TAX_RATE, WHOLESALE_PRICE, WHOLESALE_MIN_UNIT, EXPIRING_DATE. App default: price + unit |
+| `CASH_DENOMINATIONS` | Open Shift and Day Close cash counting | Seeded 500, 200, 100, 50, 20, 10, 5, 1 |
+| `KOT_ITEM_NOTE_OPTIONS` | Quick notes on restaurant items (for example NO ICE, EXTRA SPICY, LESS SUGAR) | Not seeded; each company creates it |
+| `RACKS` | Rack picker on stock and purchase | Seeded RACK 1-10 |
+| `TABLE_LIST` | Restaurant tables | |
+| `EXPENSE_CATEGORY` / `EXPENSE_CATEGORIES` | Expense category picker | |
+| `SHIPPING_METHOD` | Create Delivery dialog | parcel, speed_post, registered_parcel, express |
+| `TRANSPORT_MODE` | Create Delivery dialog | surface, air, ship |
+| `DELIVERY_PAYMENT_MODE` | Create Delivery dialog | Prepaid, COD, Open Box Delivery |
+
+`GET /api/v1/master-data` and `GET /api/v1/master-data/{code}` also exist (token required) but the POS uses `master-data-values`.
+
+## GET /api/v1/document/document-configs
+
+**Purpose:** print layout settings for every document type (logo, header, footer, terms, labels, template, and which fields to show).
+
+**Used by:** every print and PDF (receipts, A4/A5 invoices, return bills, quotations, KOT, barcodes), **Printer Settings > Resync Doc**, **Offline Data > Document configurations**.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `store_id` | integer | no | Active store |
+| `type` | string | no | One document type, for example `bill`. Without it all types are returned |
+| `language` | string | no | Document language, for example `en_ar` |
+
+**Response (200)** (trimmed: one type, a few flags)
+
+```json
+{
+  "status": "success",
+  "document_configurations": {
+    "Bill": {
+      "id": 1102,
+      "company_id": 2,
+      "type": "Bill",
+      "logo": "{{server}}/storage/logos/document/2/<file>.png",
+      "show_logo": 1,
+      "icon": "{{server}}/storage/icons/document/2/<file>.jpg",
+      "show_icon": 1,
+      "number_prefix": "ORD-",
+      "discount_method": null,
+      "accent_color": null,
+      "font": null,
+      "template": "bill",
+      "theme": "classic",
+      "language": "en_ar",
+      "header": null,
+      "subheader": null,
+      "terms": null,
+      "footer": null,
+      "item_name": null,
+      "tax_name": null,
+      "unit_name": null,
+      "price_name": null,
+      "amount_name": null,
+      "is_active": 1,
+      "display_configuration": {
+        "showStoreName": { "visible": true, "value": "Store Name عربي", "default": "new" },
+        "showInvoiceNumber": { "visible": true, "value": null },
+        "showVatNumber": { "visible": true, "value": "VAT عربي" },
+        "showTokenNumber": { "visible": false, "value": "Token Number عربي" },
+        "showPaymentBreaked": { "visible": true, "value": null },
+        "showCustomerPhoneMasked": { "visible": true, "value": null },
+        "showMRP": { "visible": true, "value": "سعر التجزئة", "default": "QS1102T22X" },
+        "...": "more flags"
+      },
+      "resolved_labels": {
+        "sl_number": "سي#", "sl_number_default": "Sl#",
+        "particulars": "تفاصيل", "particulars_default": "PARTICULARS",
+        "mrp": "سعر التجزئة", "mrp_default": "MRP",
+        "qty": "الكمية", "qty_default": "QTY",
+        "rate": "السعر", "rate_default": "RATE (INC TAX)",
+        "rate_exc_tax": "السعر", "rate_exc_tax_default": "RATE (EXC TAX)",
+        "unit": "الوحدة", "unit_default": "UNIT",
+        "total": "الإجمالي", "total_default": "Total",
+        "tax": "الضريبة", "tax_default": "Tax"
+      }
+    }
+  },
+  "options": {
+    "item_name_options": { "items": "Items", "products": "Products", "services": "Services", "other": "Other" },
+    "unit_name_options": { "quantity": "Quantity", "hours": "Hours", "other": "Other" },
+    "price_name_options": { "price": "Price", "rate": "Rate", "other": "Other" },
+    "tax_name_options": { "tax": "Tax", "GST": "GST", "VAT": "VAT", "tax (%)": "Tax (%)", "other": "Other" },
+    "amount_name_options": { "amount": "Amount", "total": "Total", "other": "Other" },
+    "template_options": {
+      "default": "Default", "bill": "Bill", "bill-a4": "Bill A4", "quotation": "Quotation",
+      "sales_and_return_bill": "Sales Return Bill", "sales_and_return_bill_a4": "Sales Return Bill A4",
+      "return_bill": "Return Bill", "credit_note": "Credit Note", "receipt": "Receipt",
+      "voucher": "Voucher", "payslip": "Payslip", "email": "Email",
+      "supplier_invoice": "Supplier Invoice", "delivery_note": "Delivery Note",
+      "customer_statement": "Customer Statement", "supplier_statement": "Supplier Statement",
+      "kitchen_order": "Kitchen Order", "barcode": "Barcode"
+    }
+  }
+}
+```
+
+**Notes**
+
+- Each display flag has `visible` (print it or not) and `value` (the label text to print, often bilingual). `default` is an internal default marker.
+- Types the POS uses: Bill, Return Bill, Sales and Return Bill, Credit Note, Invoice, Receipt, Voucher, Supplier Voucher, Quotation, Kitchen Order, Barcode, Customer Statement, Supplier Statement.
+- Other fields the app reads when present: `item_tax_display_mode` (`unit` or `row_total`), `active_theme`, `display_flags`.
+- `number_prefix` is the printed number prefix (`ORD-` above).
+- The envelope uses `document_configurations` instead of `data`.
+
+## GET /api/v1/document/printer-settings
+
+**Purpose:** company default paper size and template for B2C and B2B billing receipts.
+
+**Used by:** **Printer Settings** (Billing tab, B2C and B2B profiles); forced sync at store selection.
+
+**Query parameters:** none.
+
+**Response (200)**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "b2b_paper_size": "A5",
+    "b2b_template": "boxed_header_tax_invoice",
+    "b2c_paper_size": "A4",
+    "b2c_template": "bilingual_centered_tax_invoice"
+  },
+  "options": {
+    "paper_sizes": {
+      "58mm": "Thermal — 58mm", "80mm": "Thermal — 80mm", "112mm": "Thermal — 112mm",
+      "A4": "A4", "A5": "A5", "PDF": "PDF Sharing"
+    },
+    "thermal_templates": {
+      "classic": "Classic", "premium": "Premium", "premium1": "Premium 1", "premium2": "Premium 2",
+      "premium2_bilingual": "Premium 2 Bilingual", "supermarket_en": "Supermarket En",
+      "standard": "Standard", "arabic_and_english": "Arabic&English",
+      "arabic_english_table_headers": "Arabic&English 2", "arabic_and_english_3": "Arabic&English 3",
+      "supermarket": "Supermarket", "supermarket2": "Supermarket 2",
+      "supermarket2_bilingual": "Supermarket 2 Bilingual", "supermarkerrecpt3": "Supermarker Recpt3",
+      "bilingual": "Bilingual", "multi_store": "Multi Store",
+      "mobile_shop_tax_invoice": "Mobile Shop Tax Invoice"
+    },
+    "paper_templates": {
+      "classic": "Classic", "simplified_tax_invoice": "Simplified Tax Invoice",
+      "centered_simplified_tax_invoice": "Centered Simplified Tax Invoice",
+      "bilingual_centered_tax_invoice": "Bilingual Centered Tax Invoice",
+      "boxed_bilingual_tax_invoice": "Boxed Bilingual Tax Invoice",
+      "boxed_header_tax_invoice": "Boxed Header Tax Invoice"
+    }
+  }
+}
+```
+
+**How the app applies it**
+
+| Server field | Device preference |
+|---|---|
+| `b2c_paper_size` | `default_paper_size` |
+| `b2c_template` | `billing_receipt_theme` |
+| `b2b_paper_size` | `default_paper_size_b2b` |
+| `b2b_template` | `billing_receipt_theme_b2b` |
+
+- Values are checked against `options`. Thermal sizes (58/80/112 mm) use `thermal_templates`; A4/A5 use `paper_templates`.
+- The server value is applied only where the user has **not** picked a value on this device. At store selection the app forces the server values.
+
+## GET /api/v1/roles/list
+
+**Purpose:** roles with their permission strings. Documented in full on [Auth and session API](/docs/api/auth-and-session#get-apiv1roleslist).
+
+**Query parameters:** `store_id`, `page`.
+
+## GET /api/v1/stores/get-stores
+
+**Purpose:** the company's stores (branches) with address, open/close and cash times, and ZATCA store fields.
+
+**Used by:** startup "store" step, store pickers in reports, stock move, purchase orders; **Offline Data > Stores**.
+
+**Query parameters:** `store_name` (optional search; the app sends it empty).
+
+**Response (200)** (trimmed: 2 of 7 stores, phone masked)
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 2,
+      "name": "متجر النجمة Store",
+      "code": "متجر-النجمة-STORE-",
+      "phone": "<phone>",
+      "email": null,
+      "store_open_time": "09:00:00",
+      "store_close_time": "22:00:00",
+      "cash_open_time": "09:15:00",
+      "cash_close_time": "22:15:00",
+      "state_id": 45,
+      "district_id": 629,
+      "pincode_id": 4858,
+      "local_location_id": 14,
+      "company_id": 2,
+      "mapped_categories": [],
+      "zatca_onboarded": false
+    },
+    {
+      "id": 32,
+      "name": "funzcart2",
+      "code": "FUNZCART2",
+      "store_open_time": null,
+      "mapped_categories": ["22", "241", "..."],
+      "zatca_onboarded": false
+    }
+  ]
+}
+```
+
+Other fields: `streetName`, `buildingNumber`, `plotIdentification`, `citySubdivisionName`, `cityName`, `postalZone`, `zatca_cr_number`, `zatca_serial_number`, `zatca_backend_company_id`, `zatca_environment` (ZATCA Phase 2 store address and onboarding). `store_open_time` is the default opening time for Open Shift.
+
+## GET /api/v1/languages
+
+**Purpose:** languages enabled for the company (for product and category name translations).
+
+**Used by:** product and category forms (Arabic / Malayalam name fields with the translate button).
+
+**Query parameters:** `store_id`.
+
+**Response (200)** (trimmed)
+
+```json
+{
+  "status": "success",
+  "message": "Languages retrieved successfully",
+  "data": [
+    { "id": 1, "name": "English", "code": "en", "type": "ltr", "active": true, "show_in_template": true },
+    { "id": 4, "name": "Arabic", "code": "ar", "type": "rtl", "active": true, "show_in_template": true }
+  ]
+}
+```
+
+## POST /api/v1/translate
+
+**Purpose:** machine-translate a product or category name.
+
+**Used by:** the translate button next to Arabic / Malayalam names on **Add New Category**, **Create New Product** and product details.
+
+**Request body**
+
+```json
+{
+  "target_lang": "ar",
+  "text": "classic chicken bucket"
+}
+```
+
+**Response (200):** `{"success": true, "data": {"translated_text": "..."}}`. When translation fails the app leaves the field unchanged.
+
+## GET /api/v1/get-banks
+
+**Purpose:** company banks and bank accounts, for card/bank payments, expenses and printed bank info.
+
+**Used by:** startup "banks" step.
+
+**Response (200)** (trimmed; account details masked)
+
+```json
+{
+  "status": "success",
+  "message": "Bank List",
+  "data": [
+    {
+      "id": 2,
+      "bank_name": "Al Rajhi Bank",
+      "bank_code": "RJHI",
+      "head_office": "Riyadh",
+      "status": 1,
+      "company_id": 2,
+      "bank_accounts": [
+        {
+          "id": 2,
+          "account_number": "<account number>",
+          "bank_id": 2,
+          "ifsc": "<code>",
+          "swift_code": "<code>",
+          "account_holder_name": "<name>",
+          "iban": "<IBAN>",
+          "status": "active"
+        }
+      ]
+    },
+    { "id": 35, "bank_name": "HDFC Bank", "bank_code": "HDFC", "head_office": "Thiruvananthapuram", "status": 1, "bank_accounts": [] }
+  ]
+}
+```
+
+## GET /api/v1/product/list-units
+
+**Purpose:** product units (id to name) for product, stock and purchase forms.
+
+**Used by:** startup "units" step; **Offline Data > Product units**. Called **without** a locale so unit values stay untranslated.
+
+**Response (200)** (trimmed)
+
+```json
+{
+  "status": "success",
+  "message": "Units found",
+  "data": {
+    "1989": "KG",
+    "1990": "LT",
+    "1991": "DZ",
+    "3310": "PC",
+    "6953": "PCS",
+    "10599": "BOX",
+    "10600": "BAG"
+  }
+}
+```
+
+`data` is an object keyed by unit id.
+
+## Related
+
+- [Settings reference (every code and default)](/docs/pos-app/settings-reference)
+- [Settings and sync](/docs/pos-app/settings-and-sync)
+- [Printing](/docs/pos-app/printing)
+- [Auth and session API](/docs/api/auth-and-session)
+- [Payments, delivery and discounts API](/docs/api/payments-delivery-discounts)
+- [Sync and realtime API](/docs/api/sync-and-realtime)

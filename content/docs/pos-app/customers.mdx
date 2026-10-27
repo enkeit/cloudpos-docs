@@ -1,29 +1,244 @@
 ---
 title: Customers
-description: 'Managing customer profiles, loyalty, and purchase history '
+description: Find, add and edit customers in CloudPOS, read their balance and ledger, manage addresses, loyalty and B2B details.
 ---
+
 # Customers
 
-## Adding a Customer
+Every confirmed sale belongs to a customer. The customer record holds contact details, addresses, the account balance, loyalty card and, for business buyers, VAT and CR numbers.
 
-1. Go to **Customers** from the sidebar.
-2. Tap **Add Customer** and fill in the name, phone, and optional address.
-3. Save. The customer is now searchable from the billing screen.
+You can work with customers in two places:
 
-## Customer Profile
+- **Customers** in the side menu (permission `menu.customers.main.access`).
+- The customer picker in billing (**F3** in Finalize Order).
 
-Tap a customer to open their profile, which shows:
+## Customer list
 
-* **Information** — Name, phone, email, address
-* **Orders** — Full purchase history
-* **Transactions** — Payments and account balance
-* **Loyalty Points** — Earned and redeemed points
-* **Account Book** — Credit/debit ledger if the customer has a running account
+Open **Customers** from the side menu.
 
-## Loyalty Program
+![Customers list](media:customers-list)
+*Customers: search as you type by name, email or phone, filter by balance; Layla Al-Harbi B2C with balance 0.00; View opens the profile; export and Add customer*
 
-Loyalty points are awarded based on rules configured in the Admin Panel. Points can be redeemed as a discount at checkout.
+### Find a customer
 
-## Customer Vouchers
+1. Type in **Name**, **Email** or **Phone**. Results update as you type.
+2. Pick a **Balance** filter: **All**, **Positive (+ve)**, **Negative (-ve)** or **Zero (0)**.
+3. Press **Reset** to clear the filters. Use **Show filters** / **Hide filters** to fold the filter box.
 
-If a customer has vouchers, they appear in the **Vouchers** tab of their profile and can be applied during billing.
+### Columns
+
+| Column | Meaning |
+|---|---|
+| **NO.** | Row number |
+| **CUSTOMER** | Name and email |
+| **BALANCE** | Account balance. Green when 0 or more. Red when below 0 |
+| **PHONE** | Main phone |
+| **TYPE** | **B2C** or **B2B** |
+| **ACTION** | **View** opens the profile |
+
+Other buttons:
+
+- **Add customer** opens the Add New Customer form.
+- **Export to Excel** exports the list with the current filters.
+- **Refresh customers** reloads the list.
+
+### What the balance means
+
+The balance is total credits minus total debits on the customer's ledger.
+
+- **Negative (red)**: the customer owes the store. Example: a credit sale of 300 leaves −300.
+- **Positive (green)**: the store owes the customer. Example: 42.00 kept as customer credit leaves +42.00.
+- **Zero**: nothing is due. Layla's balance is 0.00 after her paid order.
+
+## Add a new customer
+
+You can open the form from **Customers → Add customer**, or from the billing customer picker with **Add New Customer**.
+
+The demo customer is Layla Al-Harbi.
+
+1. Fill in **Customer details**.
+2. Fill in the **Address**.
+3. Fill in **Business details** (shown only when ZATCA Phase 1 is on).
+4. Fill in **Account**: opening balance and payment type.
+5. Press **Submit**.
+
+![Add customer: details and address](media:customer-add-form)
+*Add New Customer: customer details (phone is required and auto-formatted) and address with Pick on Map*
+
+### Customer details
+
+| Field | Required | Notes | Demo value |
+|---|---|---|---|
+| **First Name** | No (yes when editing) | | Layla |
+| **Last Name** | No | | Al-Harbi |
+| **Email Address** | No | Must be a valid email if entered | layla.demo@funzcart.in |
+| **Phone Number** | **Yes** | At least 10 digits. Formatted as you type | 055-123-4567 |
+| **Alternate Phone** | No | | |
+| **Gender** | No | **Male**, **Female** or **Other** | |
+| **Date of Birth** | No | Pick from the calendar | |
+
+The phone is formatted as `123-456-7890` while you type. The dashes are removed when saving. Layla's phone is typed as 055-123-4567 and saved as 0551234567.
+
+Errors you may see: "Phone number is required", "Enter a valid phone number", "Enter a valid email address".
+
+### Address
+
+| Field | Notes | Demo value |
+|---|---|---|
+| **Building / Apartment** | Free text | |
+| **Country** | Free text | |
+| **Street Address** | "Street name, area, locality". **Pick on Map** fills it from a map pin | |
+| **States / Provinces** | List from the server | Makkah |
+| **District / City** | Needs a state first | Jeddah |
+| **Pincode** | Needs a district first | 21442 |
+
+![Add customer: state, city and business details](media:customer-add-business)
+*Add New Customer: state, city, pincode, and business details (B2C or B2B, CR number, VAT number)*
+
+### Business details
+
+This section shows only when the `ZATCA_PHASE_1` setting is on. Without it, every new customer is saved as B2C.
+
+| Field | Notes |
+|---|---|
+| **Customer Type** | **B2C** (consumer) or **B2B** (business). Layla is B2C |
+| **CR Number** | Commercial registration. Required for a new B2B customer ("CR Number is required for B2B") |
+| **VAT Number** | VAT registration. Required for a new B2B customer ("VAT Number is required for B2B") |
+
+Why it matters: ZATCA clears B2B invoices and needs the buyer's VAT and CR numbers. B2C invoices are only reported. See [ZATCA](/docs/pos-app/zatca).
+
+### Account (opening balance)
+
+| Field | Notes | Demo value |
+|---|---|---|
+| **Balance** | Opening balance, up to 2 decimals | 0 |
+| **Payment Type** | **To Pay** or **To Receive**. You must pick one ("Please select a payment type") | To Receive |
+
+- **To Receive**: the store will receive this amount from the customer (the customer owes it).
+- **To Pay**: the store will pay this amount to the customer (the customer has credit).
+
+![Add customer: account](media:customer-add-account)
+*Add New Customer: opening balance with To Pay / To Receive, then Submit*
+
+After **Submit**, the server creates the customer. Layla got customer ID 2767. If you came from billing, the new customer is selected at once.
+
+![New customer selected in billing](media:customer-added)
+*New customer Layla Al-Harbi selected automatically, showing her phone and SAR 0.00 balance*
+
+## Customer profile
+
+Press **View** on a row to open **Customer Profile**. The left side has a profile card and these tabs:
+
+| Tab | What it shows |
+|---|---|
+| **Information** | Contact, account and store details |
+| **Edit Details** | The same form as Add, to change details |
+| **Transactions** | The customer's ledger |
+| **All Orders** | The customer's orders |
+| **Customer Address** | Saved delivery addresses |
+| **Loyalty Card** | Loyalty card and points |
+| **Chat** | Messages with the customer |
+
+![Customer profile](media:customer-profile)
+*Customer Profile: tabs Information, Edit Details, Transactions, All Orders, Customer Address, Loyalty Card, Chat; contact, account (balance, payment type, loyalty points, member since) and store information*
+
+### Information
+
+- Contact: **Email**, **Phone**, **Alt Phone**, **Gender**, **Date of Birth**.
+- Account: **Balance**, **Payment Type**, **Loyalty Points**, **Member Since**, **Total Orders**.
+- Store: **Store Name**, **Company ID**.
+- Quick actions: **Edit Customer**, **View Orders**, **Message**.
+
+### Edit Details
+
+1. Change the fields you need.
+2. Press **Save Changes**. If nothing changed you see a "no changes" message.
+3. **Change Password** sends the customer a password reset link (for the online store account).
+
+When editing, **First Name** and **Phone Number** are required. The balance is shown without a sign; the payment type gives the direction.
+
+### Transactions (ledger)
+
+The top strip shows **Total credit** (green), **Total debit** (red) and **Net**. Below it, each ledger line shows **REFERENCE**, **DATE**, **TYPE**, **PAYMENT METHOD**, **AMOUNT**, **STATUS** and **ACTION** (**View**). Filter by **Date range**.
+
+![Customer transactions tab](media:customer-transactions-tab)
+*Customer Profile > Transactions: total credit, total debit and net, then each ledger line (invoice debit, receipt credits per payment method, sales return credit, refund voucher debit) with View*
+
+Layla's ledger after the demo:
+
+| Entry | Type | Amount |
+|---|---|---|
+| Invoice INV-OR1002060 for ORD-004851 | Debit | 658.00 |
+| Receipt, card | Credit | 400.00 |
+| Receipt, cash | Credit | 258.00 |
+| Sales return (1 × classic chicken bucket) | Credit | 220.00 |
+| Refund voucher, cash | Debit | 220.00 |
+
+Total credit 878.00, total debit 878.00, net 0.00.
+
+How to read it:
+
+- A sale adds a **Debit** (the customer owes the invoice).
+- A payment adds a **Credit** (one line per payment method).
+- A sales return adds a **Credit**. A cash refund then adds a **Debit**.
+
+### All Orders
+
+Lists the customer's orders with **ORDER #**, **DATE**, **ITEMS**, **TOTAL**, **PAYMENT** and **STATUS**. Open one to see its lines.
+
+### Customer Address
+
+Saved delivery addresses. Each has an **Address Type** (Home, Office or Other), **Address**, **Landmark**, **State**, **District**, **City** and **Pincode**.
+
+1. Add an address, fill the fields, press **Save Address**.
+2. Edit one and press **Update Address**.
+
+These addresses appear under **Choose an address:** when you pick Door Delivery in billing.
+
+### Loyalty Card
+
+Shows **Card Number**, **Membership**, **Membership Code**, **Valid From**, **Valid Until**, **Card Status**, **Loyalty Points**, **Min Redeemable Points** and **Price Per Point**. If there is no card you see "No loyalty card information available".
+
+The company prop `PER_POINT_PRICE` (default 100) sets how much spend earns one point.
+
+### Chat
+
+A message thread with the customer. Type a message and press send.
+
+## Customers in billing
+
+- The header shows the selected customer's name, phone and **Balance**.
+- Finalize Order shows **Previous balance** in the order summary.
+- When `SHOW_CUSTOMER_LAST_BUYED_PRICE_LIST` is on, each cart row has a history icon (or press **H**). It shows the last prices this customer paid for the product. **Use This** applies an old price.
+- When `AUTO_ASSIGN_DEFAULT_CUSTOMER` is on, a walk-in customer is chosen for you. Purchase history is not shown for that customer.
+- When `SKIP_CUSTOMER_SELECTION` is on, the customer step in checkout is skipped.
+
+See [Billing](/docs/pos-app/billing).
+
+## Other customer reports
+
+- **Party Accounts → Customer Transactions**: every customer debit and credit across all customers. See [Transactions and accounts](/docs/pos-app/transactions-and-accounts).
+- **Reports → Customer Transaction Reports**: total debit, credit and balance per customer. See [Reports](/docs/pos-app/reports).
+
+## How it works
+
+- The list and the billing picker both use `customer/customer-searchbar`. The search covers name, email and phone.
+- New customers are created with `customer/add-customer` in the active store. The fields sent include `phone` (digits only), `name` (first + last), `email`, `address`, `pincode`, `city` (district id), `state` (state id), `country`, `balance`, `payment_type` (`to_pay` or `to_receive`), `alt_phone`, `gender`, `dob`, `customer_type` (`B2C` or `B2B`), `cr_number`, `vat_number`.
+- Edits use `customer/customer-edit` and send only the changed fields.
+- Addresses use `customer/executive-add-address` and `customer/executive-update-address`.
+- States, districts and pincodes come from `location/get-states`, `location/get-district` and `location/list-pincodes`.
+- The ledger comes from `transaction/list-transactions?customer_id=…`. Balance = sum of credits − sum of debits.
+- The last purchase prices come from `customer/customer-last-purchases`.
+- Customers are cached on the device for offline billing (Settings → Offline Data).
+
+## Related
+
+- API: [Customers](/docs/api/customers)
+- API: [Transactions, invoices and receipts](/docs/api/transactions-invoices-receipts)
+- API: [ZATCA](/docs/api/zatca)
+- [Billing](/docs/pos-app/billing)
+- [Payments and tax](/docs/pos-app/payments-and-tax)
+- [Sales returns](/docs/pos-app/sales-returns)
+- [Transactions and accounts](/docs/pos-app/transactions-and-accounts)
+- [Reports](/docs/pos-app/reports)
+- [ZATCA](/docs/pos-app/zatca)

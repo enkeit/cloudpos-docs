@@ -1,0 +1,347 @@
+---
+title: Sync and Realtime API
+description: How the POS app keeps its offline data current and sends sales - offline data sync targets, the sync/changes delta feed, the Reverb websocket channel and data.changed events, offers/pos-sync, and local-first sale submission with receipt identity fields.
+---
+
+# Sync and Realtime API
+
+The POS app is **offline-first**. It keeps products, stock, customers and settings on the device so billing works without internet, and it sends confirmed sales to the server in the background. This page explains the four mechanisms that keep the device and the server in step:
+
+1. **Offline data sync** - full downloads of each dataset (startup sync, **Settings > Offline Data**, **Resync Products**).
+2. **Realtime sync** - a websocket that tells the device "something changed", followed by a pull from `sync/changes`.
+3. **Offer sync** - `offers/pos-sync` downloads offer rules so offer prices work offline.
+4. **Local-first sale submission** - confirmed sales get a receipt identity on the device and are uploaded with `order/add-to-order`.
+
+All HTTP calls send `X-Tenant` and `Authorization: Bearer <access-token>`.
+
+## 1. Offline data sync targets
+
+**Settings > Offline Data** lists what is cached on the device, with a **Sync** and **Clear** button per row and **Sync All**. Each row calls these endpoints:
+
+| Offline Data row | Endpoint(s) |
+|---|---|
+| Sellable products | `GET product/executive/list-products?type=sellable` |
+| Sellable categories | `GET category/list-category?type=sellable` (with `store_id`) |
+| Stock quantities | `GET product/list-stocks` |
+| Payment methods | `GET transaction/get-payment-methods` |
+| Delivery methods | `GET logistics/list-delivery-methods` |
+| Document configurations | `GET document/document-configs?store_id=` |
+| Customers | `GET customer/customer-searchbar` |
+| Suppliers | `GET get-suppliers` |
+| Stores | `GET stores/get-stores` |
+| Product units | `GET product/list-units` |
+| Rack master data | `GET master-data-values?code=RACKS` |
+| General settings | `GET general` |
+| App / website settings | `GET website-settings` |
+| Roles and permissions | `GET roles/list?store_id=` |
+
+**Settings > Resync Products** reloads the product catalogue. **Last Product Sync** shows the time of the last full product download (device preference `last_product_sync_iso`). The demo device had 1430 products cached.
+
+Product responses include `deleted_product_ids` so removed products disappear from the device.
+
+## 2. Realtime sync
+
+Realtime sync starts at the end of the startup sync ("realtime sync" step) and runs while the app is open and online.
+
+### How it works
+
+1. The app opens a websocket to the company's Laravel Reverb server (Pusher protocol 7).
+2. It authorises the private channel `private-company.<company_id>.sync` (demo: `private-company.2.sync`).
+3. The server pushes a small `data.changed` event when a customer, product, stock row, order or offer changes on the web side.
+4. The app waits 500 ms for more events (debounce), then calls `GET sync/changes` with its last cursor.
+5. For each entity with changes, it downloads only the changed rows (using `updated_at_range`), updates the local cache, and saves the new cursor.
+
+If the socket drops, the app reconnects with growing delays (1, 2, 4 ... up to 30 seconds) and always pulls `sync/changes` after reconnecting, because events sent while the socket was down are not replayed.
+
+**Cart protection:** product and stock changes are not applied while a cart is open on the device; the status shows "waiting for cart" and the pull is retried after the cart is finished. Offer changes are applied immediately.
+
+### Websocket connection
+
+```
+wss://<reverb host>:443/app/<reverb app key>?protocol=7&client=flutter&version=1.0
+```
+
+- The host defaults to your tenant domain host. Host, port (default 443), TLS (default on) and the app key are build settings (`REVERB_HOST`, `REVERB_PORT`, `REVERB_USE_TLS`, `REVERB_APP_KEY`), set by your CloudPOS provider when the app is built.
+- Frames used: `pusher:connection_established` (gives `socket_id`), `pusher:subscribe`, `pusher_internal:subscription_succeeded`, `pusher:ping` / `pusher:pong`, `pusher:error`, `data.changed`.
+
+### POST `{{server}}/api/broadcasting/auth`
+
+**Purpose:** authorise the private sync channel.
+
+**Headers:** `X-Tenant`, `Content-Type: application/json`, `Accept: application/json`. Note the path has no `/v1`.
+
+**Request body**
+
+```json
+{
+  "socket_id": "<socket id from connection_established>",
+  "channel_name": "private-company.2.sync"
+}
+```
+
+**Response (200)**
+
+```json
+{
+  "auth": "<channel signature>"
+}
+```
+
+A 401 or 403 stops realtime sync with an authentication error (shown in Settings). Other errors are retried.
+
+### Event `data.changed`
+
+```json
+{
+  "event": "data.changed",
+  "channel": "private-company.2.sync",
+  "data": {
+    "entity": "products",
+    "action": "updated",
+    "id": 12416,
+    "company_id": 2,
+    "store_id": 2,
+    "changed_at": "2026-10-27T15:02:11+03:00"
+  }
+}
+```
+
+- `entity`, `action`, `id` and `company_id` are required. Events for another company, or for another store when `store_id` is set, are ignored.
+- The event is only a signal. The app always fetches the actual data through `sync/changes`.
+
+### GET /api/v1/sync/changes
+
+**Purpose:** list ids of everything that changed after the device's last sync.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `since` | ISO 8601 date-time | no | The `synced_at` from the previous pull. When empty, every id is returned as upserted (a full resync); deleted ids are those soft-deleted |
+| `store_id` | integer | no | Active store. Only **orders** are filtered by store; customers, products, stocks and offers are company-wide |
+
+**Response (200)**
+
+```json
+{
+  "success": true,
+  "synced_at": "2026-10-27T15:02:12+03:00",
+  "changes": {
+    "customers": { "upserted": [2767], "deleted": [] },
+    "products": { "upserted": [12416], "deleted": [] },
+    "stocks": { "upserted": [], "deleted": [] },
+    "orders": { "upserted": [7037], "deleted": [] },
+    "offers": { "upserted": [], "deleted": [] }
+  }
+}
+```
+
+- The window is `since < changed_at <= synced_at`. Rows written during the request appear in the next pull.
+- `synced_at` is in the company time zone (demo: +03:00, Asia/Riyadh). The app stores it per company and store as the next cursor.
+- An invalid tenant returns 401 `{"success": false, "message": "Invalid tenant."}`.
+
+### Fetching changed rows
+
+After a pull, the app re-downloads only changed rows by adding `updated_at_range=<from>,<to>` (the previous and new `synced_at`) to the normal list endpoints:
+
+| Entity | Endpoint |
+|---|---|
+| products | `GET product/executive/list-products?store_id=&page=&per_page=&updated_at_range=` |
+| customers | `GET customer/customer-searchbar?store_id=&page=1&per_page=&updated_at_range=` |
+| stocks | `GET product/list-stocks?store_id=&page=&per_page=&updated_at_range=` |
+
+If a server does not support `updated_at_range`, the app falls back to a full download of that entity.
+
+### GET /api/v1/orders
+
+The backend also offers `GET /api/v1/orders?ids=<comma list>&store_id=` to fetch up to **200** changed orders at once (tenant-scoped by `X-Tenant`). An empty list returns "No order ids given."; more than 200 returns "Too many order ids; maximum is 200 per request."
+
+## 3. Offer sync
+
+### GET /api/v1/offers/pos-sync
+
+**Purpose:** download product and category offer rules for this store, so offer prices apply offline. Used only when the website setting **POS_OFFERS** is on.
+
+**Used by:** startup (cached offers load first), realtime offer changes, and manual sync.
+
+**Query parameters**
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `store_id` | integer | yes | Active store (must belong to the company, else 403) |
+| `since` | ISO 8601 (UTC) | no | Last `synced_at`; omit for a full snapshot |
+| `page` | integer | no | Next page, when the server pages the result |
+
+**Response (200)**
+
+```json
+{
+  "success": true,
+  "server_time": "2026-10-27T12:02:12+00:00",
+  "synced_at": "2026-10-27T12:02:12+00:00",
+  "company_timezone": "Asia/Riyadh",
+  "full_snapshot": true,
+  "selection": [
+    "product_before_category",
+    "store_specific_first",
+    "stock_specific_first",
+    "nearest_category_first",
+    "newest_line_first"
+  ],
+  "offers": [
+    {
+      "id": 15,
+      "name": "Weekend bucket offer",
+      "store_id": 2,
+      "target_type": "product",
+      "category_id": null,
+      "valid_from": "2026-10-24T00:00:00+03:00",
+      "valid_until": "2026-10-28T00:00:00+03:00",
+      "enabled": true,
+      "source_types": ["executive"],
+      "base_unit_only": true,
+      "lines": [
+        {
+          "line_id": 41,
+          "product_id": 12416,
+          "stock_id": null,
+          "type": "percentage",
+          "value": 10.0,
+          "min_margin_price": 0.0,
+          "min_margin_percentage": 0.0
+        }
+      ],
+      "version": 1
+    }
+  ],
+  "removed_offer_ids": []
+}
+```
+
+The offer values above are illustrative; the field names are exact.
+
+**Rules**
+
+- `selection` is the order of precedence when several offers match a line: product before category, store-specific before company-wide, stock-batch-specific before product-wide, nearest category first, newest line first. **Exactly one offer wins; offers never stack.**
+- `type` is `percentage` or `flat_amount`. Prices never go below the product's minimum margin (`min_margin_price` / `min_margin_percentage`).
+- `base_unit_only: true` - offers apply to base-unit lines only (not pack/box sale units). A wholesale price beats an offer.
+- For category offers, each line carries `category_distance` (0 = the offer's own category).
+- Only offers whose `valid_until` is in the future are returned. `removed_offer_ids` lists offers to delete from the device.
+- When **POS_OFFERS** is off on the server, `offers` is empty and `full_snapshot` is `true`.
+- A sale that used an offer sends `offer_id` and `offer_version` on the line so the server keeps the price that was printed.
+
+## 4. Local-first sale submission
+
+### Offline-first vs online-first
+
+The website setting **POS_OFFLINE_SALES** chooses the mode (default **on**).
+
+| Mode | What happens on Confirm |
+|---|---|
+| Offline-first (`POS_OFFLINE_SALES` on) | The sale is saved on the device with a receipt identity, the receipt prints immediately, the cart clears, and the sale is sent once in the background |
+| Online-first (`POS_OFFLINE_SALES` off) | The app waits for the server. Synced: clear cart and print. Rejected: keep the cart so you can fix it. Unclear (timeout): clear without printing and flag the sale for review |
+
+Sales that did not reach the server, or whose result is unclear, are listed in **Sales > Confirmed Orders** (Sync attention). From there staff can **Sync with Database**, retry, view the sync log, or dismiss. There is **no automatic retry**.
+
+### Receipt identity
+
+Every confirmed sale gets, on the device:
+
+| Field | Example | Rule |
+|---|---|---|
+| `receipt_number` | `2-11-261027-0003` | `store-counter-YYMMDD-sequence`: store id 2, counter 11, 27 Oct 2026, 3rd bill of the day on this counter |
+| `client_sale_id` | UUIDv7 | Unique id used by the server to detect duplicates |
+| `issued_at` | ISO date-time | When the sale was confirmed |
+| `pos_device_id` | device id | From **Settings > POS Counter Identity** |
+| `counter_number` | `11` | Counter 1-999, unique per store |
+
+The counter number is shown with at least two digits (counter 3 prints as `03`). The daily sequence can be set up to 99999 with the "last bill" override after a reinstall.
+
+### POST /api/v1/order/add-to-order (completed sale)
+
+The full order endpoint is documented on [Cart and orders API](/docs/api/cart-and-orders). A **completed sale** (new order, `source_type: executive`, with a store and the full receipt identity) adds snapshot fields so the server stores exactly what was printed instead of re-pricing it.
+
+**Request body** (demo story sale, trimmed to the key fields)
+
+```json
+{
+  "items": [
+    {
+      "product_id": 12423,
+      "quantity": 1,
+      "price": 218.0,
+      "mrp": 230.0,
+      "stock_id": 5501,
+      "warranty_enabled": false,
+      "standard_unit_price": 218.0,
+      "item_discount_amount": 0.0,
+      "tax_rate": 18.0,
+      "tax_amount": 33.25,
+      "total_price": 218.0
+    },
+    {
+      "product_id": 12420,
+      "quantity": 2,
+      "price": 220.0,
+      "mrp": 250.0,
+      "stock_id": 5500,
+      "warranty_enabled": false,
+      "standard_unit_price": 220.0,
+      "item_discount_amount": 0.0,
+      "tax_rate": 18.0,
+      "tax_amount": 67.12,
+      "total_price": 440.0
+    }
+  ],
+  "pricing_mode": "completed_sale",
+  "delivery_tax_amount": 0,
+  "grand_total": 658.0,
+  "round_off": 0.0,
+  "tax_total": 100.37,
+  "client_sale_id": "<uuid v7>",
+  "receipt_number": "2-11-261027-0003",
+  "issued_at": "2026-10-27T14:40:00+03:00",
+  "pos_device_id": "<device id>",
+  "counter_number": 11,
+  "phone": "0551234567",
+  "customer_id": 2767,
+  "transaction_number": "",
+  "payment_method": ["<CARD id>", "<CASH id>"],
+  "paid_methods": [
+    { "method": "<CARD id>", "amount": 400.0 },
+    { "method": "<CASH id>", "amount": 258.0 }
+  ],
+  "source_type": "executive",
+  "balance": "0",
+  "delivery_method_id": "<Store Takeaway id>",
+  "delivery_charge": 0,
+  "store_id": 2
+}
+```
+
+Product, stock and method ids above are placeholders; amounts are the demo story numbers.
+
+**Field notes**
+
+- `items` are sent in **reverse cart order** (the backend expects that).
+- Completed-sale line fields: `standard_unit_price` (price before offer or manual change), `item_discount_amount`, `discount_origin` (`offer` or `manual`), `offer_id`, `offer_version`, offer name/type/value, `tax_rate`, `tax_amount` (tax inside the tax-inclusive line), `total_price`. Other orders (saved, restaurant) omit these and are priced by the server.
+- Multi payment sends `payment_method` as a list plus `paid_methods[]`. Single payment sends one `payment_method` and `paid_amount`.
+- **Change is taken out of cash.** In the demo the customer paid card 400 + cash 300 = 700 for 658.00; the 42.00 change is deducted from the first cash (or COD) entry, so the server stores cash 258 + card 400 = 658.
+- `to_customer_credit: true` keeps the excess as customer credit instead of change (**Excess Amount** toggle).
+- A credit sale sends the unpaid remainder as `balance` (posted to the customer account).
+- Other optional fields: `coupon_id`/`coupon_code`, `flat_discount`, `percentage_discount`, `discount_amount`, `delivery_date`, `delivery_time`, `table_id`, `car_number`, `address`, `address_id`, `pincode`, `quotation_id`, `comment`, `status`, `whatsapp_receipt: true` (Confirm & Whatsapp only).
+- `round_off` is sent when **PRICE_ROUND_OFF** rounded the total.
+
+**Response:** `data` with `order_id`, `order_number` (for example `ORD-004851`), `cart_id`, `customer_id`, `store_id`, `payment_id`, `price`, `order_date`. The app links the local sale to this order number; the receipt number stays the printed reference.
+
+Restaurant and attender orders that already exist on the server are confirmed with `POST order/update-order` using the same identity and payment fields (without `items`).
+
+## Related
+
+- [Settings and sync](/docs/pos-app/settings-and-sync)
+- [Billing](/docs/pos-app/billing) - confirm buttons and offline vs online-first
+- [Sales and orders](/docs/pos-app/sales-and-orders) - Confirmed Orders (Sync attention)
+- [Payments and tax](/docs/pos-app/payments-and-tax) - offers precedence
+- [Troubleshooting FAQ](/docs/pos-app/troubleshooting-faq)
+- [Cart and orders API](/docs/api/cart-and-orders)
+- [Settings and master data API](/docs/api/settings-and-master-data)
