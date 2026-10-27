@@ -16,8 +16,8 @@
   "vectorize": [{ "binding": "DOCS_INDEX", "index_name": "cloudpos-docs-v1" }],
   "kv_namespaces": [{ "binding": "KV", "id": "0199946e7d4a4d0991d810aca7087544" }],
   "ratelimits": [
-    // Public demo chat, per visitor IP.
-    { "name": "DEMO_LIMITER", "namespace_id": "41001", "simple": { "limit": 8, "period": 60 } },
+    // Guest (docs support) chat, per visitor IP.
+    { "name": "GUEST_LIMITER", "namespace_id": "41001", "simple": { "limit": 8, "period": 60 } },
     // Signed-in tenant chat, per tenant user.
     { "name": "LIVE_LIMITER", "namespace_id": "41002", "simple": { "limit": 30, "period": 60 } },
     // Sign-in attempts, per IP.
@@ -28,7 +28,7 @@
     "FALLBACK_MODEL": "@cf/openai/gpt-oss-120b",
     "AI_GATEWAY_ID": "cloudpos-ai",
     "DOCS_BASE_URL": "https://cloudpos-docs.enkedevelopment-427.workers.dev",
-    "DEMO_DAILY_LIMIT": "1500",
+    "GUEST_DAILY_LIMIT": "1500",
     "ALLOWED_ORIGINS": "https://cloudpos-docs.enkedevelopment-427.workers.dev"
   },
   // Secrets (wrangler secret put): SESSION_SECRET, ADMIN_TOKEN

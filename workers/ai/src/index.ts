@@ -2,7 +2,7 @@
 //
 //   GET  /                     web chat (static assets in ../public)
 //   GET  /api/health           liveness + config summary
-//   GET  /api/info             store info for the demo or a live session
+//   GET  /api/info             signed-in store info (null for guests) + suggestions
 //   POST /api/session/login    tenant key + email + password → sealed session
 //   POST /api/session/store    switch the active store of a session
 //   POST /api/chat             SSE stream of agent events
@@ -11,7 +11,6 @@
 import { runAgent, type AgentEvent, type ChatTurn } from "./agent.ts";
 import { embed, embeddingText, searchDocs, type DocChunk } from "./docs.ts";
 import { openSession, sealSession } from "./session.ts";
-import { DemoSource } from "./sources/demo.ts";
 import { LiveApiError, LiveSource, signIn, type LiveSession } from "./sources/live.ts";
 import type { DataSource } from "./sources/types.ts";
 
@@ -24,8 +23,20 @@ const SUGGESTIONS = {
     "Show revenue by category for the last 30 days",
     "Who are my best customers this month?",
   ],
-  docs: ["How do I set up a receipt printer?", "How does kiosk mode work?", "كيف أضيف منتجًا جديدًا؟"],
+  docs: [
+    "How do I set up a receipt printer?",
+    "How does kiosk mode work?",
+    "How do I add a new product?",
+    "How do I set up loyalty points for customers?",
+    "How do I print a daily sales report?",
+    "كيف أضيف منتجًا جديدًا؟",
+  ],
 };
+
+/** Guests see only how-to suggestions; analysis needs a signed-in store. */
+function suggestionsFor(signedIn: boolean) {
+  return signedIn ? SUGGESTIONS : { analysis: [], docs: SUGGESTIONS.docs };
+}
 
 function json(data: unknown, status = 200, headers: HeadersInit = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -71,19 +82,20 @@ function bearer(request: Request): string | null {
   return h.startsWith("Bearer ") ? h.slice(7).trim() : null;
 }
 
-async function sourceFor(request: Request, env: Env): Promise<{ source: DataSource; session: LiveSession | null } | Response> {
+/** Guests (no token) get no data source at all: docs support only. */
+async function sourceFor(request: Request, env: Env): Promise<{ source: DataSource | null; session: LiveSession | null } | Response> {
   const token = bearer(request);
-  if (!token) return { source: new DemoSource(), session: null };
+  if (!token) return { source: null, session: null };
   const session = await openSession(token, env.SESSION_SECRET);
   if (!session) return json({ error: "Your session has expired. Please sign in again.", code: "session_expired" }, 401);
   return { source: new LiveSource(session), session };
 }
 
-/** Rough global ceiling on public demo usage so a bot can't run up the bill. */
-async function demoBudgetLeft(env: Env): Promise<boolean> {
-  const limit = Number(env.DEMO_DAILY_LIMIT ?? "0");
+/** Rough global ceiling on public guest usage so a bot can't run up the bill. */
+async function guestBudgetLeft(env: Env): Promise<boolean> {
+  const limit = Number(env.GUEST_DAILY_LIMIT ?? "0");
   if (!limit || !env.KV) return true;
-  const key = `demo-count:${new Date().toISOString().slice(0, 10)}`;
+  const key = `guest-count:${new Date().toISOString().slice(0, 10)}`;
   const used = Number((await env.KV.get(key)) ?? "0");
   if (used >= limit) return false;
   await env.KV.put(key, String(used + 1), { expirationTtl: 172_800 });
@@ -107,12 +119,12 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
   if (resolved instanceof Response) return resolved;
   const { source, session } = resolved;
 
-  const limitKey = session ? `live:${session.domain}:${session.user ?? ""}` : `demo:${clientIp(request)}`;
-  if (!isAdmin && !(await allowed(session ? env.LIVE_LIMITER : env.DEMO_LIMITER, limitKey))) {
+  const limitKey = session ? `live:${session.domain}:${session.user ?? ""}` : `guest:${clientIp(request)}`;
+  if (!isAdmin && !(await allowed(session ? env.LIVE_LIMITER : env.GUEST_LIMITER, limitKey))) {
     return json({ error: "Too many messages. Please wait a minute and try again." }, 429);
   }
-  if (!session && !isAdmin && !(await demoBudgetLeft(env))) {
-    return json({ error: "The public demo has reached today's limit. Please try again tomorrow." }, 429);
+  if (!session && !isAdmin && !(await guestBudgetLeft(env))) {
+    return json({ error: "The help assistant has reached today's limit. Please try again tomorrow or sign in." }, 429);
   }
 
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
@@ -219,11 +231,14 @@ export default {
         response = json({ ok: true, model: env.CHAT_MODEL, docs: !!env.DOCS_INDEX, gateway: env.AI_GATEWAY_ID || null });
       } else if (url.pathname === "/api/info" && request.method === "GET") {
         const resolved = await sourceFor(request, env);
-        response = resolved instanceof Response ? resolved : json({ info: await resolved.source.info(), stores: resolved.session?.stores ?? [], suggestions: SUGGESTIONS });
+        response =
+          resolved instanceof Response
+            ? resolved
+            : json({ info: resolved.source ? await resolved.source.info() : null, stores: resolved.session?.stores ?? [], suggestions: suggestionsFor(!!resolved.source) });
       } else if (url.pathname === "/api/docs/search" && request.method === "GET") {
         const q = (url.searchParams.get("q") ?? "").trim().slice(0, 300);
         if (!q || !env.DOCS_INDEX) response = json({ results: [] });
-        else if (!(await allowed(env.DEMO_LIMITER, `docs:${clientIp(request)}`))) response = json({ error: "Too many requests." }, 429);
+        else if (!(await allowed(env.GUEST_LIMITER, `docs:${clientIp(request)}`))) response = json({ error: "Too many requests." }, 429);
         else response = json({ results: (await searchDocs(env.AI, env.DOCS_INDEX, q, 5, 0)).map((h) => ({ ...h, link: `${env.DOCS_BASE_URL}${h.url}` })) });
       } else if (url.pathname === "/api/session/login" && request.method === "POST") {
         response = await handleLogin(request, env);

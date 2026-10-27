@@ -5,13 +5,11 @@ import { cleanAnswer, readModelOutput, runAgent, type AgentEvent } from "../src/
 import { chunkMdx, urlForDocPath } from "../src/docs.ts";
 import { calendarContext, previousRange, resolvePeriod } from "../src/period.ts";
 import { openSession, sealSession } from "../src/session.ts";
-import { DemoSource } from "../src/sources/demo.ts";
 import { LiveSource, normalizeDomain, parseApiDate, signIn } from "../src/sources/live.ts";
-import { runTool, TOOL_SPECS, type ToolContext } from "../src/tools.ts";
+import { DOCS_TOOL_SPECS, runTool, TOOL_SPECS, type ToolContext } from "../src/tools.ts";
+import { FixtureSource } from "./fixture-source.ts";
 
-// 2026-10-27 is a Tuesday; 10:30 Riyadh time.
-const NOW = new Date("2026-10-27T07:30:00Z");
-const demo = () => new DemoSource(() => NOW);
+const store = () => new FixtureSource();
 const SECRET = "test-secret-0123456789abcdefghijklmnopqrstuv";
 
 test("periods resolve Monday-based weeks and months", () => {
@@ -24,49 +22,6 @@ test("periods resolve Monday-based weeks and months", () => {
   assert.deepEqual(resolvePeriod("custom", today, { from: "2026-10-10", to: "2026-10-01" }), { from: "2026-10-01", to: "2026-10-10", label: "2026-10-01 to 2026-10-10" });
   assert.deepEqual(previousRange(resolvePeriod("last_week", today)), { from: "2026-10-12", to: "2026-10-18", label: "Previous 7 days" });
   assert.match(calendarContext(today), /Tuesday 2026-10-27/);
-});
-
-test("demo data is deterministic and internally consistent", async () => {
-  const range = resolvePeriod("last_30_days", "2026-10-27");
-  const [a, b] = [await demo().salesSummary(range), await demo().salesSummary(range)];
-  assert.deepEqual(a, b);
-  assert.ok(a.orders > 1000 && a.revenue > 20000, `unexpected volume ${a.orders} / ${a.revenue}`);
-
-  const trend = await demo().salesTrend(range, "day");
-  assert.equal(trend.length, 30);
-  const trendTotal = trend.reduce((s, p) => s + p.revenue, 0);
-  assert.ok(Math.abs(trendTotal - a.revenue) < 1, "trend sums to summary");
-  assert.equal(trend.reduce((s, p) => s + p.orders, 0), a.orders);
-
-  const payTotal = a.paymentMethods!.reduce((s, p) => s + p.amount, 0);
-  assert.ok(Math.abs(payTotal - a.revenue) < 1, "payment methods sum to revenue");
-
-  const cats = await demo().categoryBreakdown(range);
-  assert.ok(Math.abs(cats.reduce((s, c) => s + c.share, 0) - 1) < 0.02);
-
-  const top = await demo().topProducts(range, 5, "revenue");
-  assert.equal(top.length, 5);
-  assert.ok(top[0].revenue >= top[4].revenue);
-  const worst = await demo().topProducts(range, -3, "revenue");
-  assert.ok(worst[0].revenue <= worst[2].revenue);
-});
-
-test("demo excludes future hours of today", async () => {
-  const today = await demo().salesSummary({ from: "2026-10-27", to: "2026-10-27", label: "Today" });
-  const yesterday = await demo().salesSummary({ from: "2026-10-26", to: "2026-10-26", label: "Yesterday" });
-  assert.ok(today.orders < yesterday.orders, "only the morning of today has happened");
-  const { hourly } = await demo().timePatterns({ from: "2026-10-27", to: "2026-10-27", label: "Today" });
-  assert.ok(hourly.every((h) => h.hour <= 10));
-});
-
-test("demo stock filters", async () => {
-  const low = await demo().stock("low", 50);
-  assert.ok(low.rows.length > 0 && low.rows.every((r) => r.status !== "ok"));
-  const out = await demo().stock("out", 50);
-  assert.ok(out.rows.every((r) => r.status === "out"));
-  assert.equal(out.rows.length, out.totals.out);
-  const search = await demo().stock("all", 50, "milk");
-  assert.deepEqual(search.rows.map((r) => r.name), ["Fresh Milk 2L"]);
 });
 
 test("sessions round-trip and reject tampering, wrong keys and expiry", async () => {
@@ -177,8 +132,8 @@ test("model output normalisation", () => {
   assert.equal(cleanAnswer("<think>secret</think>\nAnswer"), "Answer");
 });
 
-test("every tool runs against the demo store", async () => {
-  const ctx: ToolContext = { source: demo(), ai: {} as Ai, docsBaseUrl: "https://docs" };
+test("every tool runs against a signed-in store", async () => {
+  const ctx: ToolContext = { source: store(), ai: {} as Ai, docsBaseUrl: "https://docs" };
   for (const spec of TOOL_SPECS) {
     const out = await runTool(spec.function.name, { period: "last_30_days", filter: "low", query: "printer" }, ctx);
     assert.ok(out.result, spec.function.name);
@@ -201,7 +156,7 @@ test("agent runs tools then answers, streaming visuals", async () => {
     },
   } as unknown as Ai;
   const events: AgentEvent[] = [];
-  await runAgent({ ai, model: "m", ctx: { source: demo(), ai, docsBaseUrl: "" }, history: [{ role: "user", content: "hi" }, { role: "assistant", content: "hello" }], message: "top products?", emit: (e) => void events.push(e) });
+  await runAgent({ ai, model: "m", ctx: { source: store(), ai, docsBaseUrl: "" }, history: [{ role: "user", content: "hi" }, { role: "assistant", content: "hello" }], message: "top products?", emit: (e) => void events.push(e) });
   assert.equal(calls.length, 2);
   assert.ok(calls[1].messages.some((m: any) => m.role === "tool" && m.tool_call_id === "c1"));
   assert.deepEqual(events.filter((e) => e.type !== "status").map((e) => e.type), ["tool", "visual", "answer"]);
@@ -218,7 +173,33 @@ test("agent falls back to the second model when the first one fails", async () =
     },
   } as unknown as Ai;
   const events: AgentEvent[] = [];
-  await runAgent({ ai, model: "primary", fallbackModel: "backup", ctx: { source: demo(), ai, docsBaseUrl: "" }, history: [], message: "hi", emit: (e) => void events.push(e) });
+  await runAgent({ ai, model: "primary", fallbackModel: "backup", ctx: { source: store(), ai, docsBaseUrl: "" }, history: [], message: "hi", emit: (e) => void events.push(e) });
   assert.deepEqual(used, ["primary", "backup"]);
   assert.equal((events.at(-1) as any).text, "ok");
+});
+
+test("guests only get docs search; data tools require sign-in", async () => {
+  assert.deepEqual(DOCS_TOOL_SPECS.map((t) => t.function.name), ["search_docs"]);
+  const guest: ToolContext = { source: null, ai: {} as Ai, docsBaseUrl: "" };
+  for (const spec of TOOL_SPECS.filter((t) => t.function.name !== "search_docs")) {
+    const out = await runTool(spec.function.name, { period: "last_week" }, guest);
+    assert.deepEqual((out.result as any).sign_in_required, true, spec.function.name);
+    assert.equal(out.visuals, undefined);
+  }
+});
+
+test("guest chat offers only docs search and a no-figures prompt", async () => {
+  const calls: any[] = [];
+  const ai = {
+    run: async (_m: string, input: any) => {
+      calls.push(input);
+      return { choices: [{ message: { content: "Please sign in to see your sales." } }] };
+    },
+  } as unknown as Ai;
+  await runAgent({ ai, model: "m", ctx: { source: null, ai, docsBaseUrl: "" }, history: [], message: "What were my sales?", emit: () => {} });
+  assert.deepEqual(calls[0].tools.map((t: any) => t.function.name), ["search_docs"]);
+  const system = calls[0].messages[0].content as string;
+  assert.match(system, /not signed in/);
+  assert.match(system, /Never state, estimate or make up/);
+  assert.doesNotMatch(system, /Store: /);
 });

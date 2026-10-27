@@ -62,8 +62,13 @@ svg { display: block; }
   font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
   background: var(--accent-soft); color: var(--accent); letter-spacing: 0.02em; white-space: nowrap;
 }
-.badge.demo { background: #fff4e5; color: #b54708; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge.demo { background: #3a2a12; color: #fdb022; } }
+.signin-hint {
+  margin-top: 28px; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 16px; border: 1px dashed var(--border); border-radius: 14px; background: var(--surface);
+}
+.signin-hint div { display: grid; gap: 2px; font-size: 14px; }
+.signin-hint span { color: var(--muted); }
+.signin-hint[hidden], .suggest-group[hidden] { display: none; }
 .store-select { max-width: 160px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 
 button { cursor: pointer; border: 0; background: none; }

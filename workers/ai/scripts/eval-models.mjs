@@ -1,5 +1,7 @@
 // Runs a fixed question set through /api/chat with each candidate model and
 // prints latency, tools called and the answer, for picking CHAT_MODEL.
+// Runs as a guest (docs support). Set SESSION to a sealed session token to
+// evaluate store-analysis questions against a signed-in store instead.
 //
 //   AI_URL=http://localhost:8787 ADMIN_TOKEN=... node scripts/eval-models.mjs [model ...]
 
@@ -8,18 +10,26 @@ const token = process.env.ADMIN_TOKEN;
 const models = process.argv.slice(2).length
   ? process.argv.slice(2)
   : ["@cf/google/gemma-4-26b-a4b-it", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/zai-org/glm-4.7-flash", "@cf/openai/gpt-oss-120b"];
-const questions = [
-  "What are my top 5 products this month?",
-  "How did sales go last week compared to the week before?",
-  "Which items are out of stock, and what were my busiest hours over the last 7 days?",
-  "How do I connect a network receipt printer?",
-];
+const session = process.env.SESSION;
+const questions = session
+  ? [
+      "What are my top 5 products this month?",
+      "How did sales go last week compared to the week before?",
+      "Which items are out of stock, and what were my busiest hours over the last 7 days?",
+      "How do I connect a network receipt printer?",
+    ]
+  : [
+      "How do I connect a network receipt printer?",
+      "How does kiosk mode work?",
+      "How do I set up loyalty points?",
+      "What were my sales yesterday?", // must not invent figures
+    ];
 
 async function ask(model, message) {
   const started = Date.now();
   const res = await fetch(`${base}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Admin-Token": token ?? "" },
+    headers: { "Content-Type": "application/json", "X-Admin-Token": token ?? "", ...(session ? { Authorization: `Bearer ${session}` } : {}) },
     body: JSON.stringify({ message, model }),
   });
   const text = await res.text();

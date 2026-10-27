@@ -20,7 +20,7 @@
         </span>
         <div class="brand-text">
           <strong>CloudPOS AI</strong>
-          <span id="storeLine" class="store-line">Loading…</span>
+          <span id="storeLine" class="store-line">Help &amp; support</span>
         </div>
       </div>
       <div class="top-actions">
@@ -35,15 +35,22 @@
 
     <main id="scroller" class="scroller">
       <section id="welcome" class="welcome">
-        <h1>Ask about your business</h1>
-        <p id="welcomeText">Sales, top products, stock, customers and busy hours — answered from live numbers, with charts. Or ask how to do something in CloudPOS.</p>
-        <div class="suggest-group">
-          <h2>Analyse</h2>
+        <h1 id="welcomeTitle">How can we help?</h1>
+        <p id="welcomeText">Ask anything about using CloudPOS — the POS app, admin panel or online store. Answers come from the CloudPOS documentation.</p>
+        <div id="analysisGroup" class="suggest-group" hidden>
+          <h2>Analyse your store</h2>
           <div id="suggestAnalysis" class="chips"></div>
         </div>
         <div class="suggest-group">
           <h2>How do I…</h2>
           <div id="suggestDocs" class="chips"></div>
+        </div>
+        <div id="signInHint" class="signin-hint">
+          <div>
+            <strong>Have a CloudPOS store?</strong>
+            <span>Sign in to ask about your own sales, products, stock and customers.</span>
+          </div>
+          <button id="hintSignIn" class="primary small" type="button">Sign in</button>
         </div>
       </section>
       <div id="thread" class="thread" aria-live="polite"></div>
@@ -51,12 +58,12 @@
 
     <form id="composer" class="composer" autocomplete="off">
       <div class="composer-box">
-        <textarea id="input" rows="1" placeholder="Ask anything about your store…" dir="auto" aria-label="Message"></textarea>
+        <textarea id="input" rows="1" placeholder="Ask how to do something in CloudPOS…" dir="auto" aria-label="Message"></textarea>
         <button id="sendBtn" class="send" type="submit" aria-label="Send" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </button>
       </div>
-      <p class="fineprint">AI answers can be wrong — figures come from your CloudPOS data, wording from the model.</p>
+      <p id="fineprint" class="fineprint">AI answers can be wrong. Answers are based on the CloudPOS documentation.</p>
     </form>
   </div>
 

@@ -33,7 +33,8 @@ export interface ToolOutput {
 }
 
 export interface ToolContext {
-  source: DataSource;
+  /** The signed-in store; null for guests, who only get docs search. */
+  source: DataSource | null;
   ai: Ai;
   docsIndex?: VectorizeIndex;
   docsBaseUrl: string;
@@ -54,7 +55,7 @@ const periodParams = {
   to: { type: "string", description: "YYYY-MM-DD, only with period=custom" },
 };
 
-export const TOOL_SPECS: ToolSpec[] = [
+export const DATA_TOOL_SPECS: ToolSpec[] = [
   {
     type: "function",
     function: {
@@ -147,6 +148,9 @@ export const TOOL_SPECS: ToolSpec[] = [
       },
     },
   },
+];
+
+export const DOCS_TOOL_SPECS: ToolSpec[] = [
   {
     type: "function",
     function: {
@@ -156,6 +160,9 @@ export const TOOL_SPECS: ToolSpec[] = [
     },
   },
 ];
+
+/** Everything a signed-in user can call. */
+export const TOOL_SPECS: ToolSpec[] = [...DATA_TOOL_SPECS, ...DOCS_TOOL_SPECS];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -169,7 +176,9 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 }
 
-async function rangeFrom(ctx: ToolContext, args: Record<string, unknown>): Promise<DateRange> {
+type DataContext = ToolContext & { source: DataSource };
+
+async function rangeFrom(ctx: DataContext, args: Record<string, unknown>): Promise<DateRange> {
   return resolvePeriod(String(args.period ?? ""), await ctx.source.today(), { from: args.from, to: args.to });
 }
 
@@ -178,7 +187,12 @@ function autoGranularity(range: DateRange): Granularity {
   return days > 120 ? "month" : days > 45 ? "week" : "day";
 }
 
-export async function runTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutput> {
+export async function runTool(name: string, args: Record<string, unknown>, toolCtx: ToolContext): Promise<ToolOutput> {
+  if (name === "search_docs") return searchDocsTool(args, toolCtx);
+  if (!toolCtx.source) {
+    return { result: { error: "Store data is only available after signing in to CloudPOS.", sign_in_required: true } };
+  }
+  const ctx = toolCtx as DataContext;
   const info = await ctx.source.info();
   const currency = info.currency || undefined;
   try {
@@ -284,16 +298,6 @@ export async function runTool(name: string, args: Record<string, unknown>, ctx: 
           visuals: rows.length ? [{ kind: "table", title: "Orders", columns: ["Invoice", "Date", "Customer", "Total", "Payment", "Status"], rows: rows.map((r) => [r.number, r.date, r.customer, r.total, r.payment ?? "", r.status ?? ""]), money: [3], currency }] : undefined,
         };
       }
-      case "search_docs": {
-        if (!ctx.docsIndex) return { result: { error: "Documentation search is not configured." } };
-        const hits = await searchDocs(ctx.ai, ctx.docsIndex, String(args.query ?? "").slice(0, 500));
-        return {
-          result: {
-            results: hits.map((h) => ({ link: `${ctx.docsBaseUrl}${h.url}`, page: h.title, section: h.heading, text: h.text })),
-            note: hits.length ? undefined : "No matching documentation found.",
-          },
-        };
-      }
       default:
         return { result: { error: `Unknown tool ${name}` } };
     }
@@ -301,4 +305,15 @@ export async function runTool(name: string, args: Record<string, unknown>, ctx: 
     if (error instanceof UnsupportedError) return { result: { error: error.message, unsupported: true } };
     throw error;
   }
+}
+
+async function searchDocsTool(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutput> {
+  if (!ctx.docsIndex) return { result: { error: "Documentation search is not configured." } };
+  const hits = await searchDocs(ctx.ai, ctx.docsIndex, String(args.query ?? "").slice(0, 500));
+  return {
+    result: {
+      results: hits.map((h) => ({ link: `${ctx.docsBaseUrl}${h.url}`, page: h.title, section: h.heading, text: h.text })),
+      note: hits.length ? undefined : "No matching documentation found.",
+    },
+  };
 }

@@ -1,7 +1,8 @@
 // Tool-calling loop over Workers AI's OpenAI-compatible chat output.
 
 import { calendarContext } from "./period.ts";
-import { runTool, TOOL_SPECS, type ToolContext, type Visual } from "./tools.ts";
+import { DOCS_TOOL_SPECS, runTool, TOOL_SPECS, type ToolContext, type Visual } from "./tools.ts";
+import type { DataSource } from "./sources/types.ts";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -79,25 +80,41 @@ export function cleanAnswer(text: string): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/^\s*<\|[^>]*\|>\s*/g, "").trim();
 }
 
-async function systemPrompt(ctx: ToolContext): Promise<string> {
-  const info = await ctx.source.info();
-  const today = await ctx.source.today();
+const SHARED_RULES = [
+  `- For how-to, setup, feature or troubleshooting questions call search_docs and answer only from the results, linking pages as markdown links using the returned link. If the docs do not cover it, say so plainly and suggest contacting CloudPOS support; never guess steps or menu names.`,
+  `- Answer in the user's language (Arabic, English, etc.). Be concise and practical.`,
+  `- Stay on topic: CloudPOS and retail/restaurant operations.`,
+];
+
+/** Guests get a support assistant that only knows the documentation. */
+function guestPrompt(): string {
+  return [
+    `You are CloudPOS AI, the help and support assistant for CloudPOS, a point-of-sale system (POS app, admin panel and online store) for retail shops, cafés and restaurants.`,
+    `The user is not signed in, so you have no access to any store's data. Never state, estimate or make up sales, orders, stock, customer or any other business figures, not even as an example.`,
+    `If the user asks about their own store's numbers, explain that they can sign in with their CloudPOS company key, email and password (the Sign in button at the top) to analyse their store.`,
+    ``,
+    `Rules:`,
+    ...SHARED_RULES,
+  ].join("\n");
+}
+
+async function storePrompt(source: DataSource): Promise<string> {
+  const info = await source.info();
+  const today = await source.today();
   return [
     `You are CloudPOS AI, a business analyst and product guide inside CloudPOS, a point-of-sale system for retail shops, cafés and restaurants.`,
     `Store: ${info.company} — ${info.store}. Currency: ${info.currency || "the store's currency"}. Time zone: ${info.timeZone}. ${info.user ? `User: ${info.user}${info.role ? ` (${info.role})` : ""}.` : ""}`,
-    info.mode === "demo" ? `This is the public DEMO store with sample data. Mention that figures are sample data only if the user asks whether the data is real.` : `This is the user's real store data.`,
     calendarContext(today),
     ``,
     `Rules:`,
     `- For any figure (sales, orders, products, stock, customers) call a data tool. Never invent, estimate or recalculate numbers the tools did not return. Quote them as returned, formatted with thousands separators and the currency.`,
     `- Prefer named periods (today, yesterday, this_week, last_week, this_month, last_month, last_7_days, last_30_days, last_90_days, this_year). Use custom only for explicit dates.`,
     `- Call several tools in one step when a question needs them (for example summary + top products).`,
-    `- For how-to, setup or feature questions call search_docs and answer only from the results, linking pages as markdown links using the returned link. If the docs do not cover it, say so.`,
     `- Every statement must be directly supported by tool results. Do not count, group or compare items (for example by category) unless the tool output shows it; when unsure, leave the claim out.`,
     `- Charts and tables from tools are shown to the user automatically above your answer; do not repeat full tables. Summarise what matters.`,
-    `- Answer in the user's language (Arabic, English, etc.). Be concise: a one-line headline, 2–5 bullet insights, then one practical recommendation when useful.`,
+    `- For analysis answers: a one-line headline, 2–5 bullet insights, then one practical recommendation when useful.`,
     `- If a tool returns an error or unsupported, explain briefly what is unavailable. You only have read access; you cannot change data, create orders or issue refunds.`,
-    `- Stay on topic: the store's business, CloudPOS, and retail/restaurant operations.`,
+    ...SHARED_RULES,
   ].join("\n");
 }
 
@@ -116,7 +133,7 @@ export interface AgentOptions {
 export async function runAgent(opts: AgentOptions): Promise<void> {
   const { ai, model, ctx, emit } = opts;
   const messages: ModelMessage[] = [
-    { role: "system", content: await systemPrompt(ctx) },
+    { role: "system", content: ctx.source ? await storePrompt(ctx.source) : guestPrompt() },
     ...opts.history.slice(-MAX_HISTORY).map((t) => ({ role: t.role, content: t.content.slice(0, 4000) })),
     { role: "user", content: opts.message.slice(0, 4000) },
   ];
@@ -125,7 +142,7 @@ export async function runAgent(opts: AgentOptions): Promise<void> {
   const callModel = (name: string, withTools: boolean) =>
     ai.run(
       name as keyof AiModels,
-      { messages, ...(withTools ? { tools: TOOL_SPECS } : {}), max_tokens: 1500, temperature: 0.2 } as never,
+      { messages, ...(withTools ? { tools: ctx.source ? TOOL_SPECS : DOCS_TOOL_SPECS } : {}), max_tokens: 1500, temperature: 0.2 } as never,
       runOptions as never,
     );
 

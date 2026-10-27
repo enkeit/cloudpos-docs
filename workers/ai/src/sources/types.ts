@@ -1,7 +1,7 @@
 import type { DateRange } from "../period.ts";
 
 export interface StoreInfo {
-  mode: "demo" | "live";
+  mode: "live";
   company: string;
   store: string;
   currency: string;

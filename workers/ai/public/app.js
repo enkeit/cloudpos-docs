@@ -1,5 +1,5 @@
-// CloudPOS AI web chat. Demo store by default; signing in swaps the data
-// source to the user's own CloudPOS tenant via a sealed session token.
+// CloudPOS AI web chat. Guests get docs-based help & support; signing in
+// adds analysis of the user's own CloudPOS store via a sealed session token.
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -8,6 +8,8 @@ const els = {
   authBtn: $("authBtn"), newChat: $("newChatBtn"), dialog: $("loginDialog"), loginForm: $("loginForm"),
   loginError: $("loginError"), loginCancel: $("loginCancel"), loginSubmit: $("loginSubmit"),
   suggestAnalysis: $("suggestAnalysis"), suggestDocs: $("suggestDocs"), welcomeText: $("welcomeText"),
+  welcomeTitle: $("welcomeTitle"), analysisGroup: $("analysisGroup"), signInHint: $("signInHint"),
+  hintSignIn: $("hintSignIn"), fineprint: $("fineprint"),
 };
 
 const TOKEN_KEY = "cloudpos-ai-session";
@@ -207,15 +209,21 @@ function chip(text, target) {
 
 function renderInfo(data) {
   info = data.info;
-  const live = info.mode === "live";
-  els.storeLine.textContent = `${info.company} · ${info.store}`;
-  els.badge.hidden = false;
-  els.badge.textContent = live ? "Live data" : "Demo store";
-  els.badge.className = `badge${live ? "" : " demo"}`;
+  const live = info?.mode === "live";
+  els.storeLine.textContent = live ? `${info.company} · ${info.store}` : "Help & support";
+  els.badge.hidden = !live;
+  els.badge.textContent = live ? "Signed in" : "";
   els.authBtn.textContent = live ? "Sign out" : "Sign in";
+  els.welcomeTitle.textContent = live ? "Ask about your business" : "How can we help?";
   els.welcomeText.textContent = live
-    ? `Connected to ${info.company}. Ask about sales, top products, stock, customers and busy hours — or how to do something in CloudPOS.`
-    : "You're exploring a demo café & market with sample data. Ask about sales, products, stock, customers and busy hours — or how to do something in CloudPOS. Sign in to analyse your own store.";
+    ? `Connected to ${info.company}. Ask about sales, top products, stock, customers and busy hours — answered from your store's data, with charts. Or ask how to do something in CloudPOS.`
+    : "Ask anything about using CloudPOS — the POS app, admin panel or online store. Answers come from the CloudPOS documentation.";
+  els.analysisGroup.hidden = !live;
+  els.signInHint.hidden = live;
+  els.input.placeholder = live ? "Ask about your store or how to do something…" : "Ask how to do something in CloudPOS…";
+  els.fineprint.textContent = live
+    ? "AI answers can be wrong. Figures come from your CloudPOS data; the wording comes from the AI."
+    : "AI answers can be wrong. Answers are based on the CloudPOS documentation.";
   els.storeSelect.hidden = !(live && data.stores?.length > 1);
   if (!els.storeSelect.hidden) {
     els.storeSelect.innerHTML = data.stores.map((s) => `<option value="${s.id}">${esc(s.name || `Store ${s.id}`)}</option>`).join("");
@@ -252,7 +260,9 @@ function resetChat() {
 function setBusy(v) {
   busy = v;
   els.send.disabled = v || !els.input.value.trim();
-  els.input.placeholder = v ? "Working on it…" : "Ask anything about your store…";
+  els.input.placeholder = v
+    ? "Working on it…"
+    : info?.mode === "live" ? "Ask about your store or how to do something…" : "Ask how to do something in CloudPOS…";
 }
 
 // ---------- chat ----------
@@ -369,9 +379,13 @@ els.authBtn.addEventListener("click", () => {
     loadInfo();
     return;
   }
+  openLogin();
+});
+function openLogin() {
   els.loginError.hidden = true;
   els.dialog.showModal();
-});
+}
+els.hintSignIn.addEventListener("click", openLogin);
 els.loginCancel.addEventListener("click", () => els.dialog.close());
 els.loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();

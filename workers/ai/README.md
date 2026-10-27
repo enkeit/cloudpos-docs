@@ -1,17 +1,20 @@
 # cloudpos-ai
 
-AI business analyst + docs assistant for CloudPOS, on Cloudflare Workers AI.
+Help & support chat plus a business analyst for CloudPOS, on Cloudflare Workers AI.
 
-- **Live demo:** https://cloudpos-ai.enkedevelopment-427.workers.dev (sample café & market data)
+- **Live:** https://cloudpos-ai.enkedevelopment-427.workers.dev
 - **Account:** Enke dev (`Enkedevelopment@gmail.com`, `4275d9596d1fa5b1f150fdbbbc263d26`)
 
 ## What it does
 
-A chat that answers questions about sales, products, stock, customers and busy hours, with charts and tables.
-It can also answer how-to questions from the CloudPOS docs.
+There is no sample or demo data anywhere. Every figure comes from a real, signed-in CloudPOS store.
 
-- **Demo mode** (default): a deterministic synthetic store (`src/sources/demo.ts`). The same date always produces the same orders.
-- **Live mode**: the user signs in with company key, email and password, the same way the POS app logs in (`find-domain` → `user/signin`).
+- **Guest (default): help & support.** Anyone can ask how to use CloudPOS (POS app, admin panel, online store).
+  The AI only has the docs search tool and answers from the CloudPOS documentation, with links.
+  It has no data tools, and its prompt forbids stating or inventing any business figures.
+  Asked about "my sales", it tells the user to sign in.
+- **Signed in: store analysis.** The user signs in with company key, email and password, the same way the POS app logs in (`find-domain` → `user/signin`).
+  The AI then also gets data tools for sales, products, stock, customers, busy hours and orders, with charts and tables.
   The worker reads that tenant's data through the Laravel API using the user's own token (`src/sources/live.ts`), so it can only see what that user can see.
   It has read-only access.
 
@@ -36,8 +39,8 @@ The model picks the tools and writes the narrative.
 | Embedding model | `@cf/baai/bge-m3` |
 | AI Gateway | `cloudpos-ai` (logs, 600 req/min, retries) |
 | Vectorize | `cloudpos-docs-v1` (1024-d, cosine) |
-| KV | `cloudpos_ai` (docs manifest, demo daily counter) |
-| Rate limits | demo 8/min per IP · live 30/min per user · login 5/min per IP · demo daily cap 1500 |
+| KV | `cloudpos_ai` (docs manifest, guest daily counter) |
+| Rate limits | guest 8/min per IP · signed-in 30/min per user · login 5/min per IP · guest daily cap 1500 |
 | Secrets | `SESSION_SECRET`, `ADMIN_TOKEN` |
 
 The models were chosen with `scripts/eval-models.mjs`.
@@ -49,7 +52,7 @@ Gemma 4 took 8–26 s per turn.
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /api/health` | Health check |
-| `GET /api/info` | Store info and suggested questions (demo, or live with `Authorization: Bearer <session>`) |
+| `GET /api/info` | Suggested questions; plus store info and stores with `Authorization: Bearer <session>` (`info` is null for guests) |
 | `POST /api/session/login` | Body `{tenantKey, email, password, storeId?}` → `{token, stores, info}` |
 | `POST /api/session/store` | Body `{storeId}` with Bearer session → new token |
 | `POST /api/chat` | Body `{message, history?}` → `text/event-stream` |
