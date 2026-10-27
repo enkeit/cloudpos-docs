@@ -1,0 +1,28 @@
+---
+import { getSiteSettings } from "emdash";
+import Base from "../layouts/Base.astro";
+import { loadNav } from "../utils/docs";
+import { resolveStarterSiteIdentity } from "../utils/site-identity";
+
+const { sections, cacheHint } = await loadNav();
+const { siteTitle, siteTagline } = resolveStarterSiteIdentity(await getSiteSettings());
+if (Astro.cache?.enabled) Astro.cache.set(cacheHint);
+---
+
+<Base title={siteTitle} description={siteTagline}>
+	<section class="home">
+		<span class="badge">Prototype · content from D1, media on R2</span>
+		<h1>{siteTitle}</h1>
+		<p class="lead">{siteTagline}</p>
+		<div class="cards">
+			{
+				sections.map((section) => (
+					<a class="card" href={section.items[0]?.href}>
+						<strong>{section.label}</strong>
+						<span>{section.items.length} pages</span>
+					</a>
+				))
+			}
+		</div>
+	</section>
+</Base>
