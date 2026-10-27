@@ -5,24 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>CloudPOS AI</title>
   <meta name="description" content="Ask CloudPOS AI about your sales, products, stock and customers — or how to use CloudPOS.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M9 20l5-6 4 4 5-7' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#2d62ae">
+  <link rel="icon" type="image/png" href="/brand/favicon-64.png">
+  <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+  <meta property="og:title" content="CloudPOS AI">
+  <meta property="og:description" content="Help & support for CloudPOS, and AI analysis of your own store.">
+  <meta property="og:image" content="/brand/cloudpos-logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
   <div class="app">
     <header class="topbar">
-      <div class="brand">
-        <span class="logo" aria-hidden="true">
-          <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8"/><path d="M9 20l5-6 4 4 5-7"/></svg>
-        </span>
+      <a class="brand" href="https://cloudposai.com" target="_blank" rel="noopener" title="cloudposai.com">
+        <span class="logo"><img src="/brand/cloudpos-mark-256.png" alt="" width="34" height="34"></span>
         <div class="brand-text">
-          <strong>CloudPOS AI</strong>
+          <span class="wordmark"><span class="cloud">CLOUD</span><span class="pos">POS</span><span class="ai-tag">AI</span></span>
           <span id="storeLine" class="store-line">Help &amp; support</span>
         </div>
-      </div>
+      </a>
       <div class="top-actions">
         <span id="modeBadge" class="badge" hidden></span>
         <select id="storeSelect" class="store-select" hidden aria-label="Active store"></select>
@@ -35,6 +38,7 @@
 
     <main id="scroller" class="scroller">
       <section id="welcome" class="welcome">
+        <div class="hero-mark"><img src="/brand/cloudpos-mark-256.png" alt="CloudPOS" width="54" height="54"></div>
         <h1 id="welcomeTitle">How can we help?</h1>
         <p id="welcomeText">Ask anything about using CloudPOS — the POS app, admin panel or online store. Answers come from the CloudPOS documentation.</p>
         <div id="analysisGroup" class="suggest-group" hidden>
