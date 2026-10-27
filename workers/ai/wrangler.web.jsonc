@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Frontend for ai.cloudposai.com, on the IT Consult account (Itconsultuae@gmail.com),
+  // where the cloudposai.com zone lives. The backend stays on Enke dev (wrangler.jsonc)
+  // because its DeepSeek model needs the Workers Paid plan.
+  //   npx wrangler deploy -c wrangler.web.jsonc
+  "account_id": "48073c198a3baff8cd9878190dc8101b",
+  "name": "cloudpos-ai-web",
+  "main": "src/web.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "ai.cloudposai.com", "custom_domain": true }],
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "BACKEND_URL": "https://cloudpos-ai.enkedevelopment-427.workers.dev"
+  },
+  // Secret (wrangler secret put -c wrangler.web.jsonc): PROXY_KEY, same value as the backend's.
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}

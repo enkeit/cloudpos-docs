@@ -29,7 +29,9 @@ test("sessions round-trip and reject tampering, wrong keys and expiry", async ()
   const token = await sealSession(session, SECRET, 1_000);
   assert.deepEqual(await openSession(token, SECRET, 2_000), session);
   assert.equal(await openSession(token, "another-secret-0123456789abcdefghijklmnop", 2_000), null);
-  const tampered = token.slice(0, -2) + (token.endsWith("A") ? "B" : "A") + token.slice(-1);
+  // Flip one ciphertext character to a different one (always a real change).
+  const at = token.length - 5;
+  const tampered = token.slice(0, at) + (token[at] === "A" ? "B" : "A") + token.slice(at + 1);
   assert.equal(await openSession(tampered, SECRET, 2_000), null);
   assert.equal(await openSession(token, SECRET, 1_000 + 13 * 3600 * 1000), null);
   assert.equal(await openSession("garbage", SECRET), null);
@@ -202,4 +204,40 @@ test("guest chat offers only docs search and a no-figures prompt", async () => {
   assert.match(system, /not signed in/);
   assert.match(system, /Never state, estimate or make up/);
   assert.doesNotMatch(system, /Store: /);
+});
+
+test("frontend proxy forwards the visitor IP with the key and strips spoofable headers", async () => {
+  const { backendRequest } = await import("../src/web.ts");
+  const incoming = new Request("https://ai.cloudposai.com/api/chat?x=1", {
+    method: "POST",
+    headers: { "CF-Connecting-IP": "203.0.113.9", "X-Client-IP": "1.2.3.4", "X-Proxy-Key": "forged", "X-Admin-Token": "guess", Authorization: "Bearer s" },
+    body: '{"message":"hi"}',
+  });
+  const out = backendRequest(incoming, { ASSETS: {} as Fetcher, BACKEND_URL: "https://backend.example.com", PROXY_KEY: "real" });
+  assert.equal(out.url, "https://backend.example.com/api/chat?x=1");
+  assert.equal(out.headers.get("X-Client-IP"), "203.0.113.9");
+  assert.equal(out.headers.get("X-Proxy-Key"), "real");
+  assert.equal(out.headers.get("X-Admin-Token"), null);
+  assert.equal(out.headers.get("Authorization"), "Bearer s");
+  assert.equal(await out.text(), '{"message":"hi"}');
+});
+
+test("backend trusts X-Client-IP only with the right proxy key", async () => {
+  const { clientIp } = await import("../src/index.ts");
+  const req = (h: Record<string, string>) => new Request("https://x/", { headers: { "CF-Connecting-IP": "198.51.100.1", ...h } });
+  assert.equal(clientIp(req({ "X-Client-IP": "203.0.113.9", "X-Proxy-Key": "k" }), { PROXY_KEY: "k" }), "203.0.113.9");
+  assert.equal(clientIp(req({ "X-Client-IP": "203.0.113.9", "X-Proxy-Key": "wrong" }), { PROXY_KEY: "k" }), "198.51.100.1");
+  assert.equal(clientIp(req({ "X-Client-IP": "203.0.113.9" }), { PROXY_KEY: "" }), "198.51.100.1");
+});
+
+test("history owners never mix guests, users or tenants", async () => {
+  const { ownerFor, titleFrom } = await import("../src/history.ts");
+  const visitor = "3f2a9c1e-8b7d-4e6f-9a1b-2c3d4e5f6a7b";
+  assert.equal(ownerFor(null, visitor), `guest:${visitor}`);
+  assert.equal(ownerFor(null, "not-a-uuid"), null);
+  assert.equal(ownerFor(null, null), null);
+  assert.equal(ownerFor({ domain: "https://a.cloudposai.com", userId: 7 }, visitor), "live:https://a.cloudposai.com:7");
+  assert.notEqual(ownerFor({ domain: "https://a.cloudposai.com", userId: 7 }, null), ownerFor({ domain: "https://b.cloudposai.com", userId: 7 }, null));
+  assert.equal(titleFrom("  How do I\n set up a printer?  "), "How do I set up a printer?");
+  assert.equal(titleFrom("x".repeat(200)).length, 80);
 });

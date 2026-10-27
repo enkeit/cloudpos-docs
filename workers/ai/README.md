@@ -2,8 +2,14 @@
 
 Help & support chat plus a business analyst for CloudPOS, on Cloudflare Workers AI.
 
-- **Live:** https://cloudpos-ai.enkedevelopment-427.workers.dev
-- **Account:** Enke dev (`Enkedevelopment@gmail.com`, `4275d9596d1fa5b1f150fdbbbc263d26`)
+- **Live:** https://ai.cloudposai.com
+- **Two Workers, two accounts:**
+  - `cloudpos-ai-web` (frontend, `wrangler.web.jsonc`, `src/web.ts`) on **IT Consult** (`48073c198a3baff8cd9878190dc8101b`), where the `cloudposai.com` zone lives.
+    It serves `public/` and forwards `/api/*` to the backend, adding the visitor IP plus the shared `PROXY_KEY` so per-visitor rate limits still work.
+  - `cloudpos-ai` (backend, `wrangler.jsonc`) on **Enke dev** (`4275d9596d1fa5b1f150fdbbbc263d26`), which is on Workers Paid.
+    DeepSeek V4.1 Flash needs Paid; IT Consult is on Free (10k neurons/day ≈ 35 chats).
+- **Chat history:** D1 `cloudpos-ai-chat` (schema in `migrations/`). Chats are scoped per signed-in user (`live:<tenant>:<user id>`) or per guest browser (random `X-Visitor-Id`).
+  A daily cron deletes guest chats after 30 days and signed-in chats after 180 days of inactivity.
 
 ## What it does
 

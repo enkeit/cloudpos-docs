@@ -22,6 +22,8 @@ export interface LiveSession {
   domain: string; // https://tenant.example.com
   tenantKey: string;
   accessToken: string;
+  /** CloudPOS user id; keys this user's chat history. */
+  userId?: number;
   storeId?: number;
   storeName?: string;
   company?: string;
@@ -371,6 +373,7 @@ export async function signIn(
       storeId: chosen?.id,
       storeName: chosen?.name,
       company: str(data?.company_name) || undefined,
+      userId: num(data?.user_id) || undefined,
       user: str(data?.name) || undefined,
       role: str(data?.user_role) || undefined,
       timeZone: str(data?.time_zone) || undefined,

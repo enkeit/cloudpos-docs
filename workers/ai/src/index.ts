@@ -5,12 +5,31 @@
 //   GET  /api/info             signed-in store info (null for guests) + suggestions
 //   POST /api/session/login    tenant key + email + password → sealed session
 //   POST /api/session/store    switch the active store of a session
-//   POST /api/chat             SSE stream of agent events
+//   POST /api/chat             SSE stream of agent events (saved to history)
+//   GET  /api/conversations    the caller's recent chats
+//   GET  /api/conversations/:id    one chat's messages
+//   DELETE /api/conversations/:id  delete one chat
 //   POST /api/admin/reindex    replace the docs vectors (Bearer ADMIN_TOKEN)
+//
+// History owner: signed-in users by session; guests by the X-Visitor-Id
+// header (a random id their browser keeps).
 
 import { runAgent, type AgentEvent, type ChatTurn } from "./agent.ts";
 import { embed, embeddingText, searchDocs, type DocChunk } from "./docs.ts";
+import {
+  addMessage,
+  createConversation,
+  deleteConversation,
+  getConversation,
+  getMessages,
+  listConversations,
+  ownerFor,
+  purgeOld,
+  recentTurns,
+  type ConversationRow,
+} from "./history.ts";
 import { openSession, sealSession } from "./session.ts";
+import type { Visual } from "./tools.ts";
 import { LiveApiError, LiveSource, signIn, type LiveSession } from "./sources/live.ts";
 import type { DataSource } from "./sources/types.ts";
 
@@ -68,7 +87,14 @@ async function readJson<T>(request: Request, maxBytes = 64_000): Promise<T | nul
   }
 }
 
-function clientIp(request: Request): string {
+/**
+ * The visitor's IP. Behind the ai.cloudposai.com frontend (another account)
+ * every request comes from that Worker, so its forwarded X-Client-IP is
+ * trusted, but only when it also proves itself with the shared PROXY_KEY.
+ */
+export function clientIp(request: Request, env: Pick<Env, "PROXY_KEY">): string {
+  const forwarded = request.headers.get("X-Client-IP");
+  if (forwarded && env.PROXY_KEY && request.headers.get("X-Proxy-Key") === env.PROXY_KEY) return forwarded;
   return request.headers.get("CF-Connecting-IP") ?? "local";
 }
 
@@ -103,13 +129,13 @@ async function guestBudgetLeft(env: Env): Promise<boolean> {
 }
 
 async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const body = await readJson<{ message?: unknown; history?: unknown; model?: unknown }>(request);
+  const body = await readJson<{ message?: unknown; history?: unknown; model?: unknown; conversationId?: unknown }>(request);
   // Admins may try another model per request (for evaluation).
   const isAdmin = !!env.ADMIN_TOKEN && request.headers.get("X-Admin-Token") === env.ADMIN_TOKEN;
   const model = isAdmin && typeof body?.model === "string" && body.model.startsWith("@cf/") ? body.model : env.CHAT_MODEL;
   const message = typeof body?.message === "string" ? body.message.trim() : "";
   if (!message) return json({ error: "Message is required." }, 400);
-  const history: ChatTurn[] = Array.isArray(body?.history)
+  let history: ChatTurn[] = Array.isArray(body?.history)
     ? (body!.history as Array<Record<string, unknown>>)
         .filter((t) => (t.role === "user" || t.role === "assistant") && typeof t.content === "string" && t.content)
         .map((t) => ({ role: t.role as ChatTurn["role"], content: t.content as string }))
@@ -119,7 +145,7 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
   if (resolved instanceof Response) return resolved;
   const { source, session } = resolved;
 
-  const limitKey = session ? `live:${session.domain}:${session.user ?? ""}` : `guest:${clientIp(request)}`;
+  const limitKey = session ? `live:${session.domain}:${session.user ?? ""}` : `guest:${clientIp(request, env)}`;
   if (!isAdmin && !(await allowed(session ? env.LIVE_LIMITER : env.GUEST_LIMITER, limitKey))) {
     return json({ error: "Too many messages. Please wait a minute and try again." }, 429);
   }
@@ -127,15 +153,32 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
     return json({ error: "The help assistant has reached today's limit. Please try again tomorrow or sign in." }, 429);
   }
 
+  // History: with D1 and a known owner, the conversation's stored turns are
+  // the model's context (the client's copy is only a fallback).
+  const owner = env.DB ? ownerFor(session, request.headers.get("X-Visitor-Id")) : null;
+  let conversation: ConversationRow | null = null;
+  if (owner) {
+    const requested = typeof body?.conversationId === "string" ? body.conversationId : "";
+    conversation = requested ? await getConversation(env.DB, owner, requested) : null;
+    if (conversation) history = await recentTurns(env.DB, conversation.id);
+    else conversation = await createConversation(env.DB, owner, message);
+    await addMessage(env.DB, conversation.id, "user", message);
+  }
+
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
-  const emit = async (event: AgentEvent | { type: "done" }) => {
+  const visuals: Visual[] = [];
+  let answer = "";
+  const emit = async (event: AgentEvent | { type: "done" } | { type: "conversation"; id: string; title: string }) => {
+    if (event.type === "visual") visuals.push(event.visual);
+    if (event.type === "answer") answer = event.text;
     await writer.write(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
   };
 
   const work = (async () => {
     try {
+      if (conversation) await emit({ type: "conversation", id: conversation.id, title: conversation.title });
       await runAgent({
         ai: env.AI,
         model,
@@ -154,6 +197,9 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
           : "Sorry, the assistant ran into a problem. Please try again in a moment.";
       await emit({ type: "error", text });
     } finally {
+      if (conversation && answer) {
+        await addMessage(env.DB, conversation.id, "assistant", answer, visuals).catch((e) => console.error("history save failed", e));
+      }
       await emit({ type: "done" });
       await writer.close();
     }
@@ -165,8 +211,28 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
   });
 }
 
+async function handleConversations(request: Request, env: Env, url: URL): Promise<Response> {
+  if (!env.DB) return json({ conversations: [] });
+  const resolved = await sourceFor(request, env);
+  if (resolved instanceof Response) return resolved;
+  const owner = ownerFor(resolved.session, request.headers.get("X-Visitor-Id"));
+  if (!owner) return json({ conversations: [] });
+  const id = url.pathname.slice("/api/conversations/".length);
+  if (url.pathname === "/api/conversations" && request.method === "GET") {
+    return json({ conversations: await listConversations(env.DB, owner) });
+  }
+  if (id && request.method === "GET") {
+    const messages = await getMessages(env.DB, owner, id);
+    return messages ? json({ messages }) : json({ error: "Not found" }, 404);
+  }
+  if (id && request.method === "DELETE") {
+    return (await deleteConversation(env.DB, owner, id)) ? json({ ok: true }) : json({ error: "Not found" }, 404);
+  }
+  return json({ error: "Not found" }, 404);
+}
+
 async function handleLogin(request: Request, env: Env): Promise<Response> {
-  if (!(await allowed(env.LOGIN_LIMITER, `login:${clientIp(request)}`))) {
+  if (!(await allowed(env.LOGIN_LIMITER, `login:${clientIp(request, env)}`))) {
     return json({ error: "Too many sign-in attempts. Please wait a minute." }, 429);
   }
   const body = await readJson<{ tenantKey?: string; email?: string; password?: string; storeId?: number }>(request, 4_000);
@@ -238,8 +304,10 @@ export default {
       } else if (url.pathname === "/api/docs/search" && request.method === "GET") {
         const q = (url.searchParams.get("q") ?? "").trim().slice(0, 300);
         if (!q || !env.DOCS_INDEX) response = json({ results: [] });
-        else if (!(await allowed(env.GUEST_LIMITER, `docs:${clientIp(request)}`))) response = json({ error: "Too many requests." }, 429);
+        else if (!(await allowed(env.GUEST_LIMITER, `docs:${clientIp(request, env)}`))) response = json({ error: "Too many requests." }, 429);
         else response = json({ results: (await searchDocs(env.AI, env.DOCS_INDEX, q, 5, 0)).map((h) => ({ ...h, link: `${env.DOCS_BASE_URL}${h.url}` })) });
+      } else if (url.pathname === "/api/conversations" || url.pathname.startsWith("/api/conversations/")) {
+        response = await handleConversations(request, env, url);
       } else if (url.pathname === "/api/session/login" && request.method === "POST") {
         response = await handleLogin(request, env);
       } else if (url.pathname === "/api/session/store" && request.method === "POST") {
@@ -261,5 +329,9 @@ export default {
     const withCors = new Response(response.body, response);
     for (const [k, v] of Object.entries(cors)) withCors.headers.set(k, v);
     return withCors;
+  },
+
+  async scheduled(_event, env): Promise<void> {
+    if (env.DB) console.log(`history purge removed ${await purgeOld(env.DB)} conversations`);
   },
 } satisfies ExportedHandler<Env>;

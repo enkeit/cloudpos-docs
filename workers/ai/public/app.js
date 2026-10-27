@@ -10,6 +10,8 @@ const els = {
   suggestAnalysis: $("suggestAnalysis"), suggestDocs: $("suggestDocs"), welcomeText: $("welcomeText"),
   welcomeTitle: $("welcomeTitle"), analysisGroup: $("analysisGroup"), signInHint: $("signInHint"),
   hintSignIn: $("hintSignIn"), fineprint: $("fineprint"), themeBtn: $("themeBtn"),
+  historyBtn: $("historyBtn"), drawer: $("historyDrawer"), scrim: $("drawerScrim"), drawerClose: $("drawerClose"),
+  drawerNew: $("drawerNew"), historyList: $("historyList"), historyEmpty: $("historyEmpty"), historyNote: $("historyNote"),
 };
 
 // ---------- light / dark ----------
@@ -264,14 +266,33 @@ function renderInfo(data) {
   els.suggestDocs.replaceChildren();
   data.suggestions?.analysis?.forEach((s) => chip(s, els.suggestAnalysis));
   data.suggestions?.docs?.forEach((s) => chip(s, els.suggestDocs));
+  // Signing in/out or switching store changes whose history this is.
+  refreshHistory();
 }
 
 function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// A random id this browser keeps, so a guest's chat history is theirs alone.
+const VISITOR_KEY = "cloudpos-visitor";
+const visitorId = (() => {
+  try {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) localStorage.setItem(VISITOR_KEY, (id = crypto.randomUUID()));
+    return id;
+  } catch {
+    return crypto.randomUUID(); // private mode: history lasts for this visit only
+  }
+})();
+
+/** Headers for every API call: session (if signed in) + visitor id. */
+function apiHeaders() {
+  return { ...authHeaders(), "X-Visitor-Id": visitorId };
+}
+
 async function loadInfo() {
-  const res = await fetch("/api/info", { headers: authHeaders() });
+  const res = await fetch("/api/info", { headers: apiHeaders() });
   if (res.status === 401 && token) {
     token = null;
     store.set(null);
@@ -282,9 +303,132 @@ async function loadInfo() {
 
 function resetChat() {
   history = [];
+  currentConversation = null;
   els.thread.replaceChildren();
   els.welcome.hidden = false;
+  markActiveConversation();
   els.input.focus();
+}
+
+function userBubble(text) {
+  const el = document.createElement("div");
+  el.className = "msg-user";
+  el.dir = "auto";
+  el.textContent = text;
+  return el;
+}
+
+function answerBlock(text) {
+  const el = document.createElement("div");
+  el.className = "answer";
+  el.dir = "auto";
+  el.innerHTML = markdown(text);
+  return el;
+}
+
+// ---------- history ----------
+
+let currentConversation = null;
+let conversations = [];
+
+const relTime = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+const UNITS = [["minute", 60], ["hour", 3600], ["day", 86400], ["week", 604800], ["month", 2629800], ["year", 31557600]];
+/** "5 minutes ago", "yesterday", … */
+function when(ms) {
+  const seconds = (Date.now() - ms) / 1000;
+  if (seconds < 60) return "just now";
+  let unit = UNITS[0];
+  for (const u of UNITS) if (seconds >= u[1]) unit = u;
+  return relTime.format(-Math.round(seconds / unit[1]), unit[0]);
+}
+
+function markActiveConversation() {
+  for (const li of els.historyList.children) li.classList.toggle("active", li.dataset.id === currentConversation);
+}
+
+function renderHistory() {
+  els.historyList.replaceChildren();
+  els.historyEmpty.hidden = conversations.length > 0;
+  for (const c of conversations) {
+    const li = document.createElement("li");
+    li.dataset.id = c.id;
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "history-open";
+    open.dir = "auto";
+    open.innerHTML = `<span class="history-title">${esc(c.title)}</span><span class="history-when">${esc(when(c.updated_at))}</span>`;
+    open.addEventListener("click", () => openConversation(c.id));
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "history-delete";
+    del.title = "Delete chat";
+    del.setAttribute("aria-label", `Delete chat: ${c.title}`);
+    del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+    del.addEventListener("click", () => removeConversation(c.id, c.title));
+    li.append(open, del);
+    els.historyList.append(li);
+  }
+  els.historyNote.textContent = info?.mode === "live"
+    ? "Saved to your CloudPOS login for 180 days."
+    : "Saved in this browser for 30 days.";
+  markActiveConversation();
+}
+
+async function refreshHistory() {
+  try {
+    const res = await fetch("/api/conversations", { headers: apiHeaders() });
+    conversations = res.ok ? (await res.json()).conversations ?? [] : [];
+  } catch {
+    conversations = [];
+  }
+  renderHistory();
+}
+
+async function openConversation(id) {
+  if (busy) return;
+  closeDrawer();
+  const res = await fetch(`/api/conversations/${encodeURIComponent(id)}`, { headers: apiHeaders() });
+  if (!res.ok) { await refreshHistory(); return; }
+  const { messages } = await res.json();
+  els.thread.replaceChildren();
+  els.welcome.hidden = true;
+  let ai = null;
+  for (const m of messages) {
+    if (m.role === "user") {
+      els.thread.append(userBubble(m.content));
+      ai = null;
+    } else {
+      ai = document.createElement("div");
+      ai.className = "msg-ai";
+      for (const v of m.visuals ?? []) ai.append(visualCard(v));
+      ai.append(answerBlock(m.content));
+      els.thread.append(ai);
+    }
+  }
+  history = messages.map((m) => ({ role: m.role, content: m.content })).slice(-12);
+  currentConversation = id;
+  markActiveConversation();
+  scrollToEnd();
+}
+
+async function removeConversation(id, title) {
+  if (!confirm(`Delete "${title}"? This can't be undone.`)) return;
+  await fetch(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE", headers: apiHeaders() });
+  if (currentConversation === id) resetChat();
+  await refreshHistory();
+}
+
+function openDrawer() {
+  els.drawer.classList.add("open");
+  els.scrim.hidden = false;
+  els.historyBtn.setAttribute("aria-expanded", "true");
+  refreshHistory();
+}
+
+function closeDrawer() {
+  els.drawer.classList.remove("open");
+  els.scrim.hidden = true;
+  els.historyBtn.setAttribute("aria-expanded", "false");
 }
 
 function setBusy(v) {
@@ -305,10 +449,7 @@ async function ask(text) {
   autosize();
   setBusy(true);
 
-  const user = document.createElement("div");
-  user.className = "msg-user";
-  user.dir = "auto";
-  user.textContent = message;
+  const user = userBubble(message);
   const ai = document.createElement("div");
   ai.className = "msg-ai";
   const steps = document.createElement("div");
@@ -340,8 +481,8 @@ async function ask(text) {
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ message, history }),
+      headers: { "Content-Type": "application/json", ...apiHeaders() },
+      body: JSON.stringify({ message, history, conversationId: currentConversation }),
     });
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => ({}));
@@ -362,15 +503,14 @@ async function ask(text) {
         const line = chunk.split("\n").find((l) => l.startsWith("data: "));
         if (!line) continue;
         const ev = JSON.parse(line.slice(6));
-        if (ev.type === "status") setStep(ev.text);
-        else if (ev.type === "visual") ai.insertBefore(visualCard(ev.visual), null);
+        if (ev.type === "conversation") {
+          currentConversation = ev.id;
+          markActiveConversation();
+        } else if (ev.type === "status") setStep(ev.text);
+        else if (ev.type === "visual") ai.append(visualCard(ev.visual));
         else if (ev.type === "answer") {
           answer = ev.text;
-          const div = document.createElement("div");
-          div.className = "answer";
-          div.dir = "auto";
-          div.innerHTML = markdown(answer);
-          ai.append(div);
+          ai.append(answerBlock(answer));
         } else if (ev.type === "error") showError(ev.text);
         scrollToEnd();
       }
@@ -385,6 +525,7 @@ async function ask(text) {
     setBusy(false);
     scrollToEnd();
     els.input.focus();
+    refreshHistory();
   }
 }
 
@@ -403,6 +544,11 @@ els.input.addEventListener("keydown", (e) => {
 });
 els.composer.addEventListener("submit", (e) => { e.preventDefault(); ask(els.input.value); });
 els.newChat.addEventListener("click", resetChat);
+els.historyBtn.addEventListener("click", () => (els.drawer.classList.contains("open") ? closeDrawer() : openDrawer()));
+els.drawerClose.addEventListener("click", closeDrawer);
+els.scrim.addEventListener("click", closeDrawer);
+els.drawerNew.addEventListener("click", () => { closeDrawer(); resetChat(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && els.drawer.classList.contains("open")) closeDrawer(); });
 
 els.authBtn.addEventListener("click", () => {
   if (info?.mode === "live") {
@@ -439,7 +585,7 @@ els.loginForm.addEventListener("submit", async (e) => {
     els.loginForm.reset();
     els.dialog.close();
     resetChat();
-    renderInfo({ info: body.info, stores: body.stores, suggestions: (await (await fetch("/api/info", { headers: authHeaders() })).json()).suggestions });
+    renderInfo({ info: body.info, stores: body.stores, suggestions: (await (await fetch("/api/info", { headers: apiHeaders() })).json()).suggestions });
   } catch (err) {
     els.loginError.textContent = err.message;
     els.loginError.hidden = false;
@@ -451,7 +597,7 @@ els.loginForm.addEventListener("submit", async (e) => {
 els.storeSelect.addEventListener("change", async () => {
   const res = await fetch("/api/session/store", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json", ...apiHeaders() },
     body: JSON.stringify({ storeId: Number(els.storeSelect.value) }),
   });
   const body = await res.json();

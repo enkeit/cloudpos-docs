@@ -14,6 +14,10 @@
   },
   "ai": { "binding": "AI" },
   "vectorize": [{ "binding": "DOCS_INDEX", "index_name": "cloudpos-docs-v1" }],
+  // Chat history (schema in migrations/). Apply: npx wrangler d1 migrations apply cloudpos-ai-chat --remote
+  "d1_databases": [{ "binding": "DB", "database_name": "cloudpos-ai-chat", "database_id": "035ef016-db0b-482b-82fa-c0ca5d9c0aa3", "migrations_dir": "migrations" }],
+  // Daily history clean-up (guest 30 days, signed-in 180 days).
+  "triggers": { "crons": ["17 3 * * *"] },
   "kv_namespaces": [{ "binding": "KV", "id": "0199946e7d4a4d0991d810aca7087544" }],
   "ratelimits": [
     // Guest (docs support) chat, per visitor IP.
@@ -27,10 +31,11 @@
     "CHAT_MODEL": "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
     "FALLBACK_MODEL": "@cf/openai/gpt-oss-120b",
     "AI_GATEWAY_ID": "cloudpos-ai",
-    "DOCS_BASE_URL": "https://cloudpos-docs.enkedevelopment-427.workers.dev",
+    "DOCS_BASE_URL": "https://docs.cloudposai.com",
     "GUEST_DAILY_LIMIT": "1500",
-    "ALLOWED_ORIGINS": "https://cloudpos-docs.enkedevelopment-427.workers.dev"
+    "ALLOWED_ORIGINS": "https://docs.cloudposai.com,https://ai.cloudposai.com"
   },
-  // Secrets (wrangler secret put): SESSION_SECRET, ADMIN_TOKEN
+  // Secrets (wrangler secret put): SESSION_SECRET, ADMIN_TOKEN,
+  // PROXY_KEY (shared with the ai.cloudposai.com frontend, wrangler.web.jsonc)
   "observability": { "enabled": true, "head_sampling_rate": 1 }
 }

@@ -78,7 +78,8 @@ svg { display: block; }
   background: var(--header); border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 2; backdrop-filter: saturate(1.4) blur(8px);
 }
-.brand { display: flex; align-items: center; gap: 10px; min-width: 0; text-decoration: none; color: inherit; }
+/* The brand shrinks (and truncates) before it can run under the buttons. */
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; overflow: hidden; text-decoration: none; color: inherit; }
 .logo { width: 40px; height: 40px; border-radius: 10px; background: #fff; box-shadow: var(--shadow); display: grid; place-items: center; flex: none; }
 .logo img { width: 34px; height: 34px; }
 .brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
@@ -90,7 +91,7 @@ svg { display: block; }
   background: linear-gradient(135deg, #3c92f5, #2d62ae); padding: 2px 7px; border-radius: 6px;
 }
 .store-line { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.top-actions { display: flex; align-items: center; gap: 8px; }
+.top-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .badge {
   font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
   background: var(--accent-soft); color: var(--accent); letter-spacing: 0.02em; white-space: nowrap;
@@ -215,11 +216,54 @@ textarea { flex: 1; border: 0; outline: none; resize: none; background: transpar
 .error { color: var(--danger); font-size: 13.5px; margin: 0; }
 
 @media (max-width: 640px) {
-  .topbar { padding: 10px 12px; }
+  .topbar { padding: 8px 10px; gap: 8px; }
+  .brand { gap: 8px; }
+  .logo { width: 34px; height: 34px; border-radius: 9px; }
+  .logo img { width: 28px; height: 28px; }
+  .wordmark { font-size: 15px; gap: 4px; }
+  .wordmark .pos { margin-left: -4px; }
+  .ai-tag { font-size: 9.5px; padding: 1px 5px; }
+  .store-line { font-size: 11.5px; }
+  .top-actions { gap: 2px; }
+  .top-actions .ghost { width: 36px; height: 36px; padding: 0; justify-content: center; }
+  .primary.small { padding: 7px 11px; font-size: 13.5px; }
   .ghost span, .store-select { display: none; }
   .scroller { padding: 14px 12px 6px; }
   .composer { padding-left: 12px; padding-right: 12px; }
   .msg-user { max-width: 92%; }
   .card { padding: 12px; }
   .badge { display: none; }
+}
+
+/* History drawer */
+.scrim { position: fixed; inset: 0; background: rgba(7, 20, 39, 0.35); z-index: 9; }
+.scrim[hidden] { display: none; }
+.drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 10; width: min(320px, 86vw);
+  display: flex; flex-direction: column; gap: 10px; padding: 14px;
+  background: var(--surface); border-right: 1px solid var(--border); box-shadow: 0 10px 40px rgba(7, 20, 39, 0.25);
+  transform: translateX(-105%); visibility: hidden; transition: transform 0.2s ease, visibility 0.2s;
+}
+.drawer.open { transform: none; visibility: visible; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; }
+.drawer-head strong { font-size: 15px; }
+.drawer-new { width: 100%; }
+.history-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; display: grid; align-content: start; gap: 2px; scrollbar-width: thin; }
+.history-list li { display: flex; align-items: center; border-radius: 10px; }
+.history-list li:hover, .history-list li.active { background: var(--accent-soft); }
+.history-open { flex: 1; min-width: 0; text-align: start; padding: 8px 10px; display: grid; gap: 1px; }
+.history-title { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-list li.active .history-title { color: var(--accent); font-weight: 600; }
+.history-when { font-size: 11.5px; color: var(--muted); }
+.history-delete { width: 32px; height: 32px; margin-right: 4px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); opacity: 0; }
+.history-list li:hover .history-delete, .history-delete:focus-visible { opacity: 1; }
+.history-delete:hover { color: var(--danger); background: var(--surface); }
+.history-delete svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.drawer-empty, .drawer-note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.drawer-empty[hidden] { display: none; }
+@media (hover: none) { .history-delete { opacity: 1; } }
+@media (max-width: 360px) {
+  .store-line { display: none; }
+  .logo { width: 30px; height: 30px; }
+  .logo img { width: 25px; height: 25px; }
 }
