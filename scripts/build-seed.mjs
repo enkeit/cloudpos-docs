@@ -29,14 +29,33 @@ function frontmatter(source) {
 	return { body: source.slice(m[0].length), title: field("title"), description: field("description") };
 }
 
-/** MDX → plain markdown: drop imports/exports, JSX tags and comments, keep their text. */
+/**
+ * MDX → plain markdown: drop MDX imports/exports, JSX tags and comments, keep
+ * their text. Code is left untouched: fenced blocks and `inline code` often
+ * show JSX or import lines on purpose (the developer docs do).
+ */
 function toMarkdown(body) {
+	const clean = (prose) =>
+		prose
+			.split(/(`[^`\n]+`)/)
+			.map((part, i) => (i % 2 ? part : part.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/<\/?[A-Z][\w.]*[^>]*>/g, "")))
+			.join("")
+			.replace(/^(import|export)\s.*$/gm, "");
+	let firstHeadingRemoved = false;
 	return body
 		.replace(/\r/g, "")
-		.replace(/^(import|export)\s.*$/gm, "")
-		.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
-		.replace(/<\/?[A-Z][\w.]*[^>]*>/g, "")
-		.replace(/^#\s+.+$/m, "") // the page title is rendered from the title field
+		.split(/(^```[\s\S]*?^```[ \t]*$)/m)
+		.map((part, i) => {
+			if (i % 2) return part; // fenced code block
+			let prose = clean(part);
+			// The page title is rendered from the title field.
+			if (!firstHeadingRemoved && /^#\s+.+$/m.test(prose)) {
+				prose = prose.replace(/^#\s+.+$/m, "");
+				firstHeadingRemoved = true;
+			}
+			return prose;
+		})
+		.join("")
 		.replace(/\n{3,}/g, "\n\n")
 		.trim();
 }
