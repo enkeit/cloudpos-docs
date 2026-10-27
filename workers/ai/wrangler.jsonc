@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Enke dev account (Enkedevelopment@gmail.com)
+  "account_id": "4275d9596d1fa5b1f150fdbbbc263d26",
+  "name": "cloudpos-ai",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "ai": { "binding": "AI" },
+  "vectorize": [{ "binding": "DOCS_INDEX", "index_name": "cloudpos-docs-v1" }],
+  "kv_namespaces": [{ "binding": "KV", "id": "0199946e7d4a4d0991d810aca7087544" }],
+  "ratelimits": [
+    // Public demo chat, per visitor IP.
+    { "name": "DEMO_LIMITER", "namespace_id": "41001", "simple": { "limit": 8, "period": 60 } },
+    // Signed-in tenant chat, per tenant user.
+    { "name": "LIVE_LIMITER", "namespace_id": "41002", "simple": { "limit": 30, "period": 60 } },
+    // Sign-in attempts, per IP.
+    { "name": "LOGIN_LIMITER", "namespace_id": "41003", "simple": { "limit": 5, "period": 60 } }
+  ],
+  "vars": {
+    "CHAT_MODEL": "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+    "FALLBACK_MODEL": "@cf/openai/gpt-oss-120b",
+    "AI_GATEWAY_ID": "cloudpos-ai",
+    "DOCS_BASE_URL": "https://cloudpos-docs.enkedevelopment-427.workers.dev",
+    "DEMO_DAILY_LIMIT": "1500",
+    "ALLOWED_ORIGINS": "https://cloudpos-docs.enkedevelopment-427.workers.dev"
+  },
+  // Secrets (wrangler secret put): SESSION_SECRET, ADMIN_TOKEN
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}
