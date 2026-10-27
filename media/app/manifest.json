@@ -1,0 +1,427 @@
+{
+  "billing-empty": {
+    "caption": "Home / Billing: the new-order screen with an empty cart",
+    "from": "mcp-marionette-blob-1793113066746-24nvpg.png",
+    "at": "2026-10-27T14:57:50.045Z"
+  },
+  "dashboard": {
+    "caption": "Sales Executive Dashboard: failed ZATCA banner, sales overview and company account overview",
+    "from": "mcp-marionette-blob-1793113168780-c5mfm1.png",
+    "at": "2026-10-27T14:59:31.681Z"
+  },
+  "dashboard-activity": {
+    "caption": "Dashboard: company account overview and activity overview cards",
+    "from": "mcp-marionette-blob-1793113172557-qytt2i.png",
+    "at": "2026-10-27T14:59:35.498Z"
+  },
+  "dashboard-zatca": {
+    "caption": "Dashboard: ZATCA overview for invoices and vouchers, and your own cash/bank overview",
+    "from": "mcp-marionette-blob-1793113176392-xj0s0z.png",
+    "at": "2026-10-27T14:59:39.685Z"
+  },
+  "dashboard-performance": {
+    "caption": "Dashboard: your sales performance, your customers (debit, credit, VVIP) and product overview",
+    "from": "mcp-marionette-blob-1793113180243-vz4qat.png",
+    "at": "2026-10-27T14:59:43.924Z"
+  },
+  "dashboard-products": {
+    "caption": "Dashboard: product breakdown (inactive, sellable, purchasable, taxable) and category overview",
+    "from": "mcp-marionette-blob-1793113184538-pu9tpe.png",
+    "at": "2026-10-27T14:59:47.436Z"
+  },
+  "dashboard-graphs": {
+    "caption": "Dashboard: works team, hourly sales graph and orders & customers graph",
+    "from": "mcp-marionette-blob-1793113188360-e4gn1s.png",
+    "at": "2026-10-27T14:59:51.523Z"
+  },
+  "restaurant-empty": {
+    "caption": "Restaurant POS: order panel (dining, customer, payment, delivery), menu grid with category chips, and cart / saved / ongoing tabs",
+    "from": "mcp-marionette-blob-1793113193849-3uoza4.png",
+    "at": "2026-10-27T14:59:57.247Z"
+  },
+  "restaurant-tables": {
+    "caption": "Table List dialog: tables grouped by dining area with Available, Reserved, Filled and Available soon colours",
+    "from": "mcp-marionette-blob-1793113200542-f9oft2.png",
+    "at": "2026-10-27T15:00:03.497Z"
+  },
+  "restaurant-cart": {
+    "caption": "Restaurant order for Table 2: items in the cart with quantity steppers, item notes, Send Kitchen and KOT + BILL",
+    "from": "mcp-marionette-blob-1793113211206-ef20vx.png",
+    "at": "2026-10-27T15:00:15.311Z"
+  },
+  "zz-bug-item-note": {
+    "caption": "BUG: Item Note dialog shows a disposed TextEditingController error",
+    "from": "mcp-marionette-blob-1793113218814-6zipz8.png",
+    "at": "2026-10-27T15:00:25.590Z"
+  },
+  "splash": {
+    "caption": "Start-up screen: Getting your counter ready… while the app loads language settings and cached data",
+    "from": "mcp-marionette-blob-1793113296309-vvt73w.png",
+    "at": "2026-10-27T15:01:43.669Z"
+  },
+  "login": {
+    "caption": "Login screen: email, password, Remember Me, Forgot Password and Reset API Key",
+    "from": "mcp-marionette-blob-1793113303837-lr0kyv.png",
+    "at": "2026-10-27T15:01:48.417Z"
+  },
+  "select-store": {
+    "caption": "Select Store after sign-in: choose which branch (store) this counter works with",
+    "from": "mcp-marionette-blob-1793113312340-7jf6ou.png",
+    "at": "2026-10-27T15:01:55.505Z"
+  },
+  "billing-cart": {
+    "caption": "Billing with two items: tax-inclusive prices, per-line tax amount, totals panel (net, tax, total payable, paid, balance)",
+    "from": "mcp-marionette-blob-1793113340742-klzc2e.png",
+    "at": "2026-10-27T15:02:27.646Z"
+  },
+  "billing-customer-picker": {
+    "caption": "Customer picker: search by name or phone, B2C/B2B badge, selected customer panel and Add New Customer",
+    "from": "mcp-marionette-blob-1793113348162-gumglr.png",
+    "at": "2026-10-27T15:02:31.673Z"
+  },
+  "customer-add-form": {
+    "caption": "Add New Customer: customer details (phone is required and auto-formatted) and address with Pick on Map",
+    "from": "mcp-marionette-blob-1793113357804-61vwmb.png",
+    "at": "2026-10-27T15:02:41.193Z"
+  },
+  "customer-add-business": {
+    "caption": "Add New Customer: state, city, pincode, and business details (B2C or B2B, CR number, VAT number)",
+    "from": "mcp-marionette-blob-1793113362144-9fhqu7.png",
+    "at": "2026-10-27T15:02:45.495Z"
+  },
+  "customer-add-account": {
+    "caption": "Add New Customer: opening balance with To Pay / To Receive, then Submit",
+    "from": "mcp-marionette-blob-1793113366134-b41xu6.png",
+    "at": "2026-10-27T15:02:49.018Z"
+  },
+  "customer-added": {
+    "caption": "New customer Layla Al-Harbi selected automatically, showing her phone and SAR 0.00 balance",
+    "from": "mcp-marionette-blob-1793113371787-riuv0w.png",
+    "at": "2026-10-27T15:02:55.007Z"
+  },
+  "payment-split": {
+    "caption": "Payment dialog: split payment (card 400 + cash 300) with keyboard shortcuts, sell-on-credit remainder and 42.00 excess that can be kept as customer credit",
+    "from": "mcp-marionette-blob-1793113379833-i88zrz.png",
+    "at": "2026-10-27T15:03:04.189Z"
+  },
+  "billing-ready": {
+    "caption": "Ready to confirm: customer Layla Al-Harbi, Multi payment, paid 700.00 against 658.00 with 42.00 change shown in red; history icon shows the customer's last purchase price",
+    "from": "mcp-marionette-blob-1793113386806-4sps7g.png",
+    "at": "2026-10-27T15:03:10.433Z"
+  },
+  "finalize-order": {
+    "caption": "Finalize Order: customer (F3), delivery (F4), discount (F10), payment (F5), order summary with previous balance, and Confirm / Confirm and Print / Confirm & Whatsapp",
+    "from": "mcp-marionette-blob-1793113391045-f1k9jp.png",
+    "at": "2026-10-27T15:03:14.513Z"
+  },
+  "discount-coupon": {
+    "caption": "Discount & Coupon panel: flat discount, percentage discount or a coupon, with live total after discount",
+    "from": "mcp-marionette-blob-1793113395105-5d4obl.png",
+    "at": "2026-10-27T15:03:17.916Z"
+  },
+  "sales-list": {
+    "caption": "Sales > Orders List: filters (order, customer, phone, email, price, amount range, dates, status, payment status, business date), the new order ORD-004851 with receipt number 2-11-261027-0003, and view / print / more actions",
+    "from": "mcp-marionette-blob-1793113403956-hnfqhg.png",
+    "at": "2026-10-27T15:03:28.010Z"
+  },
+  "order-details": {
+    "caption": "Order Details for receipt 2-11-261027-0003 (backend ORD-004851): Print, Share, Return, Order Status and Payment Status actions, lines with MRP vs rate, tax and totals",
+    "from": "mcp-marionette-blob-1793113409968-2catv9.png",
+    "at": "2026-10-27T15:03:33.686Z"
+  },
+  "order-details-payment": {
+    "caption": "Order Details: status chips, store & delivery, payment breakdown (cash is stored net of change: 258 + card 400 = 658), customer information and Create Delivery",
+    "from": "mcp-marionette-blob-1793113414508-ceeqmr.png",
+    "at": "2026-10-27T15:03:38.418Z"
+  },
+  "order-details-shipping": {
+    "caption": "Order Details: shipping details with Create Delivery, and packing (status, packed at/by, packing photos and video)",
+    "from": "mcp-marionette-blob-1793113419254-f9huft.png",
+    "at": "2026-10-27T15:03:42.095Z"
+  },
+  "print-select-printer": {
+    "caption": "Select Printer: paper size, printers found on this PC, and Print Receipt",
+    "from": "mcp-marionette-blob-1793113430209-hyan00.png",
+    "at": "2026-10-27T15:03:53.170Z"
+  },
+  "return-items": {
+    "caption": "Sales Return step 1: order details and items with returned qty/total so far, Return action per line, order and return summaries",
+    "from": "mcp-marionette-blob-1793113440598-pjtmhp.png",
+    "at": "2026-10-27T15:04:04.158Z"
+  },
+  "return-line-dialog": {
+    "caption": "Return dialog for one line: quantity (up to the maximum returnable), auto-calculated return total and a reason",
+    "from": "mcp-marionette-blob-1793113448729-vab71y.png",
+    "at": "2026-10-27T15:04:11.548Z"
+  },
+  "return-summary": {
+    "caption": "Sales Return step 2: order vs return summary, Delivery Charge Refundable toggle, and Has Payment off (no voucher or payment record is created)",
+    "from": "mcp-marionette-blob-1793113457001-ygc2kf.png",
+    "at": "2026-10-27T15:04:20.485Z"
+  },
+  "return-refund": {
+    "caption": "Sales Return with a refund: payment method, return amount, server-calculated returned total and maximum cash refund",
+    "from": "mcp-marionette-blob-1793113460984-oux91g.png",
+    "at": "2026-10-27T15:04:24.271Z"
+  },
+  "return-list": {
+    "caption": "Sales Return Orders list: Layla's return of SAR 220.00 is Completed; view and print actions, export and refresh",
+    "from": "mcp-marionette-blob-1793113467525-z7wjlb.png",
+    "at": "2026-10-27T15:04:30.540Z"
+  },
+  "sync-attention": {
+    "caption": "Sales > Confirmed Orders (Sync attention): offline orders that have not reached the server yet; empty when everything is synced",
+    "from": "mcp-marionette-blob-1793113473240-2p0udb.png",
+    "at": "2026-10-27T15:04:36.112Z"
+  },
+  "day-close-list": {
+    "caption": "Daily Sales Closes: one row per sales executive and business date with total orders, total sales and online sales; Open Shift and Day Close buttons",
+    "from": "mcp-marionette-blob-1793113478317-62bkun.png",
+    "at": "2026-10-27T15:04:41.945Z"
+  },
+  "day-close-step1": {
+    "caption": "Day Close step 1: session information, business date, shift name, opening/closing time and the transaction overview since the last close",
+    "from": "mcp-marionette-blob-1793113485335-zoh44d.png",
+    "at": "2026-10-27T15:04:51.264Z"
+  },
+  "day-close-confirm": {
+    "caption": "Day Close step 2 (Confirm Close): expected closing cash and today's cash collection, then Confirm & Close Day",
+    "from": "mcp-marionette-blob-1793113491564-6p8l9f.png",
+    "at": "2026-10-27T15:04:57.992Z"
+  },
+  "open-shift": {
+    "caption": "Open Shift: store, shift name, business date, opening time, opening cash balance with a denomination breakdown, notes, and Save Opening Draft",
+    "from": "mcp-marionette-blob-1793113500710-5scvsy.png",
+    "at": "2026-10-27T15:05:03.646Z"
+  },
+  "select-price": {
+    "caption": "Select Price dialog: quick price buttons shown when a quick-pick product is configured with price options",
+    "from": "mcp-marionette-blob-1793113516667-jg1ask.png",
+    "at": "2026-10-27T15:05:21.446Z"
+  },
+  "delivery-methods": {
+    "caption": "Delivery methods in Finalize: Toyou, Door Delivery, Store Takeaway, Car Delivery, Third Party logistics, Hungerstation, Dine In (with price or Free) and an order comment",
+    "from": "mcp-marionette-blob-1793113566906-5cv83j.png",
+    "at": "2026-10-27T15:06:10.877Z"
+  },
+  "quotation-list": {
+    "caption": "Quotation List: QTN-00133 for Layla Al-Harbi (Pending, expires after 30 days), filters, and view / convert to order / print actions",
+    "from": "mcp-marionette-blob-1793113576692-0ygk6s.png",
+    "at": "2026-10-27T15:06:20.588Z"
+  },
+  "quotation-details": {
+    "caption": "Quotation details QTN-00133: customer, store, date and expiry, items with tax, sub total, tax, grand total and the terms entered at creation",
+    "from": "mcp-marionette-blob-1793113582716-yh6k29.png",
+    "at": "2026-10-27T15:06:28.840Z"
+  },
+  "category-list": {
+    "caption": "Category List: search in any language, category name and slug, edit action, Add Category",
+    "from": "mcp-marionette-blob-1793113593221-3q3f9k.png",
+    "at": "2026-10-27T15:06:36.044Z"
+  },
+  "category-add": {
+    "caption": "Add New Category: name with Arabic and Malayalam translations (auto-translate button), parent category, URL slug, taxes, Sellable and Purchasable switches",
+    "from": "mcp-marionette-blob-1793113599458-1orp89.png",
+    "at": "2026-10-27T15:06:42.665Z"
+  },
+  "product-list": {
+    "caption": "Product List: filters (name, category, price, barcode, HSN, property, item code), columns price / MRP / purchase price / unit / barcode, export and Add Product",
+    "from": "mcp-marionette-blob-1793113605241-91aoj3.png",
+    "at": "2026-10-27T15:06:48.330Z"
+  },
+  "product-create": {
+    "caption": "Create New Product (quick form): name, barcode with generate button, category (+ add), Arabic/Malayalam names with translate, unit, purchase price, MRP, selling price, opening quantity, item code, max discount % and amount, SKU; Save (F9) and Save and Create (F8)",
+    "from": "mcp-marionette-blob-1793113608768-zbrp7y.png",
+    "at": "2026-10-27T15:06:52.786Z"
+  },
+  "product-create-advanced": {
+    "caption": "Create New Product, lower part: Multi Sale Unit section (add pack/box units once the base unit is chosen)",
+    "from": "mcp-marionette-blob-1793113616305-wdkrmz.png",
+    "at": "2026-10-27T15:07:42.893Z"
+  },
+  "stock-list": {
+    "caption": "Product Stock List: one row per stock batch with retail price, MRP, purchase price, quantity badge (red = 0, amber = low), unit, rack and date; Add Stock",
+    "from": "mcp-marionette-blob-1793113663661-2ovll4.png",
+    "at": "2026-10-27T15:07:46.920Z"
+  },
+  "barcode-list": {
+    "caption": "Print Barcodes: filter by category, name, barcode; tick rows or Select all on page, then print labels",
+    "from": "mcp-marionette-blob-1793113667485-w5dtvt.png",
+    "at": "2026-10-27T15:07:50.549Z"
+  },
+  "weigh-machine": {
+    "caption": "Weigh machine: products with an SKU go into PLU.csv for the scale; filter All / Selected / Weighted, save folder, keep file up to date, Download PLU.csv and Sync & download",
+    "from": "mcp-marionette-blob-1793113671128-45n92q.png",
+    "at": "2026-10-27T15:07:58.915Z"
+  },
+  "purchase-create": {
+    "caption": "Create New Purchase Order: purchase date, voucher number, store, supplier (+ add), invoice reference, product lines by barcode or product picker with quantity and expandable price details, then payment method",
+    "from": "mcp-marionette-blob-1793113684544-08u52a.png",
+    "at": "2026-10-27T15:08:07.907Z"
+  },
+  "report-my-sales": {
+    "caption": "My Sales Report (Sales Executive Reports): today's totals for the signed-in executive: orders, total, online (card), cash and credit sales",
+    "from": "mcp-marionette-blob-1793113692857-hphh3s.png",
+    "at": "2026-10-27T15:08:15.937Z"
+  },
+  "report-sales": {
+    "caption": "Sales Report: filters (stores and executive locked to your own for sales executives, payment methods, delivery modes, categories, products, customers, date range defaulting to this month, sort)",
+    "from": "mcp-marionette-blob-1793113698351-bosaz2.png",
+    "at": "2026-10-27T15:08:24.856Z"
+  },
+  "report-discount": {
+    "caption": "Discount Sale Report: filters for discount type, order or offline receipt number, executive, customer, store and date range",
+    "from": "mcp-marionette-blob-1793113705443-cwyej4.png",
+    "at": "2026-10-27T15:08:29.121Z"
+  },
+  "report-product-sales": {
+    "caption": "Product Sales Report: filter by category, product, date range and customer; shows price, total amount and number sold per product",
+    "from": "mcp-marionette-blob-1793113709625-vrxkzf.png",
+    "at": "2026-10-27T15:08:32.671Z"
+  },
+  "report-customer-transactions": {
+    "caption": "Customer Transactions Report: total debit, total credit, balance (red = customer owes) and transaction count per customer, with View for the ledger",
+    "from": "mcp-marionette-blob-1793113719712-60bmtx.png",
+    "at": "2026-10-27T15:08:43.756Z"
+  },
+  "report-stock": {
+    "caption": "Stock Report: view stock as of a date (blank = current), store, category, product, stock level, expiry filter and date range",
+    "from": "mcp-marionette-blob-1793113724278-nty8yh.png",
+    "at": "2026-10-27T15:08:47.703Z"
+  },
+  "report-non-stock": {
+    "caption": "Non-Stock Report: low-stock and out-of-stock products by store, category, product or barcode, with current stock and reorder level",
+    "from": "mcp-marionette-blob-1793113728168-ydwv0f.png",
+    "at": "2026-10-27T15:08:51.152Z"
+  },
+  "report-consumed-stock": {
+    "caption": "Consumed Stocks Report: stock withdrawals with quantity withdrawn, new quantity, who withdrew it and when",
+    "from": "mcp-marionette-blob-1793113731579-teaova.png",
+    "at": "2026-10-27T15:08:54.898Z"
+  },
+  "invoice-list": {
+    "caption": "Invoice List: every confirmed sale creates an invoice (INV-OR1002060 for Layla's order, linked to offline receipt 2-11-261027-0003); filters incl. ZATCA status and Today; ZATCA bulk actions Sync ALL / Sync Failed / Sync Not Send / Sync Selected",
+    "from": "mcp-marionette-blob-1793113737278-wsi2m0.png",
+    "at": "2026-10-27T15:09:01.471Z"
+  },
+  "receipt-list": {
+    "caption": "Receipt List: filters by receipt, order or offline receipt number, reference, name, phone, email, status, method and dates; Create Receipt",
+    "from": "mcp-marionette-blob-1793113743988-fv39rt.png",
+    "at": "2026-10-27T15:09:07.474Z"
+  },
+  "customer-voucher-list": {
+    "caption": "Customer Voucher List: filter by customer, voucher number, type, status and dates; Create Voucher (credit notes / payments back to customers)",
+    "from": "mcp-marionette-blob-1793113750023-bxx1z6.png",
+    "at": "2026-10-27T15:09:14.488Z"
+  },
+  "proforma-list": {
+    "caption": "Proforma Invoices: search by invoice number, name or phone and status (Pending, Paid, Overdue, Order Created)",
+    "from": "mcp-marionette-blob-1793113755353-k0ja14.png",
+    "at": "2026-10-27T15:09:18.417Z"
+  },
+  "expense-list": {
+    "caption": "Expenses: filter by category, reference number, debit account and status; columns payment date, debit/credit account, amount; New Entry",
+    "from": "mcp-marionette-blob-1793113758887-a8qsdn.png",
+    "at": "2026-10-27T15:09:23.389Z"
+  },
+  "expense-create": {
+    "caption": "Create Expense: auto reference number (EXP00120), payment date, expense category, description/vendor, expense account (debit), paid-from account (credit), amount, payment method, notes; Create or Create & create another",
+    "from": "mcp-marionette-blob-1793113763728-efbktt.png",
+    "at": "2026-10-27T15:09:27.223Z"
+  },
+  "party-customer-transactions": {
+    "caption": "Party Accounts > Customer Transaction: every customer debit/credit with amount, customer, type, reference ID and date filters; sidebar shows the profile card with Active Store switcher",
+    "from": "mcp-marionette-blob-1793113768046-0n56lj.png",
+    "at": "2026-10-27T15:09:31.735Z"
+  },
+  "customers-list": {
+    "caption": "Customers: search as you type by name, email or phone, filter by balance; Layla Al-Harbi B2C with balance 0.00; View opens the profile; export and Add customer",
+    "from": "mcp-marionette-blob-1793113777614-2ec6sc.png",
+    "at": "2026-10-27T15:09:41.001Z"
+  },
+  "customer-profile": {
+    "caption": "Customer Profile: tabs Information, Edit Details, Transactions, All Orders, Customer Address, Loyalty Card, Chat; contact, account (balance, payment type, loyalty points, member since) and store information",
+    "from": "mcp-marionette-blob-1793113781586-mt8jcx.png",
+    "at": "2026-10-27T15:09:47.487Z"
+  },
+  "customer-transactions-tab": {
+    "caption": "Customer Profile > Transactions: total credit, total debit and net, then each ledger line (invoice debit, receipt credits per payment method, sales return credit, refund voucher debit) with View",
+    "from": "mcp-marionette-blob-1793113789531-fsdl8s.png",
+    "at": "2026-10-27T15:10:00.853Z"
+  },
+  "suppliers-list": {
+    "caption": "Suppliers: search by name, email or phone, filter by balance; Add New Supplier; sub-menus Supplier Transactions and Supplier Voucher",
+    "from": "mcp-marionette-blob-1793113803208-nyhzza.png",
+    "at": "2026-10-27T15:10:06.576Z"
+  },
+  "printer-settings": {
+    "caption": "Printer Settings: tabs Billing / Quotation / Kitchen / Barcode printer and PDF Sharing; B2C and B2B billing profiles; paper size and theme (e.g. Bilingual Centered Tax Invoice); Open PDF or a physical printer; Scan for Printers; Resync Doc and Clear D… (clear document cache)",
+    "from": "mcp-marionette-blob-1793113807037-f49s2b.png",
+    "at": "2026-10-27T15:10:11.175Z"
+  },
+  "printer-kitchen": {
+    "caption": "Printer Settings > Kitchen Printer: KOT paper size (80 mm) and printer, plus Advanced print options (PDF margins, driver behaviour) that apply to all tabs",
+    "from": "mcp-marionette-blob-1793113811512-51lle0.png",
+    "at": "2026-10-27T15:10:14.707Z"
+  },
+  "settings": {
+    "caption": "Settings: Company Info, Language, POS Counter Identity (Counter 11 + device id), Offline Data (1430 products cached), Last Product Sync, Resync Products, Realtime Sync Tester, Offline Mode, Notification Position, Screen Orientation, Developer Mode, Clear Local Storage, Clear Product Cache",
+    "from": "mcp-marionette-blob-1793113815271-c5oem3.png",
+    "at": "2026-10-27T15:10:19.168Z"
+  },
+  "settings-counter": {
+    "caption": "POS Counter Identity: counter number 1-999 (unique per store) becomes part of every offline receipt number; last bill today, optional last-bill override after a reinstall, next bill number and device ID",
+    "from": "mcp-marionette-blob-1793113819792-s5pskh.png",
+    "at": "2026-10-27T15:10:23.933Z"
+  },
+  "keyboard-shortcuts": {
+    "caption": "Keyboard Shortcuts (Ctrl+H): global, billing, cart, add-product, shared navigation and checkout shortcuts, plus the keyboard focus outline switch",
+    "from": "mcp-marionette-blob-1793114027680-mdix0p.png",
+    "at": "2026-10-27T15:13:51.712Z"
+  },
+  "attender-tables": {
+    "caption": "Attender (waiter) screen: table tiles with status (FREE / BUSY / reserved), menu grid, and the order panel that opens once a table is selected",
+    "from": "mcp-marionette-blob-1793114035182-shlcgz.png",
+    "at": "2026-10-27T15:13:58.924Z"
+  },
+  "attender-order": {
+    "caption": "Attender order for Table 3: cart with quantities and notes, Total Payable, Cancel / Save / Send Kitchen, order comment and Ongoing Orders",
+    "from": "mcp-marionette-blob-1793114041093-djziej.png",
+    "at": "2026-10-27T15:14:04.401Z"
+  },
+  "kot-print": {
+    "caption": "Send Kitchen saved order ORD-004852 and opened Print KOT: pick the kitchen printer (asked when no default kitchen printer is set)",
+    "from": "mcp-marionette-blob-1793114047743-5ip9wb.png",
+    "at": "2026-10-27T15:14:14.587Z"
+  },
+  "attender-ongoing": {
+    "caption": "After Send Kitchen: Saved Orders and Ongoing Orders for the table (ORD-004852, items served 0/2) with a reprint KOT button",
+    "from": "mcp-marionette-blob-1793114055172-jue0ls.png",
+    "at": "2026-10-27T15:14:21.020Z"
+  },
+  "kitchen-master": {
+    "caption": "Kitchen Master: kitchen orders with tabs All / Pending / Preparing / Ready / Served, item statuses, kitchen notes (NO ICE, EXTRA SPICY), Mark As Served, reprint KOT, and Kitchen Stats (pending, preparing, ready, completed, average prep time)",
+    "from": "mcp-marionette-blob-1793114061375-11c49f.png",
+    "at": "2026-10-27T15:14:27.286Z"
+  },
+  "kitchen-order-details": {
+    "caption": "Kitchen Master > Order Details for ORD-004852 - TABLE 3: Mark Ready per item; when all items are ready the order can be marked served",
+    "from": "mcp-marionette-blob-1793114067667-sfzr3p.png",
+    "at": "2026-10-27T15:14:31.071Z"
+  },
+  "kitchen-ready": {
+    "caption": "Both items marked Ready: the order card turns READY, Kitchen Stats move it to Ready to Serve; next step is Mark As Served",
+    "from": "mcp-marionette-blob-1793114071931-1qm8m1.png",
+    "at": "2026-10-27T15:14:35.258Z"
+  },
+  "offline-data": {
+    "caption": "Settings > Offline Data: what is cached on this device for billing and offline use (products, categories, last sync, payment methods, delivery methods, document configs, …) with per-row Sync / Clear, Sync section and Sync All",
+    "from": "mcp-marionette-blob-1793114081525-65w3aa.png",
+    "at": "2026-10-27T15:14:48.071Z"
+  },
+  "company-info": {
+    "caption": "Settings > Company Information: signed-in user, company, username, email, role, customer ID, company ID, token type, time zone, base URL and app version",
+    "from": "mcp-marionette-blob-1793114090628-evenko.png",
+    "at": "2026-10-27T15:15:02.608Z"
+  }
+}

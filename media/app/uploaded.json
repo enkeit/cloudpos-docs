@@ -1,0 +1,506 @@
+{
+  "attender-ongoing": {
+    "id": "01M5YYX5NQ3WD3E02JVKEJYSE7",
+    "url": "/_emdash/api/media/file/01M5YYX4YZRR35C9TNSH5PBFQZ.png",
+    "width": 1366,
+    "height": 745
+  },
+  "attender-order": {
+    "id": "01M5YYXBE3DES73W9WHXD24G08",
+    "url": "/_emdash/api/media/file/01M5YYX8M32Y4BA1CAKHPK289F.png",
+    "width": 1366,
+    "height": 745
+  },
+  "attender-tables": {
+    "id": "01M5YYXDNXFYG748G11MD4GQZK",
+    "url": "/_emdash/api/media/file/01M5YYXD6PCKJYZ7Z5NSCJTAXB.png",
+    "width": 1366,
+    "height": 745
+  },
+  "barcode-list": {
+    "id": "01M5YYXFZQXSS5EQTM672MR5P6",
+    "url": "/_emdash/api/media/file/01M5YYXFC22FB2A5YYGGYCYQ28.png",
+    "width": 1366,
+    "height": 745
+  },
+  "billing-cart": {
+    "id": "01M5YYXKMK11KH9AQNG1EGGC6D",
+    "url": "/_emdash/api/media/file/01M5YYXK1VPD9V8FRV6FFEN3S0.png",
+    "width": 1366,
+    "height": 745
+  },
+  "billing-customer-picker": {
+    "id": "01M5YYXPGS1R25XG4G4XCHEJB3",
+    "url": "/_emdash/api/media/file/01M5YYXNQV2Y1TTNXP06EN8Z5F.png",
+    "width": 1366,
+    "height": 745
+  },
+  "billing-empty": {
+    "id": "01M5YYXS3RQPWJ3VKC8TDTCS7G",
+    "url": "/_emdash/api/media/file/01M5YYXRATWDK01PNX9RATZ6KG.png",
+    "width": 1366,
+    "height": 745
+  },
+  "billing-ready": {
+    "id": "01M5YYXVG0SAC2D2QAEZXKT2GZ",
+    "url": "/_emdash/api/media/file/01M5YYXV100SYXERNFCSR2FNEY.png",
+    "width": 1366,
+    "height": 745
+  },
+  "category-add": {
+    "id": "01M5YYXYRM9K24XVA0TV7TKETH",
+    "url": "/_emdash/api/media/file/01M5YYXXG30ZV0N6878C16DAG3.png",
+    "width": 1366,
+    "height": 745
+  },
+  "category-list": {
+    "id": "01M5YYY2NSRMYS4MZ1NCX0VGS3",
+    "url": "/_emdash/api/media/file/01M5YYY1XAZM9Z846GA9QND99B.png",
+    "width": 1366,
+    "height": 745
+  },
+  "company-info": {
+    "id": "01M5YYY4YHBMAFRGPQDG01GZJ2",
+    "url": "/_emdash/api/media/file/01M5YYY40ETA7TSG85T2967ZE4.png",
+    "width": 1366,
+    "height": 745
+  },
+  "customer-add-account": {
+    "id": "01M5YYY7NKJ013WMK1D2A3QA5C",
+    "url": "/_emdash/api/media/file/01M5YYY6TKR09DGVGCPJ3TMK8D.png",
+    "width": 1366,
+    "height": 745
+  },
+  "customer-add-business": {
+    "id": "01M5YYY9NVBDMMYFQ1FQE58XNK",
+    "url": "/_emdash/api/media/file/01M5YYY92TQZP1QEMG6H4V2X0Q.png",
+    "width": 1366,
+    "height": 745
+  },
+  "customer-add-form": {
+    "id": "01M5YYYCKBX5CNQBX99TME6ASP",
+    "url": "/_emdash/api/media/file/01M5YYYC043162RG72Z643A19W.png",
+    "width": 1366,
+    "height": 745
+  },
+  "customer-added": {
+    "id": "01M5YYYFBZH39YKJFQ45WAHVWH",
+    "url": "/_emdash/api/media/file/01M5YYYEQE4T44BBSXSPR2VR57.png",
+    "width": 1366,
+    "height": 745
+  },
+  "customer-profile": {
+    "id": "01M5YYYJ5TK3GM1WKZZSCQC8Q8",
+    "url": "/_emdash/api/media/file/01M5YYYGZW07WQSJAFCNS9B52E.png",
+    "width": 1366,
+    "height": 745
+  },
+  "customer-transactions-tab": {
+    "id": "01M5YYYMJKT71N74GMBBMKK1NB",
+    "url": "/_emdash/api/media/file/01M5YYYKXBFSM9ZMTCEKHNF43Z.png",
+    "width": 1366,
+    "height": 745
+  },
+  "customer-voucher-list": {
+    "id": "01M5YYYQ0SYQSYW0NXNTJKQW7Y",
+    "url": "/_emdash/api/media/file/01M5YYYP926X3MXEQPF76FJ7RG.png",
+    "width": 1366,
+    "height": 745
+  },
+  "customers-list": {
+    "id": "01M5YYYT541R8349VREHD4XV8K",
+    "url": "/_emdash/api/media/file/01M5YYYSCESVG2X3HNJ2DBVY0Y.png",
+    "width": 1366,
+    "height": 745
+  },
+  "dashboard-activity": {
+    "id": "01M5YYYWQ9Z2KMAZD3H3AS70Y4",
+    "url": "/_emdash/api/media/file/01M5YYYW31YSTRRJY9TT2T3A7A.png",
+    "width": 1366,
+    "height": 745
+  },
+  "dashboard-graphs": {
+    "id": "01M5YYZ0720CADVKJFYYDVAV8F",
+    "url": "/_emdash/api/media/file/01M5YYYZSBQDW60VS7CQSSJPK5.png",
+    "width": 1366,
+    "height": 745
+  },
+  "dashboard-performance": {
+    "id": "01M5YYZ3MV6QZBAPH9DH9JS0T5",
+    "url": "/_emdash/api/media/file/01M5YYZ300791MY3F65EWYZWQN.png",
+    "width": 1366,
+    "height": 745
+  },
+  "dashboard-products": {
+    "id": "01M5YYZ5XYMQFWHVSKW72AVK9Z",
+    "url": "/_emdash/api/media/file/01M5YYZ5B35MAW6GAENM8AG6FQ.png",
+    "width": 1366,
+    "height": 745
+  },
+  "dashboard-zatca": {
+    "id": "01M5YYZ9930KCHVSF851MWCV28",
+    "url": "/_emdash/api/media/file/01M5YYZ8MCG755F13JX7WRS1JB.png",
+    "width": 1366,
+    "height": 745
+  },
+  "dashboard": {
+    "id": "01M5YYZBR3R5SBNXPN2QETTPEX",
+    "url": "/_emdash/api/media/file/01M5YYZB819R1DXR9F1RMRJGMW.png",
+    "width": 1366,
+    "height": 745
+  },
+  "day-close-confirm": {
+    "id": "01M5YYZEC6775QYES1XGCFGWT4",
+    "url": "/_emdash/api/media/file/01M5YYZDTPB9W86BPCSHKFZRS1.png",
+    "width": 1366,
+    "height": 745
+  },
+  "day-close-list": {
+    "id": "01M5YYZJ1X3R699K4RPGGYRVMH",
+    "url": "/_emdash/api/media/file/01M5YYZHBW857YMNA2WFHJX2Y2.png",
+    "width": 1366,
+    "height": 745
+  },
+  "day-close-step1": {
+    "id": "01M5YYZMXF4S7R6BZB0KJARAZR",
+    "url": "/_emdash/api/media/file/01M5YYZMHF3T9PY1AP6F4GJ6RA.png",
+    "width": 1366,
+    "height": 745
+  },
+  "delivery-methods": {
+    "id": "01M5YYZPZFQ6B14Y27ZDJ5S41P",
+    "url": "/_emdash/api/media/file/01M5YYZPJ5V95YNMXQQVJVYA6H.png",
+    "width": 1366,
+    "height": 745
+  },
+  "discount-coupon": {
+    "id": "01M5YYZT58NCBJSHBQ3ZY9AFW3",
+    "url": "/_emdash/api/media/file/01M5YYZS9H8MVG5MD84SN12GPB.png",
+    "width": 1366,
+    "height": 745
+  },
+  "expense-create": {
+    "id": "01M5YYZWWS0B7SG3W33QH4V8NH",
+    "url": "/_emdash/api/media/file/01M5YYZW5VE61B3APGF0YC2TJA.png",
+    "width": 1366,
+    "height": 745
+  },
+  "expense-list": {
+    "id": "01M5YZ0133WSF4F6AQVZNEBTRH",
+    "url": "/_emdash/api/media/file/01M5YZ00HBEFYWMTB5DB78ETAS.png",
+    "width": 1366,
+    "height": 745
+  },
+  "finalize-order": {
+    "id": "01M5YZ030EW14PW82K4XV2QYH5",
+    "url": "/_emdash/api/media/file/01M5YZ02J8CX0A3FF09JDC7W7Y.png",
+    "width": 1366,
+    "height": 745
+  },
+  "invoice-list": {
+    "id": "01M5YZ05ZT498TKR887M2SV3PM",
+    "url": "/_emdash/api/media/file/01M5YZ05A6EJT0RZXKHRK1YXFJ.png",
+    "width": 1366,
+    "height": 745
+  },
+  "keyboard-shortcuts": {
+    "id": "01M5YZ08W6X1F61MQF4NQAAJA8",
+    "url": "/_emdash/api/media/file/01M5YZ07S5RFGJRXRS810VNNGM.png",
+    "width": 1366,
+    "height": 745
+  },
+  "kitchen-master": {
+    "id": "01M5YZ0CEK0QGP4A8PRNPVAF7J",
+    "url": "/_emdash/api/media/file/01M5YZ0BSR1JGDNPKTKXCKER2K.png",
+    "width": 1366,
+    "height": 745
+  },
+  "kitchen-order-details": {
+    "id": "01M5YZ0F0W402C3R456SWJCKAF",
+    "url": "/_emdash/api/media/file/01M5YZ0EHKCPB5BNV6SV5RTJ3T.png",
+    "width": 1366,
+    "height": 745
+  },
+  "kitchen-ready": {
+    "id": "01M5YZ0H6DNQ41XK83QNKBJEHN",
+    "url": "/_emdash/api/media/file/01M5YZ0GPCGP51HAZ4HNVAQ5EA.png",
+    "width": 1366,
+    "height": 745
+  },
+  "kot-print": {
+    "id": "01M5YZ0MA21VW8RAGR11BXTVZ4",
+    "url": "/_emdash/api/media/file/01M5YZ0KQ4KD4FFGBQ09SMSK3Y.png",
+    "width": 1366,
+    "height": 745
+  },
+  "login": {
+    "id": "01M5YYRWKECQF5JBK0PSH8MV2R",
+    "url": "/_emdash/api/media/file/01M5YYRTE24Q2TAPJF9RHSMCFA.png",
+    "width": 1366,
+    "height": 745
+  },
+  "offline-data": {
+    "id": "01M5YZ0SGG1ZZ5E7SXSQGMH62T",
+    "url": "/_emdash/api/media/file/01M5YZ0RS8KRGC2BRW5QXCXQQA.png",
+    "width": 1366,
+    "height": 745
+  },
+  "open-shift": {
+    "id": "01M5YZ0Z3VDGWT285R9QJGP9XH",
+    "url": "/_emdash/api/media/file/01M5YZ0XQZFEPXJQJ086N00THN.png",
+    "width": 1366,
+    "height": 745
+  },
+  "order-details-payment": {
+    "id": "01M5YZ126MYVZV35V46W9P27QV",
+    "url": "/_emdash/api/media/file/01M5YZ116PNZMRN8DC7DG2RKR6.png",
+    "width": 1366,
+    "height": 745
+  },
+  "order-details-shipping": {
+    "id": "01M5YZ15E2BA666XB3J8BQ4TB3",
+    "url": "/_emdash/api/media/file/01M5YZ1486FW565R9JQPQPEQ2W.png",
+    "width": 1366,
+    "height": 745
+  },
+  "order-details": {
+    "id": "01M5YZ18CWJSTPRBZA8Q7064VN",
+    "url": "/_emdash/api/media/file/01M5YZ17Q5NM9QDKYR468Q8A5W.png",
+    "width": 1366,
+    "height": 745
+  },
+  "party-customer-transactions": {
+    "id": "01M5YZ1BQPY67NGG9S6RBEFZFN",
+    "url": "/_emdash/api/media/file/01M5YZ1ABJ7NN6SDVBQZQH3Z9K.png",
+    "width": 1366,
+    "height": 745
+  },
+  "payment-split": {
+    "id": "01M5YZ1EFBYT7Y4VEYVXWG9M7R",
+    "url": "/_emdash/api/media/file/01M5YZ1DRD6GGQAQ32DQJ2DD40.png",
+    "width": 1366,
+    "height": 745
+  },
+  "print-select-printer": {
+    "id": "01M5YZ1HPN1YTWPT1WD9SHVKQN",
+    "url": "/_emdash/api/media/file/01M5YZ1H3P7J20JFMP60QY5HDB.png",
+    "width": 1366,
+    "height": 745
+  },
+  "printer-kitchen": {
+    "id": "01M5YZ1M0S17W26Q6GEYQQWBEE",
+    "url": "/_emdash/api/media/file/01M5YZ1KA6YVMC1QQ5T6S5QA0D.png",
+    "width": 1366,
+    "height": 745
+  },
+  "printer-settings": {
+    "id": "01M5YZ1QZ8E6TYS7MJA4J8FJ66",
+    "url": "/_emdash/api/media/file/01M5YZ1PT6YJWWDWAK0TFDEYF7.png",
+    "width": 1366,
+    "height": 745
+  },
+  "product-create-advanced": {
+    "id": "01M5YZ1VMGEX49XNMKVZV9N0DB",
+    "url": "/_emdash/api/media/file/01M5YZ1TM9BTVKCMWNJJ25S605.png",
+    "width": 1366,
+    "height": 745
+  },
+  "product-create": {
+    "id": "01M5YZ1XQB65V6M0SQTAR61AEK",
+    "url": "/_emdash/api/media/file/01M5YZ1X8PSV75M15RCD6MG7VV.png",
+    "width": 1366,
+    "height": 745
+  },
+  "product-list": {
+    "id": "01M5YZ20JANJVR24D63BFWCHAX",
+    "url": "/_emdash/api/media/file/01M5YZ1ZY140CBG1VSXACQZBAY.png",
+    "width": 1366,
+    "height": 745
+  },
+  "proforma-list": {
+    "id": "01M5YZ234QRTMYE7M6RHVSCENC",
+    "url": "/_emdash/api/media/file/01M5YZ22Q27EY1FQ0VW5925XND.png",
+    "width": 1366,
+    "height": 745
+  },
+  "purchase-create": {
+    "id": "01M5YZ25W33RRBDHDWAWN21P30",
+    "url": "/_emdash/api/media/file/01M5YZ25A8QTKE3YMEG2Z27B9P.png",
+    "width": 1366,
+    "height": 745
+  },
+  "quotation-details": {
+    "id": "01M5YZ28VAE8QC1CBMFY6S9DQ8",
+    "url": "/_emdash/api/media/file/01M5YZ27CD8J2H78BCRVNZ98S1.png",
+    "width": 1366,
+    "height": 745
+  },
+  "quotation-list": {
+    "id": "01M5YZ2BP5S1J6X5P1RH0HQ2V2",
+    "url": "/_emdash/api/media/file/01M5YZ2ARTNWHG2G9TPM59G9AZ.png",
+    "width": 1366,
+    "height": 745
+  },
+  "receipt-list": {
+    "id": "01M5YZ2FF0415QT9GQR7RHCA0Z",
+    "url": "/_emdash/api/media/file/01M5YZ2ECZPXX6ZA34YKEAHTFE.png",
+    "width": 1366,
+    "height": 745
+  },
+  "report-consumed-stock": {
+    "id": "01M5YZ2J09A21C8N4W8TTHYQ49",
+    "url": "/_emdash/api/media/file/01M5YZ2HF72Z7T3A6B0TFEF3C5.png",
+    "width": 1366,
+    "height": 745
+  },
+  "report-customer-transactions": {
+    "id": "01M5YZ2N8XAZ2GQ9P36CQ3T2ES",
+    "url": "/_emdash/api/media/file/01M5YZ2MD7WQYF8E6RWH1J155B.png",
+    "width": 1366,
+    "height": 745
+  },
+  "report-discount": {
+    "id": "01M5YZ2R28MJKQJQZB5K6VD40P",
+    "url": "/_emdash/api/media/file/01M5YZ2QD6JF2ZQ920HQA45CY7.png",
+    "width": 1366,
+    "height": 745
+  },
+  "report-my-sales": {
+    "id": "01M5YZ2TW14341E8XTCBKVNZV4",
+    "url": "/_emdash/api/media/file/01M5YZ2SWWSXR4NFF673FC4BK7.png",
+    "width": 1366,
+    "height": 745
+  },
+  "report-non-stock": {
+    "id": "01M5YZ2YT18RDF2PMDZTEP7M68",
+    "url": "/_emdash/api/media/file/01M5YZ2XFTFAE95WWAG98JGXQW.png",
+    "width": 1366,
+    "height": 745
+  },
+  "report-product-sales": {
+    "id": "01M5YZ311K38XTCV68SKRKNTVF",
+    "url": "/_emdash/api/media/file/01M5YZ30CJHJJJ0QEWD9FH0K9M.png",
+    "width": 1366,
+    "height": 745
+  },
+  "report-sales": {
+    "id": "01M5YZ341ZYJ15ZQPH3D48NJ76",
+    "url": "/_emdash/api/media/file/01M5YZ33DSYCNS7K7A2F2XVAJF.png",
+    "width": 1366,
+    "height": 745
+  },
+  "report-stock": {
+    "id": "01M5YZ36BR41B3XFGCKBXSPTN9",
+    "url": "/_emdash/api/media/file/01M5YZ35S1EGX2A11G6P3C1VYM.png",
+    "width": 1366,
+    "height": 745
+  },
+  "restaurant-cart": {
+    "id": "01M5YZ39A8CZCY36375E6GPRAG",
+    "url": "/_emdash/api/media/file/01M5YZ38P440VQD3D1RB3H0H49.png",
+    "width": 1366,
+    "height": 745
+  },
+  "restaurant-empty": {
+    "id": "01M5YZ3CFAND04TQ6TAPXSQ7F8",
+    "url": "/_emdash/api/media/file/01M5YZ3BQ70VZGM075TF0FFWQP.png",
+    "width": 1366,
+    "height": 745
+  },
+  "restaurant-tables": {
+    "id": "01M5YZ3FZFJ2RJPH2S115NA1CD",
+    "url": "/_emdash/api/media/file/01M5YZ3FCXV1NNXYW0Q9XVAJAJ.png",
+    "width": 1366,
+    "height": 745
+  },
+  "return-items": {
+    "id": "01M5YZ3JK67Z6F8DEBZQRE7NPN",
+    "url": "/_emdash/api/media/file/01M5YZ3HZS46NFQMXTN3J3KNAK.png",
+    "width": 1366,
+    "height": 745
+  },
+  "return-line-dialog": {
+    "id": "01M5YZ3NCEK4Q2GY3FT0KY1KGC",
+    "url": "/_emdash/api/media/file/01M5YZ3MYSV964VP66HRSBY6QD.png",
+    "width": 1366,
+    "height": 745
+  },
+  "return-list": {
+    "id": "01M5YZ3R12SSDDQN8BK8E7XVD7",
+    "url": "/_emdash/api/media/file/01M5YZ3Q9E3JZEAB4VRHZAH88J.png",
+    "width": 1366,
+    "height": 745
+  },
+  "return-refund": {
+    "id": "01M5YZ3TTB1QK1RSMN6DB6SBBK",
+    "url": "/_emdash/api/media/file/01M5YZ3T6424BR4771C53V27RF.png",
+    "width": 1366,
+    "height": 745
+  },
+  "return-summary": {
+    "id": "01M5YZ3Y32W9S9J7WS7W1EVFKM",
+    "url": "/_emdash/api/media/file/01M5YZ3XMSSY41ZCJAACZYADAH.png",
+    "width": 1366,
+    "height": 745
+  },
+  "sales-list": {
+    "id": "01M5YZ42RJSXYD2T3KX5FYJ1BR",
+    "url": "/_emdash/api/media/file/01M5YZ426BMPPNPCH39N8EMRCJ.png",
+    "width": 1366,
+    "height": 745
+  },
+  "select-price": {
+    "id": "01M5YZ478WPA5GJ6TF7V6KMKD6",
+    "url": "/_emdash/api/media/file/01M5YZ45V019ZB69MRXZ1SN25E.png",
+    "width": 1366,
+    "height": 745
+  },
+  "select-store": {
+    "id": "01M5YZ4CNTJ9S8QRCYJFBK87NA",
+    "url": "/_emdash/api/media/file/01M5YZ4B60KTBM1T9JGV7E91AC.png",
+    "width": 1366,
+    "height": 745
+  },
+  "settings-counter": {
+    "id": "01M5YZ4FQJ5F7QVEPN10TXM6VP",
+    "url": "/_emdash/api/media/file/01M5YZ4EJDD8E0W0BY8B6TJ2FV.png",
+    "width": 1366,
+    "height": 745
+  },
+  "settings": {
+    "id": "01M5YZ4K35NC40QQS2G8Z9TPGQ",
+    "url": "/_emdash/api/media/file/01M5YZ4HYBNV3F3195FNC8QBVE.png",
+    "width": 1366,
+    "height": 745
+  },
+  "splash": {
+    "id": "01M5YZ4PFZPBDHDYW5X1G2ZPW8",
+    "url": "/_emdash/api/media/file/01M5YZ4NXNPP2Q80J65BCXWW08.png",
+    "width": 1366,
+    "height": 745
+  },
+  "stock-list": {
+    "id": "01M5YZ4RYBSV7D19DQCZTR1J0P",
+    "url": "/_emdash/api/media/file/01M5YZ4RFH9EFPM5PDNNVCV99S.png",
+    "width": 1366,
+    "height": 745
+  },
+  "suppliers-list": {
+    "id": "01M5YZ4W9B93T3RA69P23A49XV",
+    "url": "/_emdash/api/media/file/01M5YZ4VNE1PYQATE7TJ4QNWQE.png",
+    "width": 1366,
+    "height": 745
+  },
+  "sync-attention": {
+    "id": "01M5YZ4YQPE7YSBAFPZPXA0GWW",
+    "url": "/_emdash/api/media/file/01M5YZ4Y2CVTHMDQ5P5B0FNEHR.png",
+    "width": 1366,
+    "height": 745
+  },
+  "weigh-machine": {
+    "id": "01M5YZ52EEZGFHYB8663SGF875",
+    "url": "/_emdash/api/media/file/01M5YZ51B4T73F9QC5FNAWRD1K.png",
+    "width": 1366,
+    "height": 745
+  }
+}

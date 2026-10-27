@@ -13,3 +13,6 @@ data.db-*
 !.env.example
 .dev.vars
 .dev.vars.*
+
+# Screenshots of app bugs taken during the docs walkthrough (not published)
+media/app/zz-*

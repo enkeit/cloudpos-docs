@@ -6,6 +6,7 @@
 //   node scripts/build-seed.mjs [path/to/content/docs]
 
 import { readdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { markdownToPortableText } from "emdash/client";
 
@@ -14,10 +15,23 @@ const root = process.argv[2] ?? "../eposmob/cloudpos-docs/content/docs";
 /** Sidebar sections, in order, from the docs' meta.json files. */
 const SECTIONS = [
 	{ dir: "pos-app", label: "POS App" },
+	{ dir: "api", label: "API Reference" },
 	{ dir: "admin-panel", label: "Admin Panel" },
 	{ dir: "ecom/user-guide", label: "Online Store · User Guide" },
 	{ dir: "ecom/developer", label: "Online Store · Developer Docs" },
 ];
+
+/** App screenshots uploaded by scripts/upload-media.mjs; docs embed them as ![alt](media:NAME). */
+const media = existsSync("media/app/uploaded.json") ? JSON.parse(readFileSync("media/app/uploaded.json", "utf8")) : {};
+
+/** Points media:NAME images at the uploaded file and links the media item. */
+function resolveImage(block) {
+	const name = block.asset?.url?.startsWith("media:") && block.asset.url.slice(6);
+	if (!name) return block;
+	const item = media[name];
+	if (!item) throw new Error(`Screenshot "${name}" is not uploaded; run scripts/upload-media.mjs`);
+	return { ...block, asset: { _ref: item.id, url: item.url }, ...(item.width ? { width: item.width, height: item.height } : {}) };
+}
 
 let keyCount = 0;
 const key = () => `k${(keyCount++).toString(36)}`;
@@ -93,7 +107,7 @@ export function portableText(markdown) {
 	let buffer = [];
 	const flush = () => {
 		const text = buffer.join("\n").trim();
-		if (text) blocks.push(...markdownToPortableText(text));
+		if (text) blocks.push(...markdownToPortableText(text).map((b) => (b._type === "image" ? resolveImage(b) : b)));
 		buffer = [];
 	};
 	for (let i = 0; i < lines.length; i++) {
@@ -170,6 +184,7 @@ const seed = {
 			label: "Primary Navigation",
 			items: [
 				{ type: "custom", label: "POS App", url: "/docs/pos-app" },
+				{ type: "custom", label: "API Reference", url: "/docs/api" },
 				{ type: "custom", label: "Admin Panel", url: "/docs/admin-panel" },
 				{ type: "custom", label: "Online Store", url: "/docs/ecom/user-guide" },
 			],
