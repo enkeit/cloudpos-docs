@@ -32,7 +32,7 @@
 	--emdash-search-border: var(--border);
 	--emdash-search-border-focus: var(--accent);
 	--emdash-search-hover: var(--surface-2);
-	--emdash-search-highlight: var(--accent-soft);
+	--emdash-search-highlight: var(--accent);
 	--emdash-button-bg: var(--accent);
 	--emdash-button-bg-hover: color-mix(in srgb, var(--accent) 85%, #000);
 	--emdash-button-color: #fff;
@@ -97,10 +97,13 @@ a { color: var(--accent); }
 
 /* Search modal: a centred panel over a blurred, dimmed page. */
 .search-open { overflow: hidden; }
+/* The page behind the open search is blurred directly; a blurred ::backdrop
+   doesn't survive the CSS build in Chrome. */
+.search-open body > header, .search-open body > main { filter: blur(6px); transition: filter 0.15s ease; }
 .search-dialog {
 	width: min(640px, calc(100vw - 32px)); max-width: none; margin: 10vh auto auto; padding: 0; border: 0; background: transparent; color: var(--text); overflow: visible;
 }
-.search-dialog::backdrop { background: rgba(7, 20, 39, 0.38); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.search-dialog::backdrop { background: rgba(7, 20, 39, 0.42); }
 .search-dialog[open] { animation: search-in 0.16s ease-out; }
 @keyframes search-in { from { opacity: 0; transform: translateY(-8px) scale(0.98); } }
 .search-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 24px 60px rgba(7, 20, 39, 0.28); overflow: hidden; }
@@ -119,12 +122,17 @@ a { color: var(--accent); }
 }
 .search-panel:has(.emdash-live-search-results:not([hidden])) .search-hint { display: none; }
 .search-hint { border-top: 1px solid var(--border); }
-.search-dialog .emdash-live-search-result { padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.search-dialog .emdash-live-search-result { display: flex; flex-direction: column; align-items: flex-start; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.search-dialog .emdash-live-search-result-collection { order: -1; }
 .search-dialog .emdash-live-search-result-title { color: var(--text); font-weight: 600; }
-.search-dialog .emdash-live-search-result-collection { display: none; }
 .search-dialog .emdash-live-search-result-snippet { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
 .search-dialog .emdash-live-search-result:hover, .search-dialog .emdash-live-search-result.focused { background: var(--accent-soft); }
-.search-dialog mark { background: var(--accent-soft); color: var(--accent); font-weight: 600; border-radius: 3px; padding: 0 2px; }
+.search-dialog .emdash-live-search-result mark { background: var(--accent-soft); color: var(--accent); font-weight: 700; border-radius: 4px; padding: 0 3px; }
+.search-dialog .emdash-live-search-result-collection {
+	display: inline-block; margin: 0 0 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+	color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 2px 8px;
+}
+.search-dialog .emdash-live-search-result-snippet:empty { display: none; }
 .search-hint { margin: 0; padding: 14px 18px; color: var(--muted); font-size: 13.5px; }
 
 .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }

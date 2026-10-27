@@ -147,7 +147,8 @@ const pageCtx = createPublicPageContext({
 					if (dialog.open) return;
 					dialog.showModal();
 					root.classList.add("search-open");
-					requestAnimationFrame(() => input()?.focus());
+					// Focus at once so keys typed right after Ctrl/⌘ K land in the box.
+					input()?.focus();
 				};
 				const close = () => dialog.open && dialog.close();
 				dialog.addEventListener("close", () => root.classList.remove("search-open"));
@@ -161,11 +162,19 @@ const pageCtx = createPublicPageContext({
 				});
 				if (/Mac|iPhone|iPad/.test(navigator.platform)) document.querySelector(".search-trigger kbd").textContent = "⌘ K";
 
-				// Doc slugs use "--" for "/"; show results at their real address.
+				// Tidy each result: real /docs/a/b address (slugs use "--" for "/"), the
+				// section it belongs to as a label, and no snippet that only repeats the title.
+				const SECTIONS = { "pos-app": "POS App", api: "API Reference", "admin-panel": "Admin Panel", ecom: "Online Store" };
 				new MutationObserver(() => {
 					for (const a of dialog.querySelectorAll('a[href^="/docs/"]')) {
 						const href = a.getAttribute("href");
 						if (href.includes("--")) a.setAttribute("href", href.replace(/--/g, "/"));
+						const section = SECTIONS[a.getAttribute("href").split("/")[2]];
+						const label = a.querySelector(".emdash-live-search-result-collection");
+						if (label && section && label.textContent !== section) label.textContent = section;
+						const title = a.querySelector(".emdash-live-search-result-title")?.textContent.trim().toLowerCase();
+						const snippet = a.querySelector(".emdash-live-search-result-snippet");
+						if (snippet?.textContent && snippet.textContent.trim().toLowerCase() === title) snippet.textContent = "";
 					}
 				}).observe(dialog, { subtree: true, childList: true, attributes: true, attributeFilter: ["href"] });
 			})();
