@@ -34,6 +34,8 @@ const next = index >= 0 && index < flat.length - 1 ? flat[index + 1] : null;
 >
 	<div class="layout">
 		<aside class="sidebar" aria-label="Documentation">
+			<details class="side-menu" open>
+			<summary><span>Browse the docs</span><b>{doc.data.title}</b></summary>
 			{
 				nav.sections.map((section) => (
 					<>
@@ -50,6 +52,11 @@ const next = index >= 0 && index < flat.length - 1 ? flat[index + 1] : null;
 					</>
 				))
 			}
+			</details>
+			<script is:inline>
+				// Phones: the page list folds into a dropdown above the article.
+				if (matchMedia("(max-width: 900px)").matches) document.currentScript.previousElementSibling.removeAttribute("open");
+			</script>
 		</aside>
 		<article class="doc">
 			<h1 {...doc.edit.title}>{doc.data.title}</h1>
