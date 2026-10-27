@@ -9,8 +9,38 @@ const els = {
   loginError: $("loginError"), loginCancel: $("loginCancel"), loginSubmit: $("loginSubmit"),
   suggestAnalysis: $("suggestAnalysis"), suggestDocs: $("suggestDocs"), welcomeText: $("welcomeText"),
   welcomeTitle: $("welcomeTitle"), analysisGroup: $("analysisGroup"), signInHint: $("signInHint"),
-  hintSignIn: $("hintSignIn"), fineprint: $("fineprint"),
+  hintSignIn: $("hintSignIn"), fineprint: $("fineprint"), themeBtn: $("themeBtn"),
 };
+
+// ---------- light / dark ----------
+
+const THEME_KEY = "cloudpos-theme";
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+function savedTheme() {
+  try { return localStorage.getItem(THEME_KEY); } catch { return null; }
+}
+
+function applyTheme(choice) {
+  const root = document.documentElement;
+  if (choice === "light" || choice === "dark") root.setAttribute("data-theme", choice);
+  else root.removeAttribute("data-theme");
+  const active = choice === "light" || choice === "dark" ? choice : systemDark.matches ? "dark" : "light";
+  root.setAttribute("data-active-theme", active);
+  const label = active === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  els.themeBtn.title = label;
+  els.themeBtn.setAttribute("aria-label", label);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", active === "dark" ? "#071427" : "#2d62ae");
+}
+
+els.themeBtn.addEventListener("click", () => {
+  const next = document.documentElement.getAttribute("data-active-theme") === "dark" ? "light" : "dark";
+  try { localStorage.setItem(THEME_KEY, next); } catch { /* private mode: still switch for this visit */ }
+  applyTheme(next);
+});
+// Follow the device setting until the visitor picks a theme themselves.
+systemDark.addEventListener("change", () => { if (!savedTheme()) applyTheme(null); });
+applyTheme(savedTheme());
 
 const TOKEN_KEY = "cloudpos-ai-session";
 const store = {
@@ -288,8 +318,11 @@ async function ask(text) {
   scrollToEnd();
 
   let activeStep = null;
+  const shown = new Set();
   const setStep = (label) => {
-    if (activeStep?.textContent === label) return;
+    // Each step appears once, even when the AI repeats it (e.g. a second docs search).
+    if (activeStep?.textContent === label || shown.has(label)) return;
+    shown.add(label);
     if (activeStep) activeStep.className = "step done";
     activeStep = document.createElement("span");
     activeStep.className = "step active";
