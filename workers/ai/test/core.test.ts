@@ -241,3 +241,41 @@ test("history owners never mix guests, users or tenants", async () => {
   assert.equal(titleFrom("  How do I\n set up a printer?  "), "How do I set up a printer?");
   assert.equal(titleFrom("x".repeat(200)).length, 80);
 });
+
+test("guest passes are bound to the visitor, expire, and can't be forged", async () => {
+  const { issueGuestPass, verifyGuestPass } = await import("../src/guard.ts");
+  const v = "3f2a9c1e-8b7d-4e6f-9a1b-2c3d4e5f6a7b";
+  const { pass } = await issueGuestPass(v, SECRET, 1_000);
+  assert.equal(await verifyGuestPass(pass, v, SECRET, 2_000), true);
+  assert.equal(await verifyGuestPass(pass, "11111111-1111-4111-8111-111111111111", SECRET, 2_000), false);
+  assert.equal(await verifyGuestPass(pass, v, "another-secret-0123456789abcdefghijk", 2_000), false);
+  assert.equal(await verifyGuestPass(pass, v, SECRET, 1_000 + 3 * 3600_000), false);
+  const [ver, exp, sig] = pass.split(".");
+  assert.equal(await verifyGuestPass(`${ver}.${Number(exp) + 999999}.${sig}`, v, SECRET, 2_000), false);
+  assert.equal(await verifyGuestPass(null, v, SECRET), false);
+});
+
+test("page context is trimmed to short plain strings", async () => {
+  const { pageContextFrom } = await import("../src/agent.ts");
+  assert.equal(pageContextFrom(null), undefined);
+  assert.equal(pageContextFrom({ screen: "  " }), undefined);
+  assert.deepEqual(pageContextFrom({ screen: "Order details\n", details: "Order #1\u0000 total SAR 200" }), { screen: "Order details", details: "Order #1 total SAR 200" });
+  assert.equal(pageContextFrom({ screen: "x".repeat(500) })!.screen.length, 120);
+  assert.equal(pageContextFrom({ screen: "s", details: "d".repeat(5000) })!.details!.length, 800);
+  assert.deepEqual(pageContextFrom({ screen: "s", details: 42 }), { screen: "s" });
+});
+
+test("app token exchange takes the user id from the tenant API, not the app", async () => {
+  const { sessionFromAppToken } = await import("../src/sources/live.ts");
+  const fetcher = fakeFetch({
+    "find-domain": { status: "success", data: { domain: "acme.cloudposai.com" } },
+    "/api/v1/dashboard": { status: "success", data: { profile_details: [{ id: 42, name: "Sara" }] } },
+  });
+  const s = await sessionFromAppToken({ tenantKey: "K", accessToken: "tok", storeId: 9, hints: { company: "Acme\u0007", stores: [{ id: 9, name: "Mall" }] } }, fetcher);
+  assert.equal(s.userId, 42);
+  assert.equal(s.user, "Sara");
+  assert.equal(s.storeName, "Mall");
+  assert.equal(s.company, "Acme");
+  const denied = fakeFetch({ "find-domain": { data: { domain: "acme.cloudposai.com" } }, "/api/v1/dashboard": { status: "failed", data: {} } });
+  await assert.rejects(sessionFromAppToken({ tenantKey: "K", accessToken: "bad" }, denied), /could not be verified/);
+});

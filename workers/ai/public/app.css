@@ -267,3 +267,6 @@ textarea { flex: 1; border: 0; outline: none; resize: none; background: transpar
   .logo { width: 30px; height: 30px; }
   .logo img { width: 25px; height: 25px; }
 }
+
+.turnstile-box { display: flex; justify-content: center; }
+.turnstile-box:not(:empty) { margin-bottom: 8px; }

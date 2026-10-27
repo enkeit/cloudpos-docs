@@ -11,6 +11,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // The org's GitHub app only allows the old workers.dev callback URL, so the
+  // Keystatic editor keeps running there; docs.cloudposai.com sends editors over.
+  async redirects() {
+    const editor = "https://cloudpos-docs.enkedevelopment-427.workers.dev";
+    return [
+      { source: "/keystatic", destination: `${editor}/keystatic`, permanent: false },
+      { source: "/keystatic/:path+", destination: `${editor}/keystatic/:path+`, permanent: false },
+    ];
+  },
 };
 
 export default withMDX(nextConfig);

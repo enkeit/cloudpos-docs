@@ -32,10 +32,12 @@
     "FALLBACK_MODEL": "@cf/openai/gpt-oss-120b",
     "AI_GATEWAY_ID": "cloudpos-ai",
     "DOCS_BASE_URL": "https://docs.cloudposai.com",
-    "GUEST_DAILY_LIMIT": "1500",
+    "GUEST_DAILY_LIMIT": "3000",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFnv5fOLAFuSwJpp",
     "ALLOWED_ORIGINS": "https://docs.cloudposai.com,https://ai.cloudposai.com"
   },
   // Secrets (wrangler secret put): SESSION_SECRET, ADMIN_TOKEN,
+  // TURNSTILE_SECRET (guest human check; unset = off),
   // PROXY_KEY (shared with the ai.cloudposai.com frontend, wrangler.web.jsonc)
   "observability": { "enabled": true, "head_sampling_rate": 1 }
 }

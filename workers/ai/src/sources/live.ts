@@ -336,6 +336,57 @@ export async function findDomain(tenantKey: string, fetcher: typeof fetch = fetc
   return normalizeDomain(domain);
 }
 
+/**
+ * Turns the POS app's existing login (tenant key + access token) into a
+ * session without asking for the password again. The token is proven by
+ * calling the tenant's own API with it; the user id comes from that response,
+ * never from the app. Store and company names are display-only hints.
+ */
+export async function sessionFromAppToken(
+  input: {
+    tenantKey: string;
+    accessToken: string;
+    storeId?: number;
+    hints?: { company?: string; role?: string; timeZone?: string; stores?: Array<{ id: number; name: string }> };
+  },
+  fetcher: typeof fetch = fetch,
+): Promise<LiveSession> {
+  const domain = await findDomain(input.tenantKey, fetcher);
+  const url = new URL("/api/v1/dashboard", domain);
+  if (input.storeId) url.searchParams.set("store_id", String(input.storeId));
+  const res = await fetcher(url.toString(), {
+    headers: { Authorization: `Bearer ${input.accessToken}`, "X-Tenant": input.tenantKey.trim(), Accept: "application/json" },
+  });
+  let payload: Json | null = null;
+  try {
+    payload = (await res.json()) as Json;
+  } catch {
+    payload = null;
+  }
+  const profiles = ((payload?.data ?? {}) as Json).profile_details;
+  const profile = (Array.isArray(profiles) ? profiles[0] : null) as Json | null;
+  const userId = num(profile?.id);
+  if (!res.ok || !userId) throw new LiveApiError("Your CloudPOS login could not be verified. Please sign in again.", res.status === 200 ? 401 : res.status || 401);
+  const clip = (v: unknown, n = 80) => (typeof v === "string" ? v.replace(/[\u0000-\u001f]/g, "").trim().slice(0, n) : "") || undefined;
+  const stores = (input.hints?.stores ?? [])
+    .map((s) => ({ id: num(s?.id), name: clip(s?.name) ?? "" }))
+    .filter((s) => s.id > 0)
+    .slice(0, 50);
+  return {
+    domain,
+    tenantKey: input.tenantKey.trim(),
+    accessToken: input.accessToken,
+    userId,
+    user: clip(profile?.name),
+    storeId: input.storeId,
+    storeName: stores.find((s) => s.id === input.storeId)?.name,
+    company: clip(input.hints?.company),
+    role: clip(input.hints?.role, 40),
+    timeZone: clip(input.hints?.timeZone, 64),
+    stores,
+  };
+}
+
 export interface SignInResult {
   session: LiveSession;
   stores: Array<{ id: number; name: string }>;

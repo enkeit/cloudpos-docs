@@ -10,6 +10,7 @@ const els = {
   suggestAnalysis: $("suggestAnalysis"), suggestDocs: $("suggestDocs"), welcomeText: $("welcomeText"),
   welcomeTitle: $("welcomeTitle"), analysisGroup: $("analysisGroup"), signInHint: $("signInHint"),
   hintSignIn: $("hintSignIn"), fineprint: $("fineprint"), themeBtn: $("themeBtn"),
+  turnstileBox: $("turnstileBox"),
   historyBtn: $("historyBtn"), drawer: $("historyDrawer"), scrim: $("drawerScrim"), drawerClose: $("drawerClose"),
   drawerNew: $("drawerNew"), historyList: $("historyList"), historyEmpty: $("historyEmpty"), historyNote: $("historyNote"),
 };
@@ -241,6 +242,7 @@ function chip(text, target) {
 
 function renderInfo(data) {
   info = data.info;
+  turnstileSiteKey = data.turnstileSiteKey ?? null;
   const live = info?.mode === "live";
   els.storeLine.textContent = live ? `${info.company} · ${info.store}` : "Help & support";
   els.badge.hidden = !live;
@@ -288,7 +290,56 @@ const visitorId = (() => {
 
 /** Headers for every API call: session (if signed in) + visitor id. */
 function apiHeaders() {
-  return { ...authHeaders(), "X-Visitor-Id": visitorId };
+  const headers = { ...authHeaders(), "X-Visitor-Id": visitorId };
+  if (!token && guestPass) headers["X-Guest-Pass"] = guestPass.pass;
+  return headers;
+}
+
+// ---------- guest human check (Cloudflare Turnstile) ----------
+// Guests prove they're human once (usually invisibly) and get a 2-hour pass.
+
+let turnstileSiteKey = null;
+let guestPass = null; // { pass, expiresAt }
+let turnstileReady = null;
+let turnstileWidget = null;
+
+function loadTurnstile() {
+  turnstileReady ??= new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    s.async = true;
+    s.onload = () => resolve(window.turnstile);
+    s.onerror = () => reject(new Error("Couldn't load the human check. Please check your connection."));
+    document.head.append(s);
+  });
+  return turnstileReady;
+}
+
+function turnstileToken() {
+  return loadTurnstile().then((turnstile) => new Promise((resolve, reject) => {
+    const options = {
+      sitekey: turnstileSiteKey,
+      appearance: "interaction-only", // only shown when Cloudflare needs a click
+      callback: resolve,
+      "error-callback": () => reject(new Error("Human check failed. Please reload the page.")),
+      "expired-callback": () => reject(new Error("Human check expired. Please try again.")),
+    };
+    if (turnstileWidget !== null) turnstile.remove(turnstileWidget);
+    turnstileWidget = turnstile.render(els.turnstileBox, options);
+  }));
+}
+
+async function ensureGuestPass(force = false) {
+  if (token || !turnstileSiteKey) return;
+  if (!force && guestPass && guestPass.expiresAt - Date.now() > 60_000) return;
+  const res = await fetch("/api/guest/pass", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Visitor-Id": visitorId },
+    body: JSON.stringify({ token: await turnstileToken() }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || "Human check failed.");
+  guestPass = body.pass ? body : null;
 }
 
 async function loadInfo() {
@@ -479,11 +530,22 @@ async function ask(text) {
 
   let answer = "";
   try {
-    const res = await fetch("/api/chat", {
+    const send = () => fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...apiHeaders() },
       body: JSON.stringify({ message, history, conversationId: currentConversation }),
     });
+    await infoReady;
+    await ensureGuestPass();
+    let res = await send();
+    if (res.status === 401 && !token) {
+      // Pass expired or rejected: redo the human check once, then retry.
+      const body = await res.clone().json().catch(() => ({}));
+      if (body.code === "guest_pass_required") {
+        await ensureGuestPass(true);
+        res = await send();
+      }
+    }
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => ({}));
       if (body.code === "session_expired") { token = null; store.set(null); loadInfo(); }
@@ -608,6 +670,7 @@ els.storeSelect.addEventListener("change", async () => {
   loadInfo();
 });
 
-loadInfo().catch(() => { els.storeLine.textContent = "Offline — check your connection"; });
+// Questions wait for this so the guest check knows its site key.
+const infoReady = loadInfo().catch(() => { els.storeLine.textContent = "Offline — check your connection"; });
 const q = new URLSearchParams(location.search).get("q");
 if (q) ask(q);

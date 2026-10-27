@@ -5,6 +5,8 @@
 //   GET  /api/info             signed-in store info (null for guests) + suggestions
 //   POST /api/session/login    tenant key + email + password → sealed session
 //   POST /api/session/store    switch the active store of a session
+//   POST /api/session/exchange the POS app's login (tenant key + token) → session
+//   POST /api/guest/pass       Turnstile token → 2-hour guest pass
 //   POST /api/chat             SSE stream of agent events (saved to history)
 //   GET  /api/conversations    the caller's recent chats
 //   GET  /api/conversations/:id    one chat's messages
@@ -14,7 +16,7 @@
 // History owner: signed-in users by session; guests by the X-Visitor-Id
 // header (a random id their browser keeps).
 
-import { runAgent, type AgentEvent, type ChatTurn } from "./agent.ts";
+import { pageContextFrom, runAgent, type AgentEvent, type ChatTurn } from "./agent.ts";
 import { embed, embeddingText, searchDocs, type DocChunk } from "./docs.ts";
 import {
   addMessage,
@@ -30,7 +32,8 @@ import {
 } from "./history.ts";
 import { openSession, sealSession } from "./session.ts";
 import type { Visual } from "./tools.ts";
-import { LiveApiError, LiveSource, signIn, type LiveSession } from "./sources/live.ts";
+import { DAILY_LIMITS, issueGuestPass, verifyGuestPass, verifyTurnstile, withinDaily } from "./guard.ts";
+import { LiveApiError, LiveSource, sessionFromAppToken, signIn, type LiveSession } from "./sources/live.ts";
 import type { DataSource } from "./sources/types.ts";
 
 const SUGGESTIONS = {
@@ -128,8 +131,65 @@ async function guestBudgetLeft(env: Env): Promise<boolean> {
   return true;
 }
 
+/**
+ * Per-minute rate limits, the guest human check and daily fair-use caps.
+ * Returns the refusal, or null when the message may go ahead.
+ */
+async function chatGuard(request: Request, env: Env, session: LiveSession | null): Promise<Response | null> {
+  const ip = clientIp(request, env);
+  if (session) {
+    const user = `${session.domain}:${session.userId ?? session.user ?? ""}`;
+    if (!(await allowed(env.LIVE_LIMITER, `live:${user}`))) return json({ error: "Too many messages. Please wait a minute and try again." }, 429);
+    if (!(await withinDaily(env.KV, `user:${user}`, DAILY_LIMITS.userPerDay))) {
+      return json({ error: "You've reached today's AI assistant limit. It resets at midnight UTC." }, 429);
+    }
+    return null;
+  }
+  if (!(await allowed(env.GUEST_LIMITER, `guest:${ip}`))) return json({ error: "Too many messages. Please wait a minute and try again." }, 429);
+  const visitorId = request.headers.get("X-Visitor-Id");
+  if (env.TURNSTILE_SECRET && !(await verifyGuestPass(request.headers.get("X-Guest-Pass"), visitorId, env.SESSION_SECRET))) {
+    return json({ error: "Please confirm you're human to continue.", code: "guest_pass_required" }, 401);
+  }
+  const fairUse = "You've reached today's free help limit. Please try again tomorrow, or sign in to CloudPOS.";
+  if (!(await withinDaily(env.KV, `guest-ip:${ip}`, DAILY_LIMITS.guestPerIp))) return json({ error: fairUse }, 429);
+  if (visitorId && !(await withinDaily(env.KV, `guest-visitor:${visitorId}`, DAILY_LIMITS.guestPerVisitor))) return json({ error: fairUse }, 429);
+  if (!(await guestBudgetLeft(env))) return json({ error: "The help assistant is very busy today. Please try again tomorrow or sign in." }, 429);
+  return null;
+}
+
+async function handleGuestPass(request: Request, env: Env): Promise<Response> {
+  const visitorId = request.headers.get("X-Visitor-Id");
+  if (!ownerFor(null, visitorId)) return json({ error: "Missing visitor id." }, 400);
+  if (!env.TURNSTILE_SECRET) return json({ pass: null, expiresAt: null });
+  if (!(await allowed(env.GUEST_LIMITER, `pass:${clientIp(request, env)}`))) return json({ error: "Too many requests." }, 429);
+  const body = await readJson<{ token?: string }>(request, 4_000);
+  if (!(await verifyTurnstile(env.TURNSTILE_SECRET, body?.token ?? "", clientIp(request, env)))) {
+    return json({ error: "Human check failed. Please reload the page and try again." }, 403);
+  }
+  return json(await issueGuestPass(visitorId!, env.SESSION_SECRET));
+}
+
+/** The POS app trades its existing login for an AI session (no second sign-in). */
+async function handleExchange(request: Request, env: Env): Promise<Response> {
+  if (!(await allowed(env.LIVE_LIMITER, `exchange:${clientIp(request, env)}`))) return json({ error: "Too many requests." }, 429);
+  const body = await readJson<{ tenantKey?: string; accessToken?: string; storeId?: number; hints?: Record<string, unknown> }>(request, 16_000);
+  if (!body?.tenantKey || !body.accessToken) return json({ error: "Company key and access token are required." }, 400);
+  try {
+    const session = await sessionFromAppToken({
+      tenantKey: body.tenantKey,
+      accessToken: body.accessToken,
+      storeId: Number(body.storeId) || undefined,
+      hints: body.hints as Parameters<typeof sessionFromAppToken>[0]["hints"],
+    });
+    return json({ token: await sealSession(session, env.SESSION_SECRET), info: await new LiveSource(session).info() });
+  } catch (error) {
+    const status = error instanceof LiveApiError && error.status >= 400 && error.status < 500 ? error.status : 502;
+    return json({ error: error instanceof Error ? error.message : "Could not verify your login." }, status === 404 ? 400 : status);
+  }
+}
+
 async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const body = await readJson<{ message?: unknown; history?: unknown; model?: unknown; conversationId?: unknown }>(request);
+  const body = await readJson<{ message?: unknown; history?: unknown; model?: unknown; conversationId?: unknown; context?: unknown }>(request);
   // Admins may try another model per request (for evaluation).
   const isAdmin = !!env.ADMIN_TOKEN && request.headers.get("X-Admin-Token") === env.ADMIN_TOKEN;
   const model = isAdmin && typeof body?.model === "string" && body.model.startsWith("@cf/") ? body.model : env.CHAT_MODEL;
@@ -145,12 +205,10 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
   if (resolved instanceof Response) return resolved;
   const { source, session } = resolved;
 
-  const limitKey = session ? `live:${session.domain}:${session.user ?? ""}` : `guest:${clientIp(request, env)}`;
-  if (!isAdmin && !(await allowed(session ? env.LIVE_LIMITER : env.GUEST_LIMITER, limitKey))) {
-    return json({ error: "Too many messages. Please wait a minute and try again." }, 429);
-  }
-  if (!session && !isAdmin && !(await guestBudgetLeft(env))) {
-    return json({ error: "The help assistant has reached today's limit. Please try again tomorrow or sign in." }, 429);
+  if (message.length > 4000) return json({ error: "That message is too long. Please keep it under 4,000 characters." }, 413);
+  if (!isAdmin) {
+    const blocked = await chatGuard(request, env, session);
+    if (blocked) return blocked;
   }
 
   // History: with D1 and a known owner, the conversation's stored turns are
@@ -186,6 +244,7 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
         gatewayId: env.AI_GATEWAY_ID || undefined,
         ctx: { source, ai: env.AI, docsIndex: env.DOCS_INDEX, docsBaseUrl: env.DOCS_BASE_URL },
         history,
+        page: pageContextFrom(body?.context),
         message,
         emit,
       });
@@ -300,7 +359,7 @@ export default {
         response =
           resolved instanceof Response
             ? resolved
-            : json({ info: resolved.source ? await resolved.source.info() : null, stores: resolved.session?.stores ?? [], suggestions: suggestionsFor(!!resolved.source) });
+            : json({ info: resolved.source ? await resolved.source.info() : null, stores: resolved.session?.stores ?? [], suggestions: suggestionsFor(!!resolved.source), turnstileSiteKey: resolved.source ? null : env.TURNSTILE_SITE_KEY || null });
       } else if (url.pathname === "/api/docs/search" && request.method === "GET") {
         const q = (url.searchParams.get("q") ?? "").trim().slice(0, 300);
         if (!q || !env.DOCS_INDEX) response = json({ results: [] });
@@ -308,6 +367,10 @@ export default {
         else response = json({ results: (await searchDocs(env.AI, env.DOCS_INDEX, q, 5, 0)).map((h) => ({ ...h, link: `${env.DOCS_BASE_URL}${h.url}` })) });
       } else if (url.pathname === "/api/conversations" || url.pathname.startsWith("/api/conversations/")) {
         response = await handleConversations(request, env, url);
+      } else if (url.pathname === "/api/guest/pass" && request.method === "POST") {
+        response = await handleGuestPass(request, env);
+      } else if (url.pathname === "/api/session/exchange" && request.method === "POST") {
+        response = await handleExchange(request, env);
       } else if (url.pathname === "/api/session/login" && request.method === "POST") {
         response = await handleLogin(request, env);
       } else if (url.pathname === "/api/session/store" && request.method === "POST") {
