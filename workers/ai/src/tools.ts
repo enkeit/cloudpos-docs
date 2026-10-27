@@ -25,7 +25,16 @@ export interface Table {
   currency?: string;
 }
 
-export type Visual = Chart | Table;
+/** A screenshot published in the CloudPOS docs (never a generated image). */
+export interface DocImageVisual {
+  kind: "image";
+  src: string; // absolute URL on the docs site
+  alt: string;
+  page: string; // docs page title
+  link: string; // docs page URL
+}
+
+export type Visual = Chart | Table | DocImageVisual;
 
 export interface ToolOutput {
   result: unknown;
@@ -38,6 +47,11 @@ export interface ToolContext {
   ai: Ai;
   docsIndex?: VectorizeIndex;
   docsBaseUrl: string;
+  /**
+   * Screenshots search_docs returned during this answer, by id. show_doc_image
+   * only accepts these ids, so the model can never show an arbitrary URL.
+   */
+  docImages?: Map<string, Omit<DocImageVisual, "kind">>;
 }
 
 interface ToolSpec {
@@ -159,6 +173,19 @@ export const DOCS_TOOL_SPECS: ToolSpec[] = [
       parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "show_doc_image",
+      description:
+        "Show the user up to 3 screenshots from the CloudPOS docs. Only use image ids returned by search_docs in this conversation turn, and only when a screenshot shows the step or screen the user asked about.",
+      parameters: {
+        type: "object",
+        properties: { ids: { type: "array", items: { type: "string" }, maxItems: 3 } },
+        required: ["ids"],
+      },
+    },
+  },
 ];
 
 /** Everything a signed-in user can call. */
@@ -189,6 +216,7 @@ function autoGranularity(range: DateRange): Granularity {
 
 export async function runTool(name: string, args: Record<string, unknown>, toolCtx: ToolContext): Promise<ToolOutput> {
   if (name === "search_docs") return searchDocsTool(args, toolCtx);
+  if (name === "show_doc_image") return showDocImageTool(args, toolCtx);
   if (!toolCtx.source) {
     return { result: { error: "Store data is only available after signing in to CloudPOS.", sign_in_required: true } };
   }
@@ -310,10 +338,42 @@ export async function runTool(name: string, args: Record<string, unknown>, toolC
 async function searchDocsTool(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutput> {
   if (!ctx.docsIndex) return { result: { error: "Documentation search is not configured." } };
   const hits = await searchDocs(ctx.ai, ctx.docsIndex, String(args.query ?? "").slice(0, 500));
+  const registry = (ctx.docImages ??= new Map());
   return {
     result: {
-      results: hits.map((h) => ({ link: `${ctx.docsBaseUrl}${h.url}`, page: h.title, section: h.heading, text: h.text })),
+      results: hits.map((h) => {
+        const link = `${ctx.docsBaseUrl}${h.url}`;
+        const images = h.images.flatMap((img) => {
+          const src = docImageUrl(img.src, ctx.docsBaseUrl);
+          if (!src) return [];
+          const id = `img${registry.size + 1}`;
+          registry.set(id, { src, alt: img.alt, page: h.title, link });
+          return [{ id, description: img.alt || "Screenshot" }];
+        });
+        return { link, page: h.title, section: h.heading, text: h.text, ...(images.length ? { images } : {}) };
+      }),
       note: hits.length ? undefined : "No matching documentation found.",
     },
+  };
+}
+
+/** Site paths become docs-site URLs; absolute URLs must already be on the docs site. */
+export function docImageUrl(src: string, docsBaseUrl: string): string | null {
+  const base = docsBaseUrl.replace(/\/+$/, "");
+  if (/^\/(?!\/)/.test(src)) return `${base}${src}`;
+  return src.startsWith(`${base}/`) ? src : null;
+}
+
+function showDocImageTool(args: Record<string, unknown>, ctx: ToolContext): ToolOutput {
+  const ids = Array.isArray(args.ids) ? args.ids.map(String).slice(0, 3) : [];
+  const found = ids.map((id) => ({ id, image: ctx.docImages?.get(id) }));
+  const visuals: Visual[] = found.flatMap((f) => (f.image ? [{ kind: "image" as const, ...f.image }] : []));
+  const unknown = found.filter((f) => !f.image).map((f) => f.id);
+  return {
+    result: {
+      shown: visuals.length,
+      ...(unknown.length ? { error: `Unknown image ids: ${unknown.join(", ")}. Only ids returned by search_docs can be shown.` } : {}),
+    },
+    visuals,
   };
 }

@@ -4,6 +4,7 @@
 
 import type { ChatTurn } from "./agent.ts";
 import type { Visual } from "./tools.ts";
+import type { AttachmentRef } from "./uploads.ts";
 
 export const GUEST_RETENTION_DAYS = 30;
 export const LIVE_RETENTION_DAYS = 180;
@@ -22,7 +23,18 @@ export interface StoredMessage {
   role: "user" | "assistant";
   content: string;
   visuals: Visual[];
+  attachments: AttachmentRef[];
   created_at: number;
+}
+
+function parseList<T>(json: string | null): T[] {
+  if (!json) return [];
+  try {
+    const list = JSON.parse(json);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
 }
 
 const VISITOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -60,26 +72,41 @@ export async function createConversation(db: D1Database, owner: string, firstMes
 export async function getMessages(db: D1Database, owner: string, id: string): Promise<StoredMessage[] | null> {
   if (!(await getConversation(db, owner, id))) return null;
   const { results } = await db
-    .prepare("SELECT role, content, visuals, created_at FROM messages WHERE conversation_id = ? ORDER BY id")
+    .prepare("SELECT role, content, visuals, attachments, created_at FROM messages WHERE conversation_id = ? ORDER BY id")
     .bind(id)
-    .all<{ role: "user" | "assistant"; content: string; visuals: string | null; created_at: number }>();
-  return results.map((r) => ({ ...r, visuals: r.visuals ? (JSON.parse(r.visuals) as Visual[]) : [] }));
+    .all<{ role: "user" | "assistant"; content: string; visuals: string | null; attachments: string | null; created_at: number }>();
+  return results.map((r) => ({ ...r, visuals: parseList<Visual>(r.visuals), attachments: parseList<AttachmentRef>(r.attachments) }));
 }
 
-/** The last [limit] text turns, for the model's context. */
+/**
+ * The last [limit] text turns, for the model's context. Earlier attachments
+ * are named but not re-sent: only the latest message's files reach the model.
+ */
 export async function recentTurns(db: D1Database, conversationId: string, limit = 12): Promise<ChatTurn[]> {
   const { results } = await db
-    .prepare("SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?")
+    .prepare("SELECT role, content, attachments FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?")
     .bind(conversationId, limit)
-    .all<ChatTurn>();
-  return results.reverse();
+    .all<{ role: ChatTurn["role"]; content: string; attachments: string | null }>();
+  return results.reverse().map((r) => {
+    const names = parseList<AttachmentRef>(r.attachments).map((a) => a.name);
+    const note = names.length ? `[Attached earlier: ${names.join(", ")}]` : "";
+    return { role: r.role, content: [r.content, note].filter(Boolean).join("\n") || "(attachment)" };
+  });
 }
 
-export async function addMessage(db: D1Database, conversationId: string, role: "user" | "assistant", content: string, visuals: Visual[] = [], now = Date.now()): Promise<void> {
+export async function addMessage(
+  db: D1Database,
+  conversationId: string,
+  role: "user" | "assistant",
+  content: string,
+  visuals: Visual[] = [],
+  attachments: AttachmentRef[] = [],
+  now = Date.now(),
+): Promise<void> {
   await db.batch([
     db
-      .prepare("INSERT INTO messages (conversation_id, role, content, visuals, created_at) VALUES (?, ?, ?, ?, ?)")
-      .bind(conversationId, role, content.slice(0, MAX_MESSAGE), visuals.length ? JSON.stringify(visuals) : null, now),
+      .prepare("INSERT INTO messages (conversation_id, role, content, visuals, attachments, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(conversationId, role, content.slice(0, MAX_MESSAGE), visuals.length ? JSON.stringify(visuals) : null, attachments.length ? JSON.stringify(attachments) : null, now),
     db.prepare("UPDATE conversations SET updated_at = ? WHERE id = ?").bind(now, conversationId),
   ]);
 }

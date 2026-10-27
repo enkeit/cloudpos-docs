@@ -181,9 +181,9 @@ test("agent falls back to the second model when the first one fails", async () =
 });
 
 test("guests only get docs search; data tools require sign-in", async () => {
-  assert.deepEqual(DOCS_TOOL_SPECS.map((t) => t.function.name), ["search_docs"]);
+  assert.deepEqual(DOCS_TOOL_SPECS.map((t) => t.function.name), ["search_docs", "show_doc_image"]);
   const guest: ToolContext = { source: null, ai: {} as Ai, docsBaseUrl: "" };
-  for (const spec of TOOL_SPECS.filter((t) => t.function.name !== "search_docs")) {
+  for (const spec of TOOL_SPECS.filter((t) => !DOCS_TOOL_SPECS.includes(t))) {
     const out = await runTool(spec.function.name, { period: "last_week" }, guest);
     assert.deepEqual((out.result as any).sign_in_required, true, spec.function.name);
     assert.equal(out.visuals, undefined);
@@ -199,7 +199,7 @@ test("guest chat offers only docs search and a no-figures prompt", async () => {
     },
   } as unknown as Ai;
   await runAgent({ ai, model: "m", ctx: { source: null, ai, docsBaseUrl: "" }, history: [], message: "What were my sales?", emit: () => {} });
-  assert.deepEqual(calls[0].tools.map((t: any) => t.function.name), ["search_docs"]);
+  assert.deepEqual(calls[0].tools.map((t: any) => t.function.name), ["search_docs", "show_doc_image"]);
   const system = calls[0].messages[0].content as string;
   assert.match(system, /not signed in/);
   assert.match(system, /Never state, estimate or make up/);

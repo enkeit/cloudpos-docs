@@ -7,6 +7,8 @@
 //   POST /api/session/store    switch the active store of a session
 //   POST /api/session/exchange the POS app's login (tenant key + token) → session
 //   POST /api/guest/pass       Turnstile token → 2-hour guest pass
+//   POST /api/uploads          one image or PDF (multipart "file") → attachment ref (signed-in only)
+//   GET  /api/uploads/:id      an attachment's file, for its owner
 //   POST /api/chat             SSE stream of agent events (saved to history)
 //   GET  /api/conversations    the caller's recent chats
 //   GET  /api/conversations/:id    one chat's messages
@@ -35,6 +37,8 @@ import type { Visual } from "./tools.ts";
 import { DAILY_LIMITS, issueGuestPass, verifyGuestPass, verifyTurnstile, withinDaily } from "./guard.ts";
 import { LiveApiError, LiveSource, sessionFromAppToken, signIn, type LiveSession } from "./sources/live.ts";
 import type { DataSource } from "./sources/types.ts";
+import { isAttachmentId, loadAttachments, purgeUploads, readUpload, saveUpload, UPLOAD_LIMITS, UploadError, type AttachmentRef } from "./uploads.ts";
+import type { Attachments } from "./agent.ts";
 
 const SUGGESTIONS = {
   analysis: [
@@ -188,13 +192,59 @@ async function handleExchange(request: Request, env: Env): Promise<Response> {
   }
 }
 
+/** Signed-in users only: guests' docs help stays text-only to protect AI costs. */
+async function handleUpload(request: Request, env: Env): Promise<Response> {
+  if (!env.UPLOADS || !env.DB) return json({ error: "Attachments are not available." }, 503);
+  const resolved = await sourceFor(request, env);
+  if (resolved instanceof Response) return resolved;
+  const owner = resolved.session ? ownerFor(resolved.session, null) : null;
+  if (!owner) return json({ error: "Please sign in to attach files.", code: "sign_in_required" }, 401);
+  if (!(await allowed(env.LIVE_LIMITER, `upload:${owner}`))) return json({ error: "Too many uploads. Please wait a minute and try again." }, 429);
+  const length = Number(request.headers.get("Content-Length") ?? "0");
+  if (length > UPLOAD_LIMITS.pdfBytes + 100_000) return json({ error: "That file is too large. The limit is 10 MB." }, 413);
+  let file: File | string | null = null;
+  try {
+    file = (await request.formData()).get("file");
+  } catch {
+    return json({ error: "Please attach one file." }, 400);
+  }
+  if (!(file instanceof File)) return json({ error: "Please attach one file." }, 400);
+  if (!(await withinDaily(env.KV, `uploads:${owner}`, UPLOAD_LIMITS.perDay))) {
+    return json({ error: `You've reached today's limit of ${UPLOAD_LIMITS.perDay} attachments. It resets at midnight UTC.` }, 429);
+  }
+  try {
+    return json({ attachment: await saveUpload(env, owner, file) });
+  } catch (error) {
+    if (error instanceof UploadError) return json({ error: error.message }, error.status);
+    throw error;
+  }
+}
+
+async function handleUploadRead(request: Request, env: Env, id: string): Promise<Response> {
+  if (!env.UPLOADS || !env.DB) return json({ error: "Not found" }, 404);
+  const resolved = await sourceFor(request, env);
+  if (resolved instanceof Response) return resolved;
+  const owner = resolved.session ? ownerFor(resolved.session, null) : null;
+  const file = owner ? await readUpload(env, owner, id) : null;
+  if (!file) return json({ error: "Not found" }, 404);
+  return new Response(file.body, {
+    headers: {
+      "Content-Type": file.mime,
+      "Cache-Control": "private, max-age=3600",
+      "Content-Disposition": `inline; filename="${file.name.replace(/[^\w.\- ]/g, "_")}"`,
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
 async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-  const body = await readJson<{ message?: unknown; history?: unknown; model?: unknown; conversationId?: unknown; context?: unknown }>(request);
+  const body = await readJson<{ message?: unknown; history?: unknown; model?: unknown; conversationId?: unknown; context?: unknown; attachments?: unknown }>(request);
   // Admins may try another model per request (for evaluation).
   const isAdmin = !!env.ADMIN_TOKEN && request.headers.get("X-Admin-Token") === env.ADMIN_TOKEN;
   const model = isAdmin && typeof body?.model === "string" && body.model.startsWith("@cf/") ? body.model : env.CHAT_MODEL;
   const message = typeof body?.message === "string" ? body.message.trim() : "";
-  if (!message) return json({ error: "Message is required." }, 400);
+  const attachmentIds = Array.isArray(body?.attachments) ? body!.attachments.filter(isAttachmentId).slice(0, 8) : [];
+  if (!message && !attachmentIds.length) return json({ error: "Message is required." }, 400);
   let history: ChatTurn[] = Array.isArray(body?.history)
     ? (body!.history as Array<Record<string, unknown>>)
         .filter((t) => (t.role === "user" || t.role === "assistant") && typeof t.content === "string" && t.content)
@@ -206,6 +256,7 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
   const { source, session } = resolved;
 
   if (message.length > 4000) return json({ error: "That message is too long. Please keep it under 4,000 characters." }, 413);
+  if (attachmentIds.length && !session) return json({ error: "Please sign in to attach files.", code: "sign_in_required" }, 401);
   if (!isAdmin) {
     const blocked = await chatGuard(request, env, session);
     if (blocked) return blocked;
@@ -214,13 +265,24 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
   // History: with D1 and a known owner, the conversation's stored turns are
   // the model's context (the client's copy is only a fallback).
   const owner = env.DB ? ownerFor(session, request.headers.get("X-Visitor-Id")) : null;
+  let refs: AttachmentRef[] = [];
+  let files: Attachments | undefined;
+  if (attachmentIds.length) {
+    if (!owner || !env.UPLOADS) return json({ error: "Attachments are not available." }, 503);
+    try {
+      ({ refs, files } = await loadAttachments(env, owner, attachmentIds));
+    } catch (error) {
+      if (error instanceof UploadError) return json({ error: error.message }, error.status);
+      throw error;
+    }
+  }
   let conversation: ConversationRow | null = null;
   if (owner) {
     const requested = typeof body?.conversationId === "string" ? body.conversationId : "";
     conversation = requested ? await getConversation(env.DB, owner, requested) : null;
     if (conversation) history = await recentTurns(env.DB, conversation.id);
-    else conversation = await createConversation(env.DB, owner, message);
-    await addMessage(env.DB, conversation.id, "user", message);
+    else conversation = await createConversation(env.DB, owner, message || refs.map((r) => r.name).join(", "));
+    await addMessage(env.DB, conversation.id, "user", message, [], refs);
   }
 
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
@@ -245,7 +307,9 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext): Pr
         ctx: { source, ai: env.AI, docsIndex: env.DOCS_INDEX, docsBaseUrl: env.DOCS_BASE_URL },
         history,
         page: pageContextFrom(body?.context),
-        message,
+        message: message || "Please look at the attached file(s).",
+        attachments: files,
+        visionModel: env.VISION_MODEL || undefined,
         emit,
       });
     } catch (error) {
@@ -330,7 +394,7 @@ async function handleReindex(request: Request, env: Env): Promise<Response> {
       chunks.slice(i, i + 200).map((c, j) => ({
         id: c.id,
         values: vectors[i + j],
-        metadata: { url: c.url, title: c.title, heading: c.heading, text: c.text },
+        metadata: { url: c.url, title: c.title, heading: c.heading, text: c.text, ...(c.images?.length ? { images: JSON.stringify(c.images) } : {}) },
       })),
     );
     mutations++;
@@ -353,7 +417,7 @@ export default {
     let response: Response;
     try {
       if (url.pathname === "/api/health") {
-        response = json({ ok: true, model: env.CHAT_MODEL, docs: !!env.DOCS_INDEX, gateway: env.AI_GATEWAY_ID || null });
+        response = json({ ok: true, model: env.CHAT_MODEL, visionModel: env.VISION_MODEL || null, uploads: !!env.UPLOADS, docs: !!env.DOCS_INDEX, gateway: env.AI_GATEWAY_ID || null });
       } else if (url.pathname === "/api/info" && request.method === "GET") {
         const resolved = await sourceFor(request, env);
         response =
@@ -375,6 +439,10 @@ export default {
         response = await handleLogin(request, env);
       } else if (url.pathname === "/api/session/store" && request.method === "POST") {
         response = await handleSwitchStore(request, env);
+      } else if (url.pathname === "/api/uploads" && request.method === "POST") {
+        response = await handleUpload(request, env);
+      } else if (url.pathname.startsWith("/api/uploads/") && request.method === "GET") {
+        response = await handleUploadRead(request, env, url.pathname.slice("/api/uploads/".length));
       } else if (url.pathname === "/api/chat" && request.method === "POST") {
         response = await handleChat(request, env, ctx);
       } else if (url.pathname === "/api/admin/reindex" && request.method === "POST") {
@@ -396,5 +464,6 @@ export default {
 
   async scheduled(_event, env): Promise<void> {
     if (env.DB) console.log(`history purge removed ${await purgeOld(env.DB)} conversations`);
+    if (env.DB && env.UPLOADS) console.log(`upload purge removed ${await purgeUploads(env)} attachments`);
   },
 } satisfies ExportedHandler<Env>;

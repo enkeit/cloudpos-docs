@@ -13,6 +13,8 @@ const els = {
   turnstileBox: $("turnstileBox"),
   historyBtn: $("historyBtn"), drawer: $("historyDrawer"), scrim: $("drawerScrim"), drawerClose: $("drawerClose"),
   drawerNew: $("drawerNew"), historyList: $("historyList"), historyEmpty: $("historyEmpty"), historyNote: $("historyNote"),
+  composerBox: $("composerBox"), attachStrip: $("attachStrip"), attachNote: $("attachNote"), attachBtn: $("attachBtn"),
+  fileInput: $("fileInput"), lightbox: $("lightbox"), lightboxImg: $("lightboxImg"), lightboxClose: $("lightboxClose"),
 };
 
 // ---------- light / dark ----------
@@ -212,7 +214,19 @@ function table(v) {
   return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
+/** A screenshot from the CloudPOS docs: only https images, shown with their page. */
+function docImageCard(v) {
+  const card = document.createElement("div");
+  card.className = "card";
+  if (!/^https:\/\//.test(v.src)) return card;
+  const link = /^https:\/\//.test(v.link) ? v.link : null;
+  card.innerHTML = `<figure class="doc-shot"><img src="${esc(v.src)}" alt="${esc(v.alt)}" loading="lazy"><figcaption>${esc(v.alt || "Screenshot")}${link ? ` · <a href="${esc(link)}" target="_blank" rel="noopener">${esc(v.page || "Open in the docs")}</a>` : ""}</figcaption></figure>`;
+  card.querySelector("img").addEventListener("click", () => openLightbox(v.src, v.alt));
+  return card;
+}
+
 function visualCard(v) {
+  if (v.kind === "image") return docImageCard(v);
   const card = document.createElement("div");
   card.className = "card";
   let body;
@@ -355,18 +369,223 @@ async function loadInfo() {
 function resetChat() {
   history = [];
   currentConversation = null;
+  clearPending();
   els.thread.replaceChildren();
   els.welcome.hidden = false;
   markActiveConversation();
   els.input.focus();
 }
 
-function userBubble(text) {
-  const el = document.createElement("div");
-  el.className = "msg-user";
-  el.dir = "auto";
-  el.textContent = text;
-  return el;
+// ---------- attachments ----------
+// Signed-in users can attach images and PDFs: picked, pasted (Ctrl+V) or
+// dropped. Images are shrunk here before upload; each file uploads as soon as
+// it is added and shows a preview above the message box until it is sent.
+
+const LIMITS = { images: 4, pdfs: 2, pdfBytes: 10 * 1024 * 1024, imageEdge: 1600 };
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+let pending = []; // { key, kind, name, file, previewUrl, status: "uploading"|"ready"|"failed", id, pages, error }
+let nextKey = 1;
+
+const ICON_X = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+function openLightbox(src, alt) {
+  els.lightboxImg.src = src;
+  els.lightboxImg.alt = alt || "";
+  els.lightbox.showModal();
+}
+els.lightboxClose.addEventListener("click", () => els.lightbox.close());
+els.lightbox.addEventListener("click", (e) => { if (e.target === els.lightbox) els.lightbox.close(); });
+
+function attachNote(text) {
+  els.attachNote.textContent = text || "";
+  els.attachNote.hidden = !text;
+}
+
+function fileTile(f, onRemove) {
+  const tile = document.createElement("div");
+  tile.className = `att ${f.kind}${f.status === "uploading" ? " uploading" : ""}${f.status === "failed" ? " failed" : ""}`;
+  tile.title = f.error || f.name;
+  if (f.kind === "image") {
+    const img = document.createElement("img");
+    img.alt = f.name;
+    if (f.previewUrl) img.src = f.previewUrl;
+    tile.append(img);
+  } else {
+    const meta = f.status === "uploading" ? "Reading…" : f.status === "failed" ? "Couldn't attach" : f.pages ? `PDF · ${f.pages} page${f.pages > 1 ? "s" : ""}` : "PDF";
+    tile.innerHTML = `<span class="doc-icon">PDF</span><span class="doc-text"><span class="doc-name" dir="auto">${esc(f.name)}</span><span class="doc-meta">${esc(meta)}</span></span>`;
+  }
+  if (onRemove) {
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "att-remove";
+    x.setAttribute("aria-label", `Remove ${f.name}`);
+    x.innerHTML = ICON_X;
+    x.addEventListener("click", onRemove);
+    tile.append(x);
+  }
+  return tile;
+}
+
+function renderStrip() {
+  els.attachStrip.replaceChildren(...pending.map((f) => fileTile(f, () => removePending(f.key))));
+  els.attachStrip.hidden = pending.length === 0;
+  updateSend();
+}
+
+function removePending(key) {
+  const f = pending.find((p) => p.key === key);
+  if (f?.previewUrl) URL.revokeObjectURL(f.previewUrl);
+  pending = pending.filter((p) => p.key !== key);
+  if (!pending.some((p) => p.status === "failed")) attachNote("");
+  renderStrip();
+}
+
+function clearPending() {
+  pending = [];
+  attachNote("");
+  renderStrip();
+}
+
+/** Re-encodes a photo as a JPEG no larger than LIMITS.imageEdge (also drops EXIF data such as location). */
+async function shrinkImage(file) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, LIMITS.imageEdge / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const g = canvas.getContext("2d");
+  g.fillStyle = "#ffffff"; // transparent PNGs get a white background, not black
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  g.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+  if (!blob) throw new Error("Couldn't read that image.");
+  return blob;
+}
+
+async function uploadPending(f) {
+  try {
+    const blob = f.kind === "image" ? await shrinkImage(f.file) : f.file;
+    if (f.kind === "image") f.previewUrl ??= URL.createObjectURL(blob);
+    renderStrip();
+    const form = new FormData();
+    form.append("file", blob, f.kind === "image" ? f.name.replace(/\.\w+$/, "") + ".jpg" : f.name);
+    const res = await fetch("/api/uploads", { method: "POST", headers: apiHeaders(), body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `Upload failed (${res.status})`);
+    Object.assign(f, { status: "ready", id: body.attachment.id, pages: body.attachment.pages });
+  } catch (err) {
+    Object.assign(f, { status: "failed", error: err.message || "Upload failed." });
+    attachNote(`${f.name}: ${f.error}`);
+  }
+  if (pending.includes(f)) renderStrip();
+}
+
+function addFiles(list) {
+  const files = [...list].filter(Boolean);
+  if (!files.length) return;
+  if (info?.mode !== "live") {
+    attachNote("Sign in to your CloudPOS store to attach images and PDFs.");
+    return;
+  }
+  const notes = [];
+  for (const file of files) {
+    const kind = IMAGE_TYPES.includes(file.type) ? "image" : file.type === "application/pdf" ? "pdf" : null;
+    if (!kind) { notes.push(`${file.name || "That file"} isn't a JPG, PNG, WebP image or a PDF.`); continue; }
+    if (pending.filter((p) => p.kind === kind).length >= (kind === "image" ? LIMITS.images : LIMITS.pdfs)) {
+      notes.push(kind === "image" ? `You can attach up to ${LIMITS.images} images per message.` : `You can attach up to ${LIMITS.pdfs} PDFs per message.`);
+      continue;
+    }
+    if (kind === "pdf" && file.size > LIMITS.pdfBytes) { notes.push(`${file.name} is larger than 10 MB.`); continue; }
+    const name = file.name || (kind === "image" ? "Pasted image" : "document.pdf");
+    const f = { key: nextKey++, kind, name, file, previewUrl: kind === "image" ? URL.createObjectURL(file) : null, status: "uploading" };
+    pending.push(f);
+    uploadPending(f);
+  }
+  attachNote([...new Set(notes)].join(" "));
+  renderStrip();
+}
+
+els.attachBtn.addEventListener("click", () => {
+  if (info?.mode !== "live") { attachNote("Sign in to your CloudPOS store to attach images and PDFs."); openLogin(); return; }
+  els.fileInput.click();
+});
+els.fileInput.addEventListener("change", () => { addFiles(els.fileInput.files); els.fileInput.value = ""; });
+
+// Paste: screenshots and copied files go in as attachments; text pastes as usual.
+document.addEventListener("paste", (e) => {
+  if (els.dialog.open) return;
+  const files = [...(e.clipboardData?.files ?? [])];
+  if (!files.length) return;
+  const hasText = !!e.clipboardData.getData("text/plain");
+  if (!hasText || document.activeElement !== els.input) e.preventDefault();
+  addFiles(files);
+  els.input.focus();
+});
+
+// Drag and drop anywhere on the page.
+let dragDepth = 0;
+const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes("Files");
+window.addEventListener("dragenter", (e) => { if (hasFiles(e)) { dragDepth++; els.composerBox.classList.add("dragging"); } });
+window.addEventListener("dragleave", (e) => { if (hasFiles(e) && --dragDepth <= 0) { dragDepth = 0; els.composerBox.classList.remove("dragging"); } });
+window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener("drop", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  els.composerBox.classList.remove("dragging");
+  addFiles(e.dataTransfer.files);
+});
+
+/** Opens a sent attachment: images in the lightbox, PDFs in a new tab. */
+async function openAttachment(file, tile) {
+  try {
+    let url = file.previewUrl;
+    if (!url || file.kind === "pdf") {
+      const res = await fetch(`/api/uploads/${encodeURIComponent(file.id)}`, { headers: apiHeaders() });
+      if (!res.ok) throw new Error();
+      url = file.blobUrl ??= URL.createObjectURL(await res.blob());
+    }
+    if (file.kind === "image") openLightbox(url, file.name);
+    else window.open(url, "_blank", "noopener");
+  } catch {
+    tile.title = "This file is no longer available (attachments are kept for 30 days).";
+  }
+}
+
+/** Thumbnails of earlier messages load through the API (they need the session). */
+async function loadThumb(file, img) {
+  try {
+    const res = await fetch(`/api/uploads/${encodeURIComponent(file.id)}`, { headers: apiHeaders() });
+    if (!res.ok) throw new Error();
+    img.src = file.previewUrl = URL.createObjectURL(await res.blob());
+  } catch {
+    img.closest(".att").title = "This file is no longer available (attachments are kept for 30 days).";
+  }
+}
+
+function userBubble(text, files = []) {
+  const turn = document.createElement("div");
+  turn.className = "user-turn";
+  if (files.length) {
+    const box = document.createElement("div");
+    box.className = "msg-files";
+    for (const f of files) {
+      const tile = fileTile({ ...f, status: "ready" });
+      tile.addEventListener("click", () => openAttachment(f, tile));
+      if (f.kind === "image" && !f.previewUrl && f.id) loadThumb(f, tile.querySelector("img"));
+      box.append(tile);
+    }
+    turn.append(box);
+  }
+  if (text) {
+    const el = document.createElement("div");
+    el.className = "msg-user";
+    el.dir = "auto";
+    el.textContent = text;
+    turn.append(el);
+  }
+  return turn;
 }
 
 function answerBlock(text) {
@@ -446,7 +665,7 @@ async function openConversation(id) {
   let ai = null;
   for (const m of messages) {
     if (m.role === "user") {
-      els.thread.append(userBubble(m.content));
+      els.thread.append(userBubble(m.content, m.attachments ?? []));
       ai = null;
     } else {
       ai = document.createElement("div");
@@ -482,9 +701,19 @@ function closeDrawer() {
   els.historyBtn.setAttribute("aria-expanded", "false");
 }
 
+/** Sendable: some text or a ready attachment, and no upload still running. */
+function canSend() {
+  if (busy || pending.some((p) => p.status === "uploading")) return false;
+  return !!els.input.value.trim() || pending.some((p) => p.status === "ready");
+}
+
+function updateSend() {
+  els.send.disabled = !canSend();
+}
+
 function setBusy(v) {
   busy = v;
-  els.send.disabled = v || !els.input.value.trim();
+  updateSend();
   els.input.placeholder = v
     ? "Working on it…"
     : info?.mode === "live" ? "Ask about your store or how to do something…" : "Ask how to do something in CloudPOS…";
@@ -492,15 +721,20 @@ function setBusy(v) {
 
 // ---------- chat ----------
 
-async function ask(text) {
+async function ask(text, withAttachments = false) {
   const message = text.trim();
-  if (!message || busy) return;
+  if (busy) return;
+  // Only the composer sends the pending files (suggestion chips never do).
+  if (withAttachments && pending.some((p) => p.status === "uploading")) return;
+  const files = withAttachments ? pending.filter((p) => p.status === "ready") : [];
+  if (!message && !files.length) return;
+  if (withAttachments) clearPending();
   els.welcome.hidden = true;
   els.input.value = "";
   autosize();
   setBusy(true);
 
-  const user = userBubble(message);
+  const user = userBubble(message, files);
   const ai = document.createElement("div");
   ai.className = "msg-ai";
   const steps = document.createElement("div");
@@ -533,7 +767,7 @@ async function ask(text) {
     const send = () => fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...apiHeaders() },
-      body: JSON.stringify({ message, history, conversationId: currentConversation }),
+      body: JSON.stringify({ message, history, conversationId: currentConversation, attachments: files.map((f) => f.id) }),
     });
     await infoReady;
     await ensureGuestPass();
@@ -583,7 +817,7 @@ async function ask(text) {
     if (activeStep) activeStep.className = "step done";
     if (!steps.children.length) steps.remove();
     else steps.lastChild.textContent = "Done";
-    if (answer) history.push({ role: "user", content: message }, { role: "assistant", content: answer }), (history = history.slice(-12));
+    if (answer) history.push({ role: "user", content: message || "(attachment)" }, { role: "assistant", content: answer }), (history = history.slice(-12));
     setBusy(false);
     scrollToEnd();
     els.input.focus();
@@ -594,17 +828,17 @@ async function ask(text) {
 function autosize() {
   els.input.style.height = "auto";
   els.input.style.height = `${Math.min(els.input.scrollHeight, 180)}px`;
-  els.send.disabled = busy || !els.input.value.trim();
+  updateSend();
 }
 
 els.input.addEventListener("input", autosize);
 els.input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
-    ask(els.input.value);
+    ask(els.input.value, true);
   }
 });
-els.composer.addEventListener("submit", (e) => { e.preventDefault(); ask(els.input.value); });
+els.composer.addEventListener("submit", (e) => { e.preventDefault(); ask(els.input.value, true); });
 els.newChat.addEventListener("click", resetChat);
 els.historyBtn.addEventListener("click", () => (els.drawer.classList.contains("open") ? closeDrawer() : openDrawer()));
 els.drawerClose.addEventListener("click", closeDrawer);
