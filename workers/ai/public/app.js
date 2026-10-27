@@ -259,9 +259,11 @@ function renderInfo(data) {
   turnstileSiteKey = data.turnstileSiteKey ?? null;
   const live = info?.mode === "live";
   els.storeLine.textContent = live ? `${info.company} · ${info.store}` : "Help & support";
-  els.badge.hidden = !live;
-  els.badge.textContent = live ? "Signed in" : "";
+  // Signed in shows as a green dot by the store name (see .live in app.css).
+  els.badge.hidden = true;
+  document.querySelector(".brand").classList.toggle("live", live);
   els.authBtn.textContent = live ? "Sign out" : "Sign in";
+  els.authBtn.className = live ? "outline small" : "primary small";
   els.welcomeTitle.textContent = live ? "Ask about your business" : "How can we help?";
   els.welcomeText.textContent = live
     ? `Connected to ${info.company}. Ask about sales, top products, stock, customers and busy hours — answered from your store's data, with charts. Or ask how to do something in CloudPOS.`
@@ -272,8 +274,9 @@ function renderInfo(data) {
   els.fineprint.textContent = live
     ? "AI answers can be wrong. Figures come from your CloudPOS data; the wording comes from the AI."
     : "AI answers can be wrong. Answers are based on the CloudPOS documentation.";
-  els.storeSelect.hidden = !(live && data.stores?.length > 1);
-  if (!els.storeSelect.hidden) {
+  const pill = document.getElementById("storePill");
+  pill.hidden = !(live && data.stores?.length > 1);
+  if (!pill.hidden) {
     els.storeSelect.innerHTML = data.stores.map((s) => `<option value="${s.id}">${esc(s.name || `Store ${s.id}`)}</option>`).join("");
     const current = data.stores.find((s) => s.name === info.store);
     if (current) els.storeSelect.value = String(current.id);
