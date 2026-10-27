@@ -1,0 +1,12 @@
+{
+	// Serves docs.cloudposai.com from the EmDash docs worker (cloudpos-docs-cms on the
+	// Enke dev account). This proxy lives on the IT Consult account, where the
+	// cloudposai.com zone is.
+	"account_id": "48073c198a3baff8cd9878190dc8101b",
+	"name": "cloudpos-docs-proxy",
+	"main": "src/index.js",
+	"compatibility_date": "2026-10-01",
+	"workers_dev": false,
+	"routes": [{ "pattern": "docs.cloudposai.com", "custom_domain": true }],
+	"vars": { "ORIGIN": "https://cloudpos-docs-cms.enkedevelopment-427.workers.dev" },
+}
