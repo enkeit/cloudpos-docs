@@ -19,6 +19,8 @@ export interface SalesSummary {
   discounts?: number;
   tax?: number;
   returns?: number;
+  /** Caveat the model must pass on, e.g. partial data. */
+  note?: string;
   paymentMethods?: Array<{ method: string; amount: number; orders: number }>;
 }
 

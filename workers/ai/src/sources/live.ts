@@ -37,6 +37,10 @@ type Json = Record<string, unknown>;
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const MAX_PAGES = 8;
+/** Orders-list fallback: pages of up to 100 orders read per question. */
+const MAX_ORDER_PAGES = 30;
+
+type SaleRow = { date: string; hour: number | undefined; customer: string; total: number };
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function num(value: unknown): number {
@@ -92,7 +96,7 @@ export class LiveApiError extends Error {
 
 export class LiveSource implements DataSource {
   private currency = "";
-  private salesCache = new Map<string, Array<{ date: string; hour?: number; customer: string; total: number }>>();
+  private salesCache = new Map<string, SaleRow[]>();
 
   private readonly session: LiveSession;
   private readonly fetcher: typeof fetch;
@@ -144,26 +148,81 @@ export class LiveSource implements DataSource {
     return todayIn(this.session.timeZone || "Asia/Riyadh");
   }
 
-  /** One row per sale from /reports/sales-report (unpaginated). */
+  /** Set when the orders fallback hit its page cap, so totals may be partial. */
+  private salesPartial = new Set<string>();
+
+  /**
+   * One row per sale. Prefers /reports/sales-report (one call); tenants whose
+   * server lacks it (HTTP 404) are served from the orders list instead.
+   */
   private async sales(range: DateRange) {
     const key = `${range.from}|${range.to}`;
     const cached = this.salesCache.get(key);
     if (cached) return cached;
+    let rows: SaleRow[];
+    try {
+      rows = await this.salesFromReport(range);
+    } catch (error) {
+      if (!(error instanceof LiveApiError) || (error.status !== 404 && error.status !== 405)) throw error;
+      rows = await this.salesFromOrders(range, key);
+    }
+    this.salesCache.set(key, rows);
+    return rows;
+  }
+
+  private async salesFromReport(range: DateRange): Promise<SaleRow[]> {
     const payload = await this.get("/api/v1/reports/sales-report", { from_date: range.from, to_date: range.to });
-    const rows = (Array.isArray(payload.data) ? (payload.data as Json[]) : rowsOf(payload))
+    return (Array.isArray(payload.data) ? (payload.data as Json[]) : rowsOf(payload))
       .map((r) => {
         const d = parseApiDate(r.date ?? r.order_date ?? r.created_at);
         return d ? { date: d.date, hour: d.hour, customer: str(r.customer_name) || "Walk-in customer", total: num(r.total_price ?? r.grand_total) } : null;
       })
-      .filter((r): r is NonNullable<typeof r> => r != null && r.date >= range.from && r.date <= range.to);
-    this.salesCache.set(key, rows);
-    return rows;
+      .filter((r): r is SaleRow => r != null && r.date >= range.from && r.date <= range.to);
+  }
+
+  /** Same filters the Orders screen uses; cancelled and returned orders don't count as sales. */
+  private async salesFromOrders(range: DateRange, key: string): Promise<SaleRow[]> {
+    const out: SaleRow[] = [];
+    for (let page = 1; page <= MAX_ORDER_PAGES; page++) {
+      const payload = await this.get("/api/v1/order/executive/list-orders", {
+        page,
+        per_page: 100,
+        filter_store: this.session.storeId,
+        "filter_datetime[from]": `${range.from} 00:00:00`,
+        "filter_datetime[until]": `${range.to} 23:59:59`,
+      });
+      const rows = rowsOf(payload);
+      let olderThanRange = 0;
+      for (const r of rows) {
+        const d = parseApiDate(r.order_date ?? r.issued_at ?? r.created_at);
+        if (!d) continue;
+        if (d.date < range.from) olderThanRange++;
+        if (d.date < range.from || d.date > range.to) continue;
+        if (/cancel|return|refund|void/i.test(str(r.status))) continue;
+        out.push({ date: d.date, hour: d.hour, customer: str(r.customer_name) || "Walk-in customer", total: num(r.grand_total) });
+      }
+      const data = (payload.data ?? {}) as Json;
+      const last = num(data.last_page);
+      const more = last ? page < last : !!data.next_page_url;
+      // Orders come newest first; a page entirely before the range means we're done.
+      if (!rows.length || !more || (rows.length && olderThanRange === rows.length)) return out;
+      if (page === MAX_ORDER_PAGES) this.salesPartial.add(key);
+    }
+    return out;
   }
 
   async salesSummary(range: DateRange): Promise<SalesSummary> {
     const rows = await this.sales(range);
     const revenue = round2(rows.reduce((s, r) => s + r.total, 0));
-    return { range, revenue, orders: rows.length, averageOrderValue: rows.length ? round2(revenue / rows.length) : 0 };
+    return {
+      range,
+      revenue,
+      orders: rows.length,
+      averageOrderValue: rows.length ? round2(revenue / rows.length) : 0,
+      ...(this.salesPartial.has(`${range.from}|${range.to}`)
+        ? { note: `Based on the most recent ${rows.length} orders only; the period has more orders than could be read at once.` }
+        : {}),
+    };
   }
 
   async salesTrend(range: DateRange, granularity: Granularity): Promise<TrendPoint[]> {

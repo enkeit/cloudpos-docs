@@ -279,3 +279,32 @@ test("app token exchange takes the user id from the tenant API, not the app", as
   const denied = fakeFetch({ "find-domain": { data: { domain: "acme.cloudposai.com" } }, "/api/v1/dashboard": { status: "failed", data: {} } });
   await assert.rejects(sessionFromAppToken({ tenantKey: "K", accessToken: "bad" }, denied), /could not be verified/);
 });
+
+test("live sales fall back to the orders list when the sales report is missing", async () => {
+  const seen: string[] = [];
+  const base = fakeFetch(
+    {
+      "/api/v1/order/executive/list-orders": {
+        status: "success",
+        data: {
+          current_page: 1,
+          last_page: 1,
+          data: [
+            { order_number: "A", order_date: "2026-10-27 08:47:08", customer_name: "Test Default", grand_total: "200.00", status: "Confirmed" },
+            { order_number: "B", order_date: "2026-10-26 10:00:00", customer_name: "Ali", grand_total: 50, status: "Delivered" },
+            { order_number: "C", order_date: "2026-10-24 09:00:00", customer_name: "NA", grand_total: 196, status: "Cancelled" },
+            { order_number: "D", order_date: "2026-10-01 09:00:00", customer_name: "Old", grand_total: 999, status: "Confirmed" },
+          ],
+        },
+      },
+    },
+    seen,
+  );
+  const live = new LiveSource({ domain: "https://acme.cloudposai.com", tenantKey: "K", accessToken: "t", storeId: 2 }, base);
+  const s = await live.salesSummary({ from: "2026-10-20", to: "2026-10-27", label: "This week" });
+  assert.equal(s.revenue, 250);
+  assert.equal(s.orders, 2);
+  assert.ok(seen.some((u) => u.includes("reports/sales-report")), "tries the report first");
+  const orders = seen.find((u) => u.includes("list-orders"))!;
+  assert.ok(orders.includes("filter_datetime%5Bfrom%5D=2026-10-20+00%3A00%3A00") && orders.includes("store_id=2"));
+});
