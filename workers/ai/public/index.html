@@ -7,14 +7,13 @@
   <meta name="description" content="Ask CloudPOS AI about your sales, products, stock and customers — or how to use CloudPOS.">
   <meta name="theme-color" content="#2d62ae">
   <script>
-    // Apply the saved light/dark choice before first paint (no flash).
+    // Light by default; dark only when the visitor picked it (applied before first paint, no flash).
     (function () {
       var saved = null;
       try { saved = localStorage.getItem("cloudpos-theme"); } catch (e) {}
-      var root = document.documentElement;
-      if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
-      var dark = saved ? saved === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
-      root.setAttribute("data-active-theme", dark ? "dark" : "light");
+      var theme = saved === "dark" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.setAttribute("data-active-theme", theme);
     })();
   </script>
   <link rel="icon" type="image/png" href="/brand/favicon-64.png">

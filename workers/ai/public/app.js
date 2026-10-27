@@ -20,17 +20,16 @@ const els = {
 // ---------- light / dark ----------
 
 const THEME_KEY = "cloudpos-theme";
-const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
 function savedTheme() {
   try { return localStorage.getItem(THEME_KEY); } catch { return null; }
 }
 
+/** Light unless the visitor chose dark with the toggle (the device setting is not followed). */
 function applyTheme(choice) {
   const root = document.documentElement;
-  if (choice === "light" || choice === "dark") root.setAttribute("data-theme", choice);
-  else root.removeAttribute("data-theme");
-  const active = choice === "light" || choice === "dark" ? choice : systemDark.matches ? "dark" : "light";
+  const active = choice === "dark" ? "dark" : "light";
+  root.setAttribute("data-theme", active);
   root.setAttribute("data-active-theme", active);
   const label = active === "dark" ? "Switch to light mode" : "Switch to dark mode";
   els.themeBtn.title = label;
@@ -43,8 +42,6 @@ els.themeBtn.addEventListener("click", () => {
   try { localStorage.setItem(THEME_KEY, next); } catch { /* private mode: still switch for this visit */ }
   applyTheme(next);
 });
-// Follow the device setting until the visitor picks a theme themselves.
-systemDark.addEventListener("change", () => { if (!savedTheme()) applyTheme(null); });
 applyTheme(savedTheme());
 
 const TOKEN_KEY = "cloudpos-ai-session";
