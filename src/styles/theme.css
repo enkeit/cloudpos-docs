@@ -20,6 +20,29 @@
 	}
 }
 
+/* EmDash's own components (tables, search, buttons) read these; without them
+   they fall back to light greys, which broke tables in dark mode. */
+:root {
+	--color-border: var(--border);
+	--color-surface: var(--surface-2);
+	--color-bg-subtle: color-mix(in srgb, var(--surface-2) 45%, var(--surface));
+	--color-muted: var(--muted);
+	--emdash-search-bg: var(--surface);
+	--emdash-search-text: var(--text);
+	--emdash-search-muted: var(--muted);
+	--emdash-search-border: var(--border);
+	--emdash-search-border-focus: var(--accent);
+	--emdash-search-hover: var(--surface-2);
+	--emdash-search-highlight: var(--accent-soft);
+	--emdash-button-bg: var(--accent);
+	--emdash-button-bg-hover: color-mix(in srgb, var(--accent) 85%, #000);
+	--emdash-button-color: #fff;
+	--emdash-caption-color: var(--muted);
+	--emdash-pullquote-border: var(--accent);
+	--emdash-pullquote-color: var(--text);
+	--emdash-pullquote-citation-color: var(--muted);
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--text); font: 15px/1.65 var(--font-body); }
