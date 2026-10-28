@@ -61,6 +61,21 @@
 					"label": "Content",
 					"type": "portableText",
 					"searchable": true
+				},
+				{
+					"slug": "search_code",
+					"label": "Search code",
+					"type": "select",
+					"searchable": true,
+					"validation": {
+						"options": [
+							"posapp",
+							"apiref",
+							"adminpanel",
+							"storeguide",
+							"storedev"
+						]
+					}
 				}
 			]
 		}
@@ -103,6 +118,7 @@
 					"title": "POS App Overview",
 					"description": "What the CloudPOS POS app does, who uses it, how these docs are organised, and the demo story used as the worked example on every page.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 0,
 					"content": [
 						{
@@ -2827,6 +2843,7 @@
 					"title": "Getting Started",
 					"description": "Install CloudPOS, enter your company API key, sign in, choose a store, let the first sync finish and set the counter number.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 1,
 					"content": [
 						{
@@ -6361,6 +6378,7 @@
 					"title": "Navigation and Roles",
 					"description": "Every menu item in the CloudPOS POS app, the permission that shows it, the screen each role opens on, the role-by-permission matrix, and how to switch user or store.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 2,
 					"content": [
 						{
@@ -13683,6 +13701,7 @@
 					"title": "Billing",
 					"description": "Ring up a sale in CloudPOS. Add products, pick a customer, set delivery, discount and payment, then confirm, print or send by WhatsApp.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 3,
 					"content": [
 						{
@@ -23302,6 +23321,7 @@
 					"title": "Payments and tax",
 					"description": "How CloudPOS works out tax, rounding, offers, wholesale prices, discounts, coupons, delivery charges and payments, with the demo numbers.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 4,
 					"content": [
 						{
@@ -27014,6 +27034,7 @@
 					"title": "Customers",
 					"description": "Find, add and edit customers in CloudPOS, read their balance and ledger, manage addresses, loyalty and B2B details.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 5,
 					"content": [
 						{
@@ -32616,6 +32637,7 @@
 					"title": "Restaurant and Kitchen",
 					"description": "Take table, takeaway and delivery orders on the Restaurant, Store and Attender screens, send them to the kitchen with a KOT, and run the Kitchen Master board.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 6,
 					"content": [
 						{
@@ -38212,6 +38234,7 @@
 					"title": "Sales and Orders",
 					"description": "Find any order, read its details, print or share it, change its order or payment status, cancel it with a refund, create a delivery, record packing, and fix orders that did not sync.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 7,
 					"content": [
 						{
@@ -45401,6 +45424,7 @@
 					"title": "Sales Returns",
 					"description": "Return some or all items of a sale, refund the customer in cash, card or UPI or as account credit, and print the return bill.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 8,
 					"content": [
 						{
@@ -49071,6 +49095,7 @@
 					"title": "Day Close and Shifts",
 					"description": "Open a shift with your opening cash, close the day with a cash count, read the Daily Sales Closes list and print the day close report.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 9,
 					"content": [
 						{
@@ -53714,6 +53739,7 @@
 					"title": "Quotations and Proforma Invoices",
 					"description": "Create price quotes from the billing screen, print them, track their status and expiry, convert them into orders, and follow the proforma invoice each quote creates.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 10,
 					"content": [
 						{
@@ -57321,6 +57347,7 @@
 					"title": "Products and Stock",
 					"description": "Manage categories, products, sale units, variants, stock batches, stock adjustments, barcode labels and the weigh-machine PLU file from the POS app.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 11,
 					"content": [
 						{
@@ -63952,6 +63979,7 @@
 					"title": "Purchases and Suppliers",
 					"description": "Create and receive purchase orders, return goods to suppliers, manage the supplier directory, and record supplier transactions and vouchers.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 12,
 					"content": [
 						{
@@ -69434,6 +69462,7 @@
 					"title": "Transactions and Accounts",
 					"description": "Invoices, receipts, customer vouchers, supplier vouchers, expenses and party account ledgers in the CloudPOS app, and how a sale turns into these documents.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 13,
 					"content": [
 						{
@@ -75689,6 +75718,7 @@
 					"title": "Reports",
 					"description": "Every report in the CloudPOS POS app, who can open it, its filters, columns, totals and how to export or print it.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 14,
 					"content": [
 						{
@@ -82388,6 +82418,7 @@
 					"title": "Dashboard",
 					"description": "The CloudPOS dashboards for sales executives, company admins and suppliers, every card and graph, the data behind it and the permissions that show or hide it.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 15,
 					"content": [
 						{
@@ -88948,6 +88979,7 @@
 					"title": "Printing",
 					"description": "Set up billing, quotation, kitchen and barcode printers, choose paper sizes and receipt templates, share PDFs, and control what prints through document configurations.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 16,
 					"content": [
 						{
@@ -96302,6 +96334,7 @@
 					"title": "ZATCA e-Invoicing",
 					"description": "How CloudPOS handles Saudi ZATCA e-invoicing - Phase 1 QR codes, Phase 2 reporting and clearance, invoice ZATCA statuses, resync and bulk sync, and the dashboard ZATCA cards.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 17,
 					"content": [
 						{
@@ -99818,6 +99851,7 @@
 					"title": "Settings and Sync",
 					"description": "Every card on the CloudPOS Settings screen, the counter number, the Offline Data page, product resync, realtime sync, Offline Mode and clearing local data.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 18,
 					"content": [
 						{
@@ -104013,6 +104047,7 @@
 					"title": "Settings Reference",
 					"description": "Every server setting, company prop, master-data code, document type, order and product prop and device preference that changes how the CloudPOS POS app behaves, with defaults and effects.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 19,
 					"content": [
 						{
@@ -114964,6 +114999,7 @@
 					"title": "Kiosk Mode",
 					"description": "The self-service ordering kiosk screens in CloudPOS, what they contain, and their availability in the current app version.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 20,
 					"content": [
 						{
@@ -116308,6 +116344,7 @@
 					"title": "Troubleshooting and FAQ",
 					"description": "Quick answers to the questions store staff ask most about CloudPOS — missing buttons and menus, delivery charges, counter numbers, unsynced orders, shifts, day close, ZATCA, printers, returns and quotations.",
 					"section": "POS App",
+					"search_code": "posapp",
 					"order": 21,
 					"content": [
 						{
@@ -120491,6 +120528,7 @@
 					"title": "API Reference Overview",
 					"description": "How the CloudPOS POS app talks to the CloudPOS backend - tenant discovery, base URL, headers, language, store scoping, response envelopes, pagination, error codes and the sign-in flow.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 100,
 					"content": [
 						{
@@ -125242,6 +125280,7 @@
 					"title": "Authentication and Session API",
 					"description": "Tenant discovery, sign-in, sign-out, forgot and reset password, subscription status, roles and the user switcher - every request, response and error the POS app handles.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 101,
 					"content": [
 						{
@@ -129608,6 +129647,7 @@
 					"title": "Products and Categories API",
 					"description": "Endpoints the CloudPOS POS app uses to list, create, edit and delete products and categories, generate barcodes, load units and properties, and calculate tax.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 102,
 					"content": [
 						{
@@ -138921,6 +138961,7 @@
 					"title": "Stock API",
 					"description": "Endpoints behind the Product Stock List, Add Stock, Edit stock, Adjust Stock, Move Stock and Withdraw Stock actions, plus the RACKS and STOCK_GROUPING_FIELDS master data.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 103,
 					"content": [
 						{
@@ -143638,6 +143679,7 @@
 					"title": "Cart and Orders API",
 					"description": "How the CloudPOS POS app submits sales, saves held orders, lists and opens orders, changes order and payment status, cancels orders, drives the kitchen (KOT) item statuses, and handles packing, delivery documents and external delivery.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 104,
 					"content": [
 						{
@@ -154249,6 +154291,7 @@
 					"title": "Payments, Delivery and Discounts API",
 					"description": "Payment methods, payment gateways, banks, delivery methods and charges, discount coupons and POS offers, as the CloudPOS POS app loads and applies them.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 105,
 					"content": [
 						{
@@ -159436,6 +159479,7 @@
 					"title": "Customers API",
 					"description": "Endpoints the POS app uses to search, create and edit customers, manage their addresses, read their ledger and look up location lists.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 106,
 					"content": [
 						{
@@ -165344,6 +165388,7 @@
 					"title": "Suppliers and Purchases API",
 					"description": "Supplier directory, supplier ledger and vouchers, purchase orders (create and receive), purchase returns and the store list.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 107,
 					"content": [
 						{
@@ -173376,6 +173421,7 @@
 					"title": "Sales Returns API",
 					"description": "Create a sales return line by line, complete it with or without a refund, and list returns. Includes the refund breakdown, limits and side effects.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 108,
 					"content": [
 						{
@@ -177102,6 +177148,7 @@
 					"title": "Quotations and Proforma API",
 					"description": "Create, list, view, update, convert and delete quotations, and read the proforma invoices created with them.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 109,
 					"content": [
 						{
@@ -182064,6 +182111,7 @@
 					"title": "Transactions, Invoices and Receipts API",
 					"description": "Invoices (with ZATCA status filters), receipts, customer vouchers, the customer ledger, company accounts and expenses (general payments).",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 110,
 					"content": [
 						{
@@ -190431,6 +190479,7 @@
 					"title": "Reports and Day Close API",
 					"description": "Every report endpoint the POS app calls (my sales, admin executive, sales, discount, product sales, stock, non-stock, consumed stocks, customer and supplier transactions) and the daily sales close / shift endpoints with their rules.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 111,
 					"content": [
 						{
@@ -200582,6 +200631,7 @@
 					"title": "Dashboard API",
 					"description": "Every dashboard endpoint behind the CloudPOS Dashboard screen - sales overview, company and account overview, graphs, customer, product, ZATCA and supplier widgets - with parameters, sample responses and the widget permissions that show or hide each card.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 112,
 					"content": [
 						{
@@ -206510,6 +206560,7 @@
 					"title": "Settings and Master Data API",
 					"description": "Endpoints that configure the POS app - website settings (company props), general and admin settings, master data values, document configurations, printer settings, roles, stores, languages, banks, units and translation - with parameters, responses and what each setting changes.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 113,
 					"content": [
 						{
@@ -212468,6 +212519,7 @@
 					"title": "ZATCA API",
 					"description": "ZATCA (Saudi e-invoicing) endpoints used by the POS app - Phase 1 print, Phase 2 submit-and-print and resync for invoices and vouchers, bulk send, the invoice ZATCA status fields and filters, and the dashboard ZATCA overview.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 114,
 					"content": [
 						{
@@ -215818,6 +215870,7 @@
 					"title": "Sync and Realtime API",
 					"description": "How the POS app keeps its offline data current and sends sales - offline data sync targets, the sync/changes delta feed, the Reverb websocket channel and data.changed events, offers/pos-sync, and local-first sale submission with receipt identity fields.",
 					"section": "API Reference",
+					"search_code": "apiref",
 					"order": 115,
 					"content": [
 						{
@@ -220663,6 +220716,7 @@
 					"title": "Admin Panel Overview",
 					"description": "Introduction to the Enke POS Admin Panel (web-based management)",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 200,
 					"content": [
 						{
@@ -220938,6 +220992,7 @@
 					"title": "Getting Started",
 					"description": "First steps in the Enke POS Admin Panel",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 201,
 					"content": [
 						{
@@ -221261,6 +221316,7 @@
 					"title": "Products & Categories",
 					"description": ">-",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 202,
 					"content": [
 						{
@@ -224384,6 +224440,7 @@
 					"title": "Users & Roles",
 					"description": "Creating staff accounts and managing permissions",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 203,
 					"content": [
 						{
@@ -224776,6 +224833,7 @@
 					"title": "Customer Management",
 					"description": "Managing the customer database from the Admin Panel",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 204,
 					"content": [
 						{
@@ -225083,6 +225141,7 @@
 					"title": "Purchases",
 					"description": "Recording supplier purchases and managing inventory inflow",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 205,
 					"content": [
 						{
@@ -225456,6 +225515,7 @@
 					"title": "Settings",
 					"description": "Configuring your store, tax, payments, and receipts in the Admin Panel",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 206,
 					"content": [
 						{
@@ -225969,6 +226029,7 @@
 					"title": "Reports",
 					"description": "Analytics and reporting in the Admin Panel",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 207,
 					"content": [
 						{
@@ -226486,6 +226547,7 @@
 					"title": "Company Props",
 					"description": ">-",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 208,
 					"content": [
 						{
@@ -228904,6 +228966,7 @@
 					"title": "Setup Masterdata",
 					"description": "Setup Master data for Company",
 					"section": "Admin Panel",
+					"search_code": "adminpanel",
 					"order": 209,
 					"content": [
 						{
@@ -232176,6 +232239,7 @@
 					"title": "CloudPos Ecom Overview",
 					"description": "A guide to every part of the CloudPos Ecom storefront and how your website settings shape the shopper experience.",
 					"section": "Online Store · User Guide",
+					"search_code": "storeguide",
 					"order": 300,
 					"content": [
 						{
@@ -232902,6 +232966,7 @@
 					"title": "Browsing Products",
 					"description": "How shoppers discover and explore products — home page sections, the products listing, search, filtering, sorting, product detail pages, and variants.",
 					"section": "Online Store · User Guide",
+					"search_code": "storeguide",
 					"order": 301,
 					"content": [
 						{
@@ -235354,6 +235419,7 @@
 					"title": "Cart & Wishlist",
 					"description": "How shoppers add products to the cart or wishlist, adjust quantities, review the order summary, and move items between lists.",
 					"section": "Online Store · User Guide",
+					"search_code": "storeguide",
 					"order": 302,
 					"content": [
 						{
@@ -237192,6 +237258,7 @@
 					"title": "Checkout",
 					"description": "How shoppers place an order — guest flows, address, delivery date, payment methods, and WhatsApp ordering.",
 					"section": "Online Store · User Guide",
+					"search_code": "storeguide",
 					"order": 303,
 					"content": [
 						{
@@ -239015,6 +239082,7 @@
 					"title": "Account & Profile",
 					"description": "How shoppers sign up, sign in, manage their profile and addresses, and view order history.",
 					"section": "Online Store · User Guide",
+					"search_code": "storeguide",
 					"order": 304,
 					"content": [
 						{
@@ -240338,6 +240406,7 @@
 					"title": "Languages",
 					"description": "How the storefront supports multiple languages, locale-prefixed URLs, and right-to-left (RTL) layout.",
 					"section": "Online Store · User Guide",
+					"search_code": "storeguide",
 					"order": 305,
 					"content": [
 						{
@@ -241152,6 +241221,7 @@
 					"title": "Website Settings Reference",
 					"description": "Complete reference for every website setting and company property that controls the CloudPos Ecom storefront, including codes, defaults, and descriptions.",
 					"section": "Online Store · User Guide",
+					"search_code": "storeguide",
 					"order": 306,
 					"content": [
 						{
@@ -245434,6 +245504,7 @@
 					"title": "Developer Overview",
 					"description": "Orientation for developers working on the CloudPos Ecom storefront codebase.",
 					"section": "Online Store · Developer Docs",
+					"search_code": "storedev",
 					"order": 400,
 					"content": [
 						{
@@ -246587,6 +246658,7 @@
 					"title": "Architecture",
 					"description": "Request lifecycle, rendering model, routing, component organisation, and security for CloudPos Ecom.",
 					"section": "Online Store · Developer Docs",
+					"search_code": "storedev",
 					"order": 401,
 					"content": [
 						{
@@ -249588,6 +249660,7 @@
 					"title": "Multi-Tenancy",
 					"description": "How one Cloudflare Worker serves many stores — tenant config model, host resolution, KV storage, and onboarding.",
 					"section": "Online Store · Developer Docs",
+					"search_code": "storedev",
 					"order": 402,
 					"content": [
 						{
@@ -253041,6 +253114,7 @@
 					"title": "Theming",
 					"description": "How CSS variable tokens and component template packs combine to give each tenant its own look and feel.",
 					"section": "Online Store · Developer Docs",
+					"search_code": "storedev",
 					"order": 403,
 					"content": [
 						{
@@ -258736,6 +258810,7 @@
 					"title": "Internationalization",
 					"description": "Locale routing, per-tenant locales, dictionaries, client/server translation API, RTL, and internal link helpers.",
 					"section": "Online Store · Developer Docs",
+					"search_code": "storedev",
 					"order": 404,
 					"content": [
 						{
@@ -261326,6 +261401,7 @@
 					"title": "Data & APIs",
 					"description": "Backend ERP API contract, apiFetch, ISR cache tags, internal route handlers, contexts, and data-layer hooks.",
 					"section": "Online Store · Developer Docs",
+					"search_code": "storedev",
 					"order": 405,
 					"content": [
 						{
@@ -266831,6 +266907,7 @@
 					"title": "Revalidation",
 					"description": "ISR cache strategy, tag-based on-demand purge via /api/revalidate, and the PowerShell revalidation script.",
 					"section": "Online Store · Developer Docs",
+					"search_code": "storedev",
 					"order": 406,
 					"content": [
 						{
@@ -269469,6 +269546,7 @@
 					"title": "Deployment",
 					"description": "OpenNext build pipeline, Cloudflare Worker bindings, environment variables, and domain onboarding.",
 					"section": "Online Store · Developer Docs",
+					"search_code": "storedev",
 					"order": 407,
 					"content": [
 						{

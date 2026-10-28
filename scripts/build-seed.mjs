@@ -12,13 +12,14 @@ import { markdownToPortableText } from "emdash/client";
 
 const root = process.argv[2] ?? "../eposmob/cloudpos-docs/content/docs";
 
-/** Sidebar sections, in order, from the docs' meta.json files. */
+/** Sidebar sections, in order, from the docs' meta.json files. `code` is a word found nowhere
+ * else in the docs, so typing it in the admin search lists just that section. */
 const SECTIONS = [
-	{ dir: "pos-app", label: "POS App" },
-	{ dir: "api", label: "API Reference" },
-	{ dir: "admin-panel", label: "Admin Panel" },
-	{ dir: "ecom/user-guide", label: "Online Store · User Guide" },
-	{ dir: "ecom/developer", label: "Online Store · Developer Docs" },
+	{ dir: "pos-app", label: "POS App", code: "posapp" },
+	{ dir: "api", label: "API Reference", code: "apiref" },
+	{ dir: "admin-panel", label: "Admin Panel", code: "adminpanel" },
+	{ dir: "ecom/user-guide", label: "Online Store · User Guide", code: "storeguide" },
+	{ dir: "ecom/developer", label: "Online Store · Developer Docs", code: "storedev" },
 ];
 
 /** App screenshots uploaded by scripts/upload-media.mjs; docs embed them as ![alt](media:NAME). */
@@ -151,6 +152,7 @@ for (const [s, section] of SECTIONS.entries()) {
 				title: title || page,
 				description: description || "",
 				section: section.label,
+				search_code: section.code,
 				order: s * 100 + i,
 				content: portableText(toMarkdown(body)),
 			},
@@ -182,6 +184,13 @@ const seed = {
 				},
 				{ slug: "order", label: "Order in sidebar", type: "integer" },
 				{ slug: "content", label: "Content", type: "portableText", searchable: true },
+				{
+					slug: "search_code",
+					label: "Search code",
+					type: "select",
+					searchable: true,
+					validation: { options: SECTIONS.map((s) => s.code) },
+				},
 			],
 		},
 	],
