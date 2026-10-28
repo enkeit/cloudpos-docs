@@ -1,0 +1,32 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// EmDash prototype of the CloudPOS docs. Enke dev account (Workers Paid:
+	// the ~5 MB bundle is over the free plan's 3 MB limit).
+	"account_id": "4275d9596d1fa5b1f150fdbbbc263d26",
+	"name": "cloudpos-docs-cms",
+	"main": "./src/worker.ts",
+	"compatibility_date": "2026-02-24",
+	"compatibility_flags": ["nodejs_compat"],
+	"workers_dev": true,
+	"preview_urls": false,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "cloudpos-docs-cms",
+			"database_id": "f23cdf26-da95-4d65-868b-7b5b24afc8ce",
+		},
+	],
+	"r2_buckets": [
+		{
+			"binding": "MEDIA",
+			"bucket_name": "cloudpos-docs-media",
+		},
+	],
+	// Sandboxed plugins require Worker Loader, available on Workers paid plans. Uncomment to enable:
+	// "worker_loaders": [{ "binding": "LOADER" }],
+	// General maintenance cron trigger
+	"triggers": {
+		"crons": ["* * * * *"],
+	},
+	// Secret (wrangler secret put): EMDASH_ENCRYPTION_KEY (npx emdash secrets generate)
+}

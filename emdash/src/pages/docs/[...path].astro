@@ -1,0 +1,71 @@
+---
+import { getEmDashEntry, getSeoMeta, getSiteSettings } from "emdash";
+import { PortableText } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+import { loadNav, slugFromPath } from "../../utils/docs";
+import { resolveStarterSiteIdentity } from "../../utils/site-identity";
+
+// Same URLs as docs.cloudposai.com: /docs/pos-app/billing → entry "pos-app--billing".
+const path = Astro.params.path ?? "";
+if (!path) return Astro.redirect("/docs/pos-app");
+const slug = slugFromPath(path);
+
+const [{ entry: doc, cacheHint }, nav] = await Promise.all([getEmDashEntry("docs", slug), loadNav()]);
+if (!doc) return Astro.rewrite("/404");
+if (Astro.cache?.enabled) {
+	Astro.cache.set(cacheHint);
+	Astro.cache.set(nav.cacheHint);
+}
+
+const { siteTitle } = resolveStarterSiteIdentity(await getSiteSettings());
+const seo = getSeoMeta(doc, { siteTitle, siteUrl: Astro.url.origin, path: Astro.url.pathname.replace(/\/$/, "") });
+const flat = nav.sections.flatMap((s) => s.items);
+const index = flat.findIndex((item) => item.slug === slug);
+const prev = index > 0 ? flat[index - 1] : null;
+const next = index >= 0 && index < flat.length - 1 ? flat[index + 1] : null;
+---
+
+<Base
+	title={seo.title}
+	pageTitle={seo.ogTitle}
+	description={doc.data.description || seo.description}
+	canonical={seo.canonical}
+	content={{ collection: "docs", id: doc.data.id, slug }}
+>
+	<div class="layout">
+		<aside class="sidebar" aria-label="Documentation">
+			<details class="side-menu" open>
+			<summary><span>Browse the docs</span><b>{doc.data.title}</b></summary>
+			{
+				nav.sections.map((section) => (
+					<>
+						<h2>{section.label}</h2>
+						<ul>
+							{section.items.map((item) => (
+								<li>
+									<a href={item.href} aria-current={item.slug === slug ? "page" : undefined}>
+										{item.title}
+									</a>
+								</li>
+							))}
+						</ul>
+					</>
+				))
+			}
+			</details>
+			<script is:inline>
+				// Phones: the page list folds into a dropdown above the article.
+				if (matchMedia("(max-width: 900px)").matches) document.currentScript.previousElementSibling.removeAttribute("open");
+			</script>
+		</aside>
+		<article class="doc">
+			<h1 {...doc.edit.title}>{doc.data.title}</h1>
+			{doc.data.description && <p class="lead" {...doc.edit.description}>{doc.data.description}</p>}
+			<div {...doc.edit.content}><PortableText value={doc.data.content} /></div>
+			<nav class="pager">
+				{prev ? <a href={prev.href}>← {prev.title}</a> : <span />}
+				{next ? <a href={next.href}>{next.title} →</a> : <span />}
+			</nav>
+		</article>
+	</div>
+</Base>
