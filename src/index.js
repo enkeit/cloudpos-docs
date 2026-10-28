@@ -33,11 +33,18 @@ export default {
 		const cached = await cache.match(key);
 		if (cached) {
 			const age = (Date.now() - Number(cached.headers.get("X-Cached-At") ?? 0)) / 1000;
-			if (!isMedia && age > FRESH_SECONDS) ctx.waitUntil(refresh(request, url, origin, cache, key, isMedia));
-			return withCacheStatus(cached, age > FRESH_SECONDS && !isMedia ? "STALE" : "HIT");
+			if (isMedia || age <= FRESH_SECONDS) return withCacheStatus(cached, "HIT", isMedia);
+			// A stale page from before a docs deploy names build files that no longer
+			// exist and would show unstyled: rebuild it now instead of serving it.
+			const html = await cached.text();
+			if (await assetsGone(html, url, origin, cache)) {
+				return withCacheStatus(await refresh(request, url, origin, cache, key, isMedia), "MISS", isMedia);
+			}
+			ctx.waitUntil(refresh(request, url, origin, cache, key, isMedia));
+			return withCacheStatus(new Response(html, cached), "STALE", isMedia);
 		}
 		const response = await refresh(request, url, origin, cache, key, isMedia);
-		return withCacheStatus(response, "MISS");
+		return withCacheStatus(response, "MISS", isMedia);
 	},
 };
 
@@ -83,9 +90,20 @@ async function forward(request, url, origin) {
 	return out;
 }
 
-function withCacheStatus(response, status) {
+/** True when the page's stylesheet is no longer served by the docs worker. */
+async function assetsGone(html, url, origin, cache) {
+	const css = html.match(/\/_astro\/[^"']+\.css/)?.[0];
+	if (!css) return false;
+	if (await cache.match(new Request(`${url.origin}${css}`))) return false;
+	const head = await fetch(new URL(css, origin), { method: "HEAD" });
+	return head.status === 404;
+}
+
+/** Labels the cache result and sets what browsers may keep: pages are always revalidated. */
+function withCacheStatus(response, status, isMedia) {
 	const out = new Response(response.body, response);
 	out.headers.set("X-Docs-Cache", status);
+	out.headers.set("Cache-Control", isMedia ? `public, max-age=${MEDIA_SECONDS}, immutable` : "public, max-age=0, must-revalidate");
 	out.headers.delete("X-Cached-At");
 	return out;
 }
