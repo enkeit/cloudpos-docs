@@ -262,12 +262,15 @@ function renderInfo(data) {
   document.querySelector(".brand").classList.toggle("live", live);
   els.authBtn.textContent = live ? "Sign out" : "Sign in";
   els.authBtn.className = live ? "outline small" : "primary small";
-  els.welcomeTitle.textContent = live ? "Ask about your business" : "How can we help?";
+  els.welcomeTitle.textContent = live ? "Ask about your business" : "Sign in to CloudPOS AI";
   els.welcomeText.textContent = live
     ? `Connected to ${info.company}. Ask about sales, top products, stock, customers and busy hours — answered from your store's data, with charts. Or ask how to do something in CloudPOS.`
-    : "Ask anything about using CloudPOS — the POS app, admin panel or online store. Answers come from the CloudPOS documentation.";
+    : "The assistant and the CloudPOS documentation are available to signed-in CloudPOS users.";
   els.analysisGroup.hidden = !live;
+  els.suggestDocs.parentElement.hidden = !live;
+  els.composer.hidden = !live;
   els.signInHint.hidden = live;
+  if (!live && !els.dialog.open) openLogin();
   els.input.placeholder = live ? "Ask about your store or how to do something…" : "Ask how to do something in CloudPOS…";
   els.fineprint.textContent = live
     ? "AI answers can be wrong. Figures come from your CloudPOS data; the wording comes from the AI."
@@ -725,6 +728,7 @@ function setBusy(v) {
 async function ask(text, withAttachments = false) {
   const message = text.trim();
   if (busy) return;
+  if (info?.mode !== "live") return openLogin();
   // Only the composer sends the pending files (suggestion chips never do).
   if (withAttachments && pending.some((p) => p.status === "uploading")) return;
   const files = withAttachments ? pending.filter((p) => p.status === "ready") : [];
@@ -851,6 +855,7 @@ els.authBtn.addEventListener("click", () => {
   if (info?.mode === "live") {
     token = null;
     store.set(null);
+    fetch("/api/session/logout", { method: "POST" }); // also signs out of the docs
     resetChat();
     loadInfo();
     return;
@@ -880,6 +885,8 @@ els.loginForm.addEventListener("submit", async (e) => {
     token = body.token;
     store.set(token);
     els.loginForm.reset();
+    // Signing in also set the docs pass; go back to the docs page that sent us.
+    if (returnTo) return location.assign(returnTo);
     els.dialog.close();
     resetChat();
     renderInfo({ info: body.info, stores: body.stores, suggestions: (await (await fetch("/api/info", { headers: apiHeaders() })).json()).suggestions });
@@ -905,7 +912,25 @@ els.storeSelect.addEventListener("change", async () => {
   loadInfo();
 });
 
+/** The docs page that sent the visitor here to sign in (cloudposai.com sites only). */
+const returnTo = (() => {
+  try {
+    const next = new URL(new URLSearchParams(location.search).get("next") ?? "");
+    return next.protocol === "https:" && (next.hostname === "cloudposai.com" || next.hostname.endsWith(".cloudposai.com")) ? next.href : null;
+  } catch {
+    return null;
+  }
+})();
+
 // Questions wait for this so the guest check knows its site key.
-const infoReady = loadInfo().catch(() => { els.storeLine.textContent = "Offline — check your connection"; });
+const infoReady = loadInfo()
+  .then(async () => {
+    // Already signed in here: get the docs pass for this browser, then go back.
+    if (returnTo && info?.mode === "live") {
+      const res = await fetch("/api/session/pass", { method: "POST", headers: apiHeaders() });
+      if (res.ok) location.assign(returnTo);
+    }
+  })
+  .catch(() => { els.storeLine.textContent = "Offline — check your connection"; });
 const q = new URLSearchParams(location.search).get("q");
 if (q) ask(q);

@@ -1,11 +1,18 @@
-// docs.cloudposai.com → the EmDash docs worker. Public pages, search and media are
+// docs.cloudposai.com → the EmDash docs worker. Pages, search and media are
 // served here; editing stays on the worker's own address because admin passkeys
 // are bound to that origin.
+//
+// The docs are for signed-in CloudPOS users only: without the sign-in pass
+// cookie (see pass.js) visitors are sent to the AI site's sign-in and back.
+// Build assets, the logo and uploaded screenshots stay open, so the POS app's
+// AI can show screenshots without a browser login. Nothing is indexed.
 //
 // The docs worker renders every page from D1 (about 2–4 s per page), so pages
 // are kept in the edge cache: a visitor always gets the cached copy at once,
 // and a copy older than FRESH_SECONDS is refreshed in the background, so edits
 // show up within about a minute. Media files are content-addressed and kept a year.
+
+import { cookieValue, PASS_COOKIE, verifyPass } from "./pass.js";
 
 const ADMIN_PATHS = [/^\/_emdash\/admin/, /^\/_emdash\/api\/auth/, /^\/_emdash\/api\/setup/, /^\/keystatic/];
 /** Content-addressed files: uploaded media and hashed build assets. */
@@ -13,9 +20,19 @@ const MEDIA_PATH = /^\/(_emdash\/api\/media\/file|_astro)\//;
 const FRESH_SECONDS = 60;
 const KEEP_SECONDS = 7 * 24 * 60 * 60;
 const MEDIA_SECONDS = 365 * 24 * 60 * 60;
+/** Open without signing in: no doc text in any of these. */
+const OPEN_PATH = /^\/(_astro|brand|_emdash\/api\/media\/file)\/|^\/favicon/;
 
 export default {
 	async fetch(request, env, ctx) {
+		const response = await handle(request, env, ctx);
+		const out = new Response(response.body, response);
+		out.headers.set("X-Robots-Tag", "noindex, nofollow");
+		return out;
+	},
+};
+
+async function handle(request, env, ctx) {
 		const url = new URL(request.url);
 		const origin = new URL(env.ORIGIN);
 
@@ -23,6 +40,17 @@ export default {
 			const target = url.pathname.startsWith("/keystatic") ? `${origin.origin}/_emdash/admin` : `${origin.origin}${url.pathname}${url.search}`;
 			return Response.redirect(target, 302);
 		}
+		if (url.pathname === "/robots.txt") return new Response("User-agent: *\nDisallow: /\n", { headers: { "Content-Type": "text/plain" } });
+
+		if (!OPEN_PATH.test(url.pathname) && !(await verifyPass(cookieValue(request, PASS_COOKIE), env.DOCS_PASS_SECRET))) {
+			if (url.pathname.startsWith("/_emdash/")) return Response.json({ error: "Please sign in." }, { status: 401 });
+			const signIn = new URL(env.SIGN_IN_URL);
+			signIn.searchParams.set("next", url.href);
+			return new Response(null, { status: 302, headers: { Location: signIn.href, "Cache-Control": "no-store" } });
+		}
+		// The docs worker serves pages and search only with this header (see emdash/src/worker.ts).
+		request = new Request(request);
+		request.headers.set("X-Docs-Gate", env.DOCS_GATE_KEY ?? "");
 
 		const isMedia = MEDIA_PATH.test(url.pathname);
 		const cacheable = request.method === "GET" && (isMedia || !url.pathname.startsWith("/_emdash/"));
@@ -51,8 +79,7 @@ export default {
 		}
 		const response = await refresh(request, url, origin, cache, key, isMedia);
 		return withCacheStatus(response, "MISS", isMedia);
-	},
-};
+}
 
 /** Fetches from the docs worker and stores a successful copy in the edge cache. */
 async function refresh(request, url, origin, cache, key, isMedia) {
@@ -62,7 +89,7 @@ async function refresh(request, url, origin, cache, key, isMedia) {
 	headers.set("X-Cached-At", String(Date.now()));
 	headers.delete("Set-Cookie");
 	// Browsers revalidate pages each visit (the edge answers instantly); media never changes.
-	headers.set("Cache-Control", isMedia ? `public, max-age=${MEDIA_SECONDS}, immutable` : "public, max-age=0, must-revalidate");
+	headers.set("Cache-Control", isMedia ? `public, max-age=${MEDIA_SECONDS}, immutable` : "private, max-age=0, must-revalidate");
 	const body = await response.arrayBuffer();
 	const stored = new Response(body, { status: 200, headers: new Headers(headers) });
 	stored.headers.set("Cache-Control", `public, s-maxage=${isMedia ? MEDIA_SECONDS : KEEP_SECONDS}`);
@@ -105,11 +132,11 @@ async function assetsGone(html, url, origin, cache) {
 	return head.status === 404;
 }
 
-/** Labels the cache result and sets what browsers may keep: pages are always revalidated. */
+/** Labels the cache result and sets what browsers may keep: pages are private and always revalidated. */
 function withCacheStatus(response, status, isMedia) {
 	const out = new Response(response.body, response);
 	out.headers.set("X-Docs-Cache", status);
-	out.headers.set("Cache-Control", isMedia ? `public, max-age=${MEDIA_SECONDS}, immutable` : "public, max-age=0, must-revalidate");
+	out.headers.set("Cache-Control", isMedia ? `public, max-age=${MEDIA_SECONDS}, immutable` : "private, max-age=0, must-revalidate");
 	out.headers.delete("X-Cached-At");
 	return out;
 }

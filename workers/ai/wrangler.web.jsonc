@@ -17,8 +17,11 @@
     "run_worker_first": ["/api/*"]
   },
   "vars": {
-    "BACKEND_URL": "https://cloudpos-ai.enkedevelopment-427.workers.dev"
+    "BACKEND_URL": "https://cloudpos-ai.enkedevelopment-427.workers.dev",
+    // The sign-in pass cookie covers every cloudposai.com site (docs.cloudposai.com checks it).
+    "PASS_DOMAIN": "cloudposai.com"
   },
   // Secret (wrangler secret put -c wrangler.web.jsonc): PROXY_KEY, same value as the backend's.
+  // Secrets: PROXY_KEY (shared with the backend), DOCS_PASS_SECRET (shared with cloudpos-docs-proxy).
   "observability": { "enabled": true, "head_sampling_rate": 1 }
 }

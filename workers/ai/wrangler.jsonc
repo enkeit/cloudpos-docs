@@ -38,7 +38,9 @@
     "DOCS_BASE_URL": "https://docs.cloudposai.com",
     "GUEST_DAILY_LIMIT": "3000",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAFnv5fOLAFuSwJpp",
-    "ALLOWED_ORIGINS": "https://docs.cloudposai.com,https://ai.cloudposai.com"
+    "ALLOWED_ORIGINS": "https://docs.cloudposai.com,https://ai.cloudposai.com",
+    // Client requirement: chat, history and docs search only for signed-in CloudPOS users.
+    "REQUIRE_SIGN_IN": "true"
   },
   // Secrets (wrangler secret put): SESSION_SECRET, ADMIN_TOKEN,
   // TURNSTILE_SECRET (guest human check; unset = off),

@@ -8,5 +8,10 @@
 	"compatibility_date": "2026-10-01",
 	"workers_dev": false,
 	"routes": [{ "pattern": "docs.cloudposai.com", "custom_domain": true }],
-	"vars": { "ORIGIN": "https://cloudpos-docs-cms.enkedevelopment-427.workers.dev" },
+	"vars": {
+		"ORIGIN": "https://cloudpos-docs-cms.enkedevelopment-427.workers.dev",
+		// Where visitors without the sign-in pass go; it sends them back via ?next=.
+		"SIGN_IN_URL": "https://ai.cloudposai.com/",
+	},
+	// Secrets: DOCS_PASS_SECRET (shared with cloudpos-ai-web), DOCS_GATE_KEY (shared with cloudpos-docs-cms).
 }

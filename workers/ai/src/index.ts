@@ -115,6 +115,13 @@ function bearer(request: Request): string | null {
   return h.startsWith("Bearer ") ? h.slice(7).trim() : null;
 }
 
+/** Routes a guest could otherwise use; closed to them when REQUIRE_SIGN_IN is "true". */
+const GUEST_ROUTES = /^\/api\/(chat|conversations(\/.*)?|docs\/search|guest\/pass)$/;
+
+export function signInRequired(request: Request, env: { REQUIRE_SIGN_IN?: string }, path: string): boolean {
+  return env.REQUIRE_SIGN_IN === "true" && GUEST_ROUTES.test(path) && !bearer(request);
+}
+
 /** Guests (no token) get no data source at all: docs support only. */
 async function sourceFor(request: Request, env: Env): Promise<{ source: DataSource | null; session: LiveSession | null } | Response> {
   const token = bearer(request);
@@ -416,7 +423,9 @@ export default {
 
     let response: Response;
     try {
-      if (url.pathname === "/api/health") {
+      if (signInRequired(request, env, url.pathname)) {
+        response = json({ error: "Please sign in with your CloudPOS account to use the assistant.", code: "sign_in_required" }, 401);
+      } else if (url.pathname === "/api/health") {
         response = json({ ok: true, model: env.CHAT_MODEL, visionModel: env.VISION_MODEL || null, uploads: !!env.UPLOADS, docs: !!env.DOCS_INDEX, gateway: env.AI_GATEWAY_ID || null });
       } else if (url.pathname === "/api/info" && request.method === "GET") {
         const resolved = await sourceFor(request, env);
