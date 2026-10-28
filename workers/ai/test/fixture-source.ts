@@ -1,7 +1,7 @@
 // Tiny fixed DataSource for tests only; never shipped to users.
 
 import type { DateRange } from "../src/period.ts";
-import type { DataSource, Granularity, StoreInfo } from "../src/sources/types.ts";
+import type { ApiResponse, DataSource, Granularity, StoreInfo, TaxIds } from "../src/sources/types.ts";
 
 export class FixtureSource implements DataSource {
   async info(): Promise<StoreInfo> {
@@ -34,5 +34,18 @@ export class FixtureSource implements DataSource {
   }
   async recentOrders() {
     return [{ number: "INV-1", date: "2026-10-27", customer: "Ali", total: 50 }];
+  }
+
+  /** Canned API responses by path; every call is recorded. */
+  responses: Record<string, ApiResponse> = {};
+  calls: Array<{ path: string; query: Record<string, string> }> = [];
+  ids: TaxIds = { source: "unknown" };
+
+  async apiGet(path: string, query: Record<string, string>): Promise<ApiResponse> {
+    this.calls.push({ path, query });
+    return this.responses[path] ?? { status: 404, body: { message: "Not found" } };
+  }
+  async taxIds() {
+    return this.ids;
   }
 }

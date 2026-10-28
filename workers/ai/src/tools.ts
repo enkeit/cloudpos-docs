@@ -3,6 +3,7 @@
 // numbers shown to the user always come from code, never from the model.
 
 import { PERIODS, previousRange, resolvePeriod, type DateRange } from "./period.ts";
+import { apiGetTool, checkReceiptTool, DIAGNOSTIC_TOOL_SPECS, storeSetupTool } from "./diagnostics.ts";
 import { searchDocs } from "./docs.ts";
 import { UnsupportedError, type DataSource, type Granularity } from "./sources/types.ts";
 
@@ -189,7 +190,7 @@ export const DOCS_TOOL_SPECS: ToolSpec[] = [
 ];
 
 /** Everything a signed-in user can call. */
-export const TOOL_SPECS: ToolSpec[] = [...DATA_TOOL_SPECS, ...DOCS_TOOL_SPECS];
+export const TOOL_SPECS: ToolSpec[] = [...DATA_TOOL_SPECS, ...DIAGNOSTIC_TOOL_SPECS, ...DOCS_TOOL_SPECS];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -221,6 +222,9 @@ export async function runTool(name: string, args: Record<string, unknown>, toolC
     return { result: { error: "Store data is only available after signing in to CloudPOS.", sign_in_required: true } };
   }
   const ctx = toolCtx as DataContext;
+  if (name === "api_get") return { result: await apiGetTool(ctx.source, args) };
+  if (name === "check_receipt") return { result: await checkReceiptTool(ctx.source, args) };
+  if (name === "get_store_setup") return { result: await storeSetupTool(ctx.source) };
   const info = await ctx.source.info();
   const currency = info.currency || undefined;
   try {

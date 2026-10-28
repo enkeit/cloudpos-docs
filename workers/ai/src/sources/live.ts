@@ -4,6 +4,7 @@
 
 import { addDays, parseDate, todayIn, type DateRange } from "../period.ts";
 import type {
+  ApiResponse,
   CategoryRow,
   CustomerRow,
   DataSource,
@@ -14,6 +15,7 @@ import type {
   SalesSummary,
   StockRow,
   StoreInfo,
+  TaxIds,
   TrendPoint,
   WeekdayRow,
 } from "./types.ts";
@@ -31,6 +33,10 @@ export interface LiveSession {
   role?: string;
   timeZone?: string;
   stores?: Array<{ id: number; name: string }>;
+  /** Company ZATCA numbers printed on receipts, and where they came from. */
+  vatNumber?: string;
+  crNumber?: string;
+  taxIdsFrom?: "sign_in" | "app";
 }
 
 type Json = Record<string, unknown>;
@@ -130,6 +136,30 @@ export class LiveSource implements DataSource {
     if (res.status === 500 && /no .*found/i.test(str(payload?.message))) return { data: [] };
     if (!res.ok || payload == null) throw new LiveApiError(`CloudPOS API ${url.pathname} failed (HTTP ${res.status}).`, res.status);
     return payload;
+  }
+
+  async apiGet(path: string, query: Record<string, string>): Promise<ApiResponse> {
+    if (!/^\/api\/v1\/[\w\-/%.]+$/.test(path) || path.includes("..")) return { status: 400, body: { message: "Path not allowed." } };
+    const url = new URL(path, this.session.domain);
+    for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
+    if (this.session.storeId != null) url.searchParams.set("store_id", String(this.session.storeId));
+    const res = await this.fetcher(url.toString(), {
+      headers: { Authorization: `Bearer ${this.session.accessToken}`, "X-Tenant": this.session.tenantKey, Accept: "application/json" },
+    });
+    if (res.status === 401) throw new LiveApiError("Your CloudPOS session has expired. Please sign in again.", res.status);
+    const text = await res.text();
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = { message: /pdf|octet-stream/i.test(res.headers.get("Content-Type") ?? "") ? "Not JSON (a file)." : text.slice(0, 300) };
+    }
+    return { status: res.status, body };
+  }
+
+  async taxIds(): Promise<TaxIds> {
+    const s = this.session;
+    return { vatNumber: s.vatNumber, crNumber: s.crNumber, source: s.taxIdsFrom ?? "unknown" };
   }
 
   async info(): Promise<StoreInfo> {
@@ -406,7 +436,7 @@ export async function sessionFromAppToken(
     tenantKey: string;
     accessToken: string;
     storeId?: number;
-    hints?: { company?: string; role?: string; timeZone?: string; stores?: Array<{ id: number; name: string }> };
+    hints?: { company?: string; role?: string; timeZone?: string; stores?: Array<{ id: number; name: string }>; vatNumber?: string; crNumber?: string };
   },
   fetcher: typeof fetch = fetch,
 ): Promise<LiveSession> {
@@ -443,7 +473,18 @@ export async function sessionFromAppToken(
     role: clip(input.hints?.role, 40),
     timeZone: clip(input.hints?.timeZone, 64),
     stores,
+    // What the app saved at its own sign-in; the receipt check says so. Older
+    // apps send neither key, and then the numbers are unknown, not empty.
+    vatNumber: taxId(input.hints?.vatNumber),
+    crNumber: taxId(input.hints?.crNumber),
+    taxIdsFrom: input.hints && ("vatNumber" in input.hints || "crNumber" in input.hints) ? "app" : undefined,
   };
+}
+
+/** A VAT/CR number hint: digits, letters, spaces and dashes only. */
+function taxId(value: unknown): string | undefined {
+  const v = typeof value === "string" ? value.trim() : "";
+  return /^[0-9A-Za-z -]{1,32}$/.test(v) ? v : undefined;
 }
 
 export interface SignInResult {
@@ -488,6 +529,9 @@ export async function signIn(
       role: str(data?.user_role) || undefined,
       timeZone: str(data?.time_zone) || undefined,
       stores,
+      vatNumber: str(data?.vat_number) || undefined,
+      crNumber: str(data?.cr_number) || undefined,
+      taxIdsFrom: "sign_in",
     },
   };
 }

@@ -86,6 +86,20 @@ export interface WeekdayRow {
 
 export type Granularity = "day" | "week" | "month";
 
+/** A raw API response for the diagnostic tools; errors are data too. */
+export interface ApiResponse {
+  status: number;
+  body: unknown;
+}
+
+/** The company's ZATCA tax numbers, which receipts print. */
+export interface TaxIds {
+  vatNumber?: string;
+  crNumber?: string;
+  /** "sign_in": from the CloudPOS sign-in response; "app": what the POS app saved at its sign-in. */
+  source: "sign_in" | "app" | "unknown";
+}
+
 /** Thrown when a data source can't answer a question at all. */
 export class UnsupportedError extends Error {}
 
@@ -104,4 +118,7 @@ export interface DataSource {
   stock(filter: "low" | "out" | "all", limit: number, search?: string): Promise<{ rows: StockRow[]; totals: { products: number; out: number; low: number } }>;
   topCustomers(range: DateRange, limit: number): Promise<CustomerRow[]>;
   recentOrders(limit: number, search?: string): Promise<OrderRow[]>;
+  /** GET [path] (an allowlisted /api/v1 route) for the store; never throws on HTTP errors. */
+  apiGet(path: string, query: Record<string, string>): Promise<ApiResponse>;
+  taxIds(): Promise<TaxIds>;
 }
