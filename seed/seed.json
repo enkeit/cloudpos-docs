@@ -38,8 +38,18 @@
 				{
 					"slug": "section",
 					"label": "Section",
-					"type": "string",
-					"required": true
+					"type": "select",
+					"required": true,
+					"searchable": true,
+					"validation": {
+						"options": [
+							"POS App",
+							"API Reference",
+							"Admin Panel",
+							"Online Store · User Guide",
+							"Online Store · Developer Docs"
+						]
+					}
 				},
 				{
 					"slug": "order",

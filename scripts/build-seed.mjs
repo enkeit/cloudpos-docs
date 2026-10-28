@@ -172,7 +172,14 @@ const seed = {
 			fields: [
 				{ slug: "title", label: "Title", type: "string", required: true, searchable: true },
 				{ slug: "description", label: "Description", type: "text", searchable: true },
-				{ slug: "section", label: "Section", type: "string", required: true },
+				{
+					slug: "section",
+					label: "Section",
+					type: "select",
+					required: true,
+					searchable: true,
+					validation: { options: [...new Set(entries.map((e) => e.data.section))] },
+				},
 				{ slug: "order", label: "Order in sidebar", type: "integer" },
 				{ slug: "content", label: "Content", type: "portableText", searchable: true },
 			],
