@@ -37,8 +37,11 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Deploying (Cloudflare)
 
-Live at **https://docs.cloudposai.com** — Worker `cloudpos-docs` on the IT Consult Cloudflare account
-(`account_id` and the custom domain are in `wrangler.jsonc`). The AI help chat lives in `workers/ai`.
+**https://docs.cloudposai.com** is now served by the EmDash site in `emdash/` (Worker `cloudpos-docs-cms`,
+deploy with `npm run deploy` there), through the edge-caching proxy in `proxy/` (Worker `cloudpos-docs-proxy` on the
+IT Consult account, `npx wrangler deploy` there). The AI help chat lives in `workers/ai`.
+
+The Next.js site below is the earlier version; its Worker `cloudpos-docs` no longer has the custom domain.
 
 On Windows, build with webpack in standalone mode (the default Turbopack build fails at runtime on Workers with
 `ChunkLoadError`):
