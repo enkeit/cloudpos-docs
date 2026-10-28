@@ -34,6 +34,12 @@ export default {
 		if (cached) {
 			const age = (Date.now() - Number(cached.headers.get("X-Cached-At") ?? 0)) / 1000;
 			if (isMedia || age <= FRESH_SECONDS) return withCacheStatus(cached, "HIT", isMedia);
+			// Only HTML is read as text: decoding an image or font that way corrupts it.
+			const isHtml = (cached.headers.get("Content-Type") ?? "").includes("text/html");
+			if (!isHtml) {
+				ctx.waitUntil(refresh(request, url, origin, cache, key, isMedia));
+				return withCacheStatus(cached, "STALE", isMedia);
+			}
 			// A stale page from before a docs deploy names build files that no longer
 			// exist and would show unstyled: rebuild it now instead of serving it.
 			const html = await cached.text();
