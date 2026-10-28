@@ -171,6 +171,7 @@ const seed = {
 			label: "Docs",
 			labelSingular: "Doc",
 			supports: ["drafts", "revisions", "search", "seo"],
+			admin: { listColumns: ["section", "search_code"] },
 			fields: [
 				{ slug: "title", label: "Title", type: "string", required: true, searchable: true },
 				{ slug: "description", label: "Description", type: "text", searchable: true },

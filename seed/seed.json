@@ -21,6 +21,12 @@
 				"search",
 				"seo"
 			],
+			"admin": {
+				"listColumns": [
+					"section",
+					"search_code"
+				]
+			},
 			"fields": [
 				{
 					"slug": "title",
